@@ -26,3 +26,12 @@ TaskFlow is a production-quality full-stack project for managing work and tasks.
 - Never introduce unnecessary complexity or speculative implementation.
 - Keep documentation updated when a change affects architecture, development workflow, or project direction.
 - Verify changes proportionately and report what changed, including any limitations or follow-up work.
+
+## Git workflow
+
+- main must always remain deployable.
+- Never implement directly on main.
+- Every logical unit of work must use its own feature branch.
+- Keep commits focused and atomic.
+- Never squash unrelated work into a single commit.
+- Do not commit unless explicitly requested.
