@@ -11,3 +11,8 @@ spring:
     password: ${TASKFLOW_TEST_DB_PASSWORD}
   flyway:
     enabled: false
+
+taskflow:
+  persistence:
+    auditing:
+      enabled: false
