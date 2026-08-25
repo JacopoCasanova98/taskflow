@@ -10,6 +10,13 @@ TaskFlow is a full-stack application organized as a single repository. It separa
 
 The `backend/` directory contains the Java 21 and Spring Boot application. It is responsible for server-side business behavior, API delivery, data access, and integration with the PostgreSQL database.
 
+#### Package conventions
+
+- Backend code is organized primarily by feature. Each feature package owns its entity, repository, service, controller, DTOs, and mappers as needed.
+- Controllers handle HTTP/API concerns and request validation. Services contain use cases and business orchestration. Repositories handle persistence access only. Entities represent persisted state, DTOs represent API contracts, and mappers translate between them.
+- Feature packages are introduced only when their corresponding feature is implemented. Do not create empty feature packages or global `controller`, `service`, `repository`, `entity`, `dto`, or `mapper` packages.
+- `shared` is reserved exclusively for genuinely cross-feature technical concerns. `shared.persistence` contains the persistence foundation; `shared.config`, `shared.error`, and `shared.web` are reserved for cross-cutting configuration, error handling, and HTTP/API behavior respectively.
+
 ### Frontend
 
 The `frontend/` directory contains the Angular application. It is responsible for the user-facing experience and communication with the backend through its exposed API.
