@@ -17,6 +17,14 @@ The `backend/` directory contains the Java 21 and Spring Boot application. It is
 - Feature packages are introduced only when their corresponding feature is implemented. Do not create empty feature packages or global `controller`, `service`, `repository`, `entity`, `dto`, or `mapper` packages.
 - `shared` is reserved exclusively for genuinely cross-feature technical concerns. `shared.persistence` contains the persistence foundation; `shared.config`, `shared.error`, and `shared.web` are reserved for cross-cutting configuration, error handling, and HTTP/API behavior respectively.
 
+#### Validation conventions
+
+- TaskFlow uses Jakarta Bean Validation for HTTP request validation. Feature request DTOs own structural input constraints such as `@NotBlank`, `@Size`, and `@Pattern`; controllers invoke validation at the HTTP boundary with `@Valid`.
+- Services enforce business rules, including uniqueness, existence, authorization, state transitions, and cross-record rules. Custom validators are introduced only when a concrete feature requires one.
+- Validation failures return HTTP 400 Bad Request. The API error contract is client-safe and supports field-level errors where applicable.
+- API errors include an HTTP status, stable error code, concise summary/message, request path, and applicable field errors. They never expose stack traces, exception class names, SQL/database details, internal implementation details, or submitted sensitive values.
+- The concrete error response model and centralized exception translation are established in MacroStep 2.5 — Exception Handling.
+
 ### Frontend
 
 The `frontend/` directory contains the Angular application. It is responsible for the user-facing experience and communication with the backend through its exposed API.
