@@ -25,6 +25,14 @@ The `backend/` directory contains the Java 21 and Spring Boot application. It is
 - API errors include an HTTP status, stable error code, concise summary/message, request path, and applicable field errors. They never expose stack traces, exception class names, SQL/database details, internal implementation details, or submitted sensitive values.
 - Centralized exception translation is provided by `@RestControllerAdvice` in `shared.error`. It maps validation and bad-request failures to 400, missing resources to 404, conflicts to 409, and unexpected exceptions to 500.
 
+#### Testing conventions
+
+- Tests mirror the corresponding production package structure under `backend/src/test/java`. For example, tests for `com.taskflow.shared.error` belong in `com.taskflow.shared.error`.
+- Unit tests verify isolated logic without loading the Spring application context. MVC tests use Spring MVC test support for HTTP behavior, controller boundaries, validation, exception handling, and JSON/API contracts. Integration or context tests load Spring only when application wiring or component integration requires it.
+- Test classes use the `FooTest` name when their type is clear from context. Suffixes such as `FooMvcTest` and `FooIntegrationTest` are used only when they add useful clarity.
+- Tests verify observable behavior and contracts rather than incidental implementation details. They must remain deterministic, isolated, and repeatable.
+- `BackendApplicationTests` is the application-context smoke test and runs with the `test` profile.
+
 ### Frontend
 
 The `frontend/` directory contains the Angular application. It is responsible for the user-facing experience and communication with the backend through its exposed API.
