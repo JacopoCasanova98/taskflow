@@ -23,7 +23,7 @@ The `backend/` directory contains the Java 21 and Spring Boot application. It is
 - Services enforce business rules, including uniqueness, existence, authorization, state transitions, and cross-record rules. Custom validators are introduced only when a concrete feature requires one.
 - Validation failures return HTTP 400 Bad Request. The API error contract is client-safe and supports field-level errors where applicable.
 - API errors include an HTTP status, stable error code, concise summary/message, request path, and applicable field errors. They never expose stack traces, exception class names, SQL/database details, internal implementation details, or submitted sensitive values.
-- The concrete error response model and centralized exception translation are established in MacroStep 2.5 — Exception Handling.
+- Centralized exception translation is provided by `@RestControllerAdvice` in `shared.error`. It maps validation and bad-request failures to 400, missing resources to 404, conflicts to 409, and unexpected exceptions to 500.
 
 ### Frontend
 
