@@ -22,6 +22,20 @@ npm start
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+For API development, run the Spring Boot backend at `http://localhost:8080`.
+Frontend code uses the relative `/api` base path. The default development server
+uses `proxy.conf.json` to forward `/api/**` to the backend, preserving the path
+without requiring development-only backend CORS configuration. Restart the
+development server after changing proxy configuration.
+
+Both `src/environments/environment.ts` (production/default) and
+`environment.development.ts` use `/api`. Angular replaces the default file for
+development builds. Root `app.config.ts` provides this value through `API_BASE_URL`;
+future API clients inject the token rather than importing environment files.
+Environment values are bundled into client code and must never contain secrets.
+The development proxy is not included in production builds; production hosting
+must route `/api` requests to the backend on the same origin.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
