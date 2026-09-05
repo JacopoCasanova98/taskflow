@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  // Keep the bootstrap content at / until a real feature owns the landing route.
+  // Keep the shell's content area empty at / until a real feature owns the landing route.
   { path: '', pathMatch: 'full', children: [], title: 'TaskFlow' },
   {
     path: '**',
