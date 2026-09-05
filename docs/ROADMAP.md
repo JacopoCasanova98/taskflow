@@ -10,7 +10,7 @@ This roadmap tracks the project at a macro level. Detailed scope and implementat
 
 ## MacroStep 2 — Backend foundation
 
-- [ ] Establish backend foundations
+- [x] Establish backend foundations
 
 ## MacroStep 3 — Frontend foundation
 

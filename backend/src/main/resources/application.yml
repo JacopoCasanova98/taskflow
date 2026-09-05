@@ -19,6 +19,15 @@ spring:
     open-in-view: false
   jackson:
     time-zone: UTC
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  error:
+    include-binding-errors: never
+    include-message: never
+    include-stacktrace: never
 
 management:
   endpoint:
