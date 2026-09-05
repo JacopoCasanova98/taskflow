@@ -48,6 +48,57 @@ Future REST controllers use plural resources below `/api`, return resource DTOs 
 
 The `frontend/` directory contains the Angular application. It is responsible for the user-facing experience and communication with the backend through its exposed API.
 
+#### Organization and boundaries
+
+The frontend is organized primarily by feature area. Standalone Angular APIs remain the project standard.
+
+The conceptual structure under `frontend/` is:
+
+```text
+src/app/
+├── core/
+├── shared/
+├── features/
+├── app.config.ts
+├── app.routes.ts
+├── app.ts
+├── app.html
+├── app.scss
+└── app.spec.ts
+```
+
+The `app.*` component files remain at the application root. The `core/`, `shared/`, and `features/` directories are introduced only when real implementation requires them. Do not create empty directories or use `.gitkeep` files just to materialize this structure.
+
+- `core/` contains application-wide technical infrastructure and cross-cutting concerns. Future examples include authentication/session infrastructure, route guards, HTTP interceptors, application configuration adapters, and global error handling. It must not become a generic dumping ground for services or contain feature-specific business behavior.
+- `shared/` contains genuinely reusable, domain-agnostic building blocks, such as UI primitives, directives, pipes, pure helpers, or validators needed by more than one feature. It must not contain feature-specific business logic, feature-owned API clients, or application-wide mutable state. Introduce shared abstractions only after concrete reuse exists.
+- `features/` contains business capabilities, such as future `auth` and `boards` features. Each feature owns its UI, route configuration, data access/API clients, models/contracts, and feature state. Authentication UI and use cases belong to the `auth` feature; application-wide authentication/session infrastructure belongs to `core/`.
+
+Within a feature, organize code by cohesive sub-feature or use case rather than global technical type. Avoid generic top-level `components/`, `services/`, `models/`, `directives/`, or `pipes/` directories. Keep related component TypeScript, template, SCSS, and spec files together where practical; tests live next to the code under test.
+
+#### Dependency direction
+
+- Features may depend on `core` and `shared`.
+- `core` may depend on `shared`, but must not depend on features.
+- `shared` must not depend on `core` or features.
+- Avoid direct feature-to-feature dependencies. Extract a genuinely shared contract only when required, while respecting the domain-agnostic boundary of `shared/`.
+
+#### Data access and routing ownership
+
+Feature-specific API clients and data-access code belong to their feature. Global HTTP infrastructure, such as future interceptors, belongs to `core/`. Do not create a generic global services directory.
+
+Root `app.routes.ts` composes top-level application routes. Each feature should own its route configuration when implemented, and future business features should be lazy-loaded where appropriate. These are ownership conventions only: routing implementation belongs to MS3.3 and is not introduced in MS3.2.
+
+#### Naming and style
+
+- Use kebab-case filenames with one primary concept per file, retaining role suffixes such as `.routes.ts` and `.spec.ts` where appropriate.
+- Colocate `.spec.ts` tests with their source.
+- Use names that describe the specific responsibility; avoid vague filenames such as `helpers.ts`, `utils.ts`, or `common.ts`.
+- Prefer Angular `inject()` for dependency injection in new code.
+
+#### State management
+
+Prefer Angular-native and local state mechanisms, such as signals, when appropriate. Feature state belongs to its feature; `shared/` does not own application-wide mutable state. Do not introduce NgRx or another state-management framework at the foundation stage. Add a dedicated state-management library only when concrete application complexity justifies it.
+
 ### Database
 
 PostgreSQL is the application's persistent data store. Its use, local configuration, and related operational assets are kept separate from application source code.
