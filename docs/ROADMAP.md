@@ -14,7 +14,7 @@ This roadmap tracks the project at a macro level. Detailed scope and implementat
 
 ## MacroStep 3 — Frontend foundation
 
-- [ ] Establish frontend foundations
+- [x] Establish frontend foundations
 
 ## MacroStep 4 — Authentication
 
