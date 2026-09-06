@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class SecurityConfigurationTest {
+class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest {
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -119,7 +119,8 @@ class SecurityConfigurationTest {
 	void doesNotProvideGeneratedLoginLogoutOrUsers() throws Exception {
 		mockMvc.perform(get("/login")).andExpect(status().isNotFound());
 		mockMvc.perform(post("/logout").with(csrf())).andExpect(status().isNotFound());
-		assertThat(context.getBeansOfType(UserDetailsService.class)).isEmpty();
+		assertThat(context.getBeansOfType(UserDetailsService.class).values())
+				.hasSize(1).allMatch(service -> service instanceof com.taskflow.auth.security.TaskFlowUserDetailsService);
 	}
 
 	@Test

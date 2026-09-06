@@ -25,6 +25,8 @@ spring:
 
 taskflow:
   security:
+    cookies:
+      secure: ${TASKFLOW_COOKIE_SECURE:true}
     jwt:
       secret-base64: ${TASKFLOW_JWT_SECRET_BASE64:}
 

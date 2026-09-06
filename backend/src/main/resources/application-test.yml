@@ -14,6 +14,8 @@ spring:
 
 taskflow:
   security:
+    cookies:
+      secure: false
     jwt:
       # TEST ONLY: fixed 32-byte key; never use outside the test profile.
       secret-base64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
