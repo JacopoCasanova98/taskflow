@@ -164,6 +164,10 @@ This section records the approved design for MacroStep 4. Authentication is not 
 
 Authentication is server-authoritative. The backend authenticates requests and enforces authorization; frontend route guards are UX controls only and never replace either responsibility.
 
+MS4.3 introduces an explicit Spring Security filter chain in `shared.security`: `/api/**` requires authentication, `GET /actuator/health` remains public, and other requests retain existing routing behavior. Form login, HTTP Basic, default logout, and saved-request caching are disabled. Authentication is stateless; generated-user auto-configuration is excluded, with no placeholder authentication provider or login session. Until JWT arrives in MS4.4, unauthenticated API GET requests receive a safe `401` ProblemDetail.
+
+CSRF remains enabled. Unsafe requests without a valid CSRF token can receive `403` before authentication checks. The current default CSRF token repository may use a session for CSRF state, not a login session. Before exposing any public unsafe authentication endpoints, complete Spring Security SPA CSRF integration using `CookieCsrfTokenRepository` with Angular's `XSRF-TOKEN` / `X-XSRF-TOKEN` convention. No public auth exceptions or partial SPA flow are introduced in MS4.3.
+
 TaskFlow uses short-lived signed JWT access tokens and longer-lived opaque refresh tokens:
 
 - **Access tokens:** approximately 15 minutes of validity, returned after successful registration, login, and refresh. Angular holds the access token only in application memory and sends it to protected APIs as `Authorization: Bearer <token>`. Never persist it in `localStorage`, `sessionStorage`, or a JavaScript-readable persistent cookie.
@@ -186,7 +190,7 @@ Email normalization is consistent before persistence and authentication: trim an
 Passwords:
 
 - Never persist or log plaintext passwords.
-- Use Spring Security `PasswordEncoder`, preferably `PasswordEncoderFactories.createDelegatingPasswordEncoder()` unless implementation review establishes a concrete reason for another choice.
+- MS4.3 uses Argon2id for new password hashes through Spring Security `DelegatingPasswordEncoder`, with encoding id `argon2id` (stored prefix `{argon2id}`). Parameters are salt length 16 bytes, hash length 32 bytes, parallelism 1, memory 19456 KiB (19 MiB), and iterations 2. Algorithm prefixes preserve future migration options; unknown or missing ids fail without a plaintext/noop fallback. This supersedes the preliminary `PasswordEncoderFactories.createDelegatingPasswordEncoder()` preference: its bcrypt default has a practical 72-byte input limit incompatible with TaskFlow's 128-character policy. Bouncy Castle supplies the Argon2 implementation.
 - Accept a minimum of 15 and a maximum of 128 characters, without arbitrary uppercase/lowercase/number/symbol composition requirements.
 - Never silently trim or alter password contents. Implementation review must verify that the selected encoder supports the full accepted password range without silent truncation or alteration.
 - Validation errors must never echo submitted password values.
@@ -207,7 +211,7 @@ Registration and login do not require an existing access token. Refresh and logo
 
 ### Authentication error contract
 
-Authentication and security failures remain compatible with TaskFlow's RFC 9457 `ProblemDetail` contract: `application/problem+json` with `type`, `title`, `status`, `detail`, `instance`, and a stable application `code`, plus safe structured violations where applicable. Future Spring Security authentication/denial handling must preserve this contract, including failures occurring before controller advice can handle them.
+Authentication and security failures remain compatible with TaskFlow's RFC 9457 `ProblemDetail` contract: `application/problem+json` with `type`, `title`, `status`, `detail`, `instance`, and a stable application `code`, plus safe structured violations where applicable. MS4.3 security authentication/denial handling preserves this contract for filter-chain failures through a custom authentication entry point (`AUTHENTICATION_REQUIRED`, 401) and access denied handler (`ACCESS_DENIED`, 403). Both use the same shared ProblemDetail construction as controller advice and serialize with the application-configured Jackson `ObjectMapper`, without exposing exception details.
 
 | Status | Meaning |
 | --- | --- |
