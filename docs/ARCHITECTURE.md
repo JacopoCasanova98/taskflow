@@ -156,6 +156,109 @@ PostgreSQL is the application's persistent data store. Its use, local configurat
 
 The `infra/` directory contains infrastructure definitions. Docker assets support local containerized development and execution. Directories for Terraform and CloudFormation are reserved for infrastructure definitions when those tools are adopted.
 
+## Authentication architecture (MS4.1)
+
+This section records the approved design for MacroStep 4. Authentication is not implemented by MS4.1; the existing MS1–MS3 conventions above remain authoritative.
+
+### Backend authentication and security boundaries
+
+Authentication is server-authoritative. The backend authenticates requests and enforces authorization; frontend route guards are UX controls only and never replace either responsibility.
+
+TaskFlow uses short-lived signed JWT access tokens and longer-lived opaque refresh tokens:
+
+- **Access tokens:** approximately 15 minutes of validity, returned after successful registration, login, and refresh. Angular holds the access token only in application memory and sends it to protected APIs as `Authorization: Bearer <token>`. Never persist it in `localStorage`, `sessionStorage`, or a JavaScript-readable persistent cookie.
+- **JWT claims:** `sub` is the stable TaskFlow user UUID. Include only claims actually required by the application. Never include passwords or sensitive/private profile data.
+- **JWT infrastructure:** use Spring Security OAuth2 Resource Server/JWT support and Spring Security `JwtEncoder` / `JwtDecoder`. Do not implement a custom JWT authentication filter. Signing keys/secrets are server-side configuration only, must never reach the frontend, and must not be hardcoded production secrets. Concrete cryptographic configuration belongs to MS4.4.
+- **Refresh tokens:** opaque, cryptographically random values with approximately 30 days of validity, not bearer access JWTs. Deliver them only through an `HttpOnly` cookie; JavaScript must never read them. Store only a cryptographic hash of each refresh token in the database, with the information needed to validate expiry and revocation.
+- **Refresh cookie:** use `SameSite=Strict` and `Secure=true` in production. Localhost development may explicitly allow `Secure=false`. Restrict cookie scope to TaskFlow authentication endpoints where practical, for example with a path of `/api/auth`; clearing the cookie must use matching scope.
+- **Rotation and revocation:** rotate refresh tokens on use. Successful rotation invalidates the previous token; validation and replacement must preserve this rule under concurrent requests. Logout revokes the applicable refresh token and clears its cookie.
+
+Normal protected API mutations authenticate through the Authorization bearer header, so their backend authorization remains independent of browser cookies. Refresh/logout endpoints use browser-supplied cookies and require an explicit CSRF/same-site security review during implementation. Neither frontend guards nor the cookie attributes alone replace that review. Preserve the existing same-origin `/api` deployment and development-proxy conventions.
+
+Logout also clears the frontend's in-memory session. With access-token deny lists deferred, revoking a refresh token does not revoke an already issued access JWT: it can remain valid until its short expiry. This is a deliberate boundary of the initial model.
+
+### User identity and credentials
+
+The initial user contains only the UUID primary key inherited from `BaseEntity`, email, password hash, and inherited audit timestamps. Do not add profile fields, roles, permissions, MFA fields, or preferences without a concrete requirement. Existing persistence, auditing, and Flyway conventions apply when user persistence is implemented.
+
+Email normalization is consistent before persistence and authentication: trim and lowercase using locale-independent behavior (for example, Java `Locale.ROOT`). Persisted normalized email is unique, and all authentication lookups use the same normalization. API validation must enforce a sensible maximum email length; choose the concrete limit consistently with persistence during implementation.
+
+Passwords:
+
+- Never persist or log plaintext passwords.
+- Use Spring Security `PasswordEncoder`, preferably `PasswordEncoderFactories.createDelegatingPasswordEncoder()` unless implementation review establishes a concrete reason for another choice.
+- Accept a minimum of 15 and a maximum of 128 characters, without arbitrary uppercase/lowercase/number/symbol composition requirements.
+- Never silently trim or alter password contents. Implementation review must verify that the selected encoder supports the full accepted password range without silent truncation or alteration.
+- Validation errors must never echo submitted password values.
+
+### Authentication API contract
+
+The following action-oriented authentication endpoints are an explicit exception to the general plural-resource naming convention. They retain the `/api` prefix, DTO boundaries, validation conventions, and existing error contract. Authenticated-user DTOs expose only safe current-user fields; never serialize persistence entities or password hashes.
+
+| Endpoint | Contract |
+| --- | --- |
+| `POST /api/auth/register` | Validate email/password, create the user, and automatically establish authentication. Return the authenticated user plus an access token and set the refresh-token HttpOnly cookie. Duplicate normalized email returns `409 Conflict` through the existing API error contract. |
+| `POST /api/auth/login` | Authenticate normalized email/password, return the authenticated user plus an access token, and set/rotate the refresh cookie as appropriate. An unknown email and an incorrect password produce the same generic `401 Unauthorized` response; never identify which credential was wrong. |
+| `POST /api/auth/refresh` | Read the HttpOnly refresh cookie and validate its stored hash, expiry, and revocation state. Rotate the refresh token, return a new access token and authenticated-user/session information as appropriate, and set the replacement cookie. Missing, invalid, expired, or revoked tokens produce a safe `401 Unauthorized` authentication failure. POST only. |
+| `POST /api/auth/logout` | Revoke the presented refresh token when available and clear its cookie. Safe and idempotent from the client's perspective, including when no usable refresh token remains. Successful logout returns `204 No Content`. POST only. |
+| `GET /api/auth/me` | Require a valid bearer access token and return the authenticated user's safe public/current-user representation. Never return password hashes or token material. |
+
+Registration and login do not require an existing access token. Refresh and logout use the refresh-cookie contract rather than requiring a still-valid access JWT. These boundaries do not exempt cookie endpoints from the CSRF/same-site review above. Malformed or structurally invalid requests remain validation failures; the generic login `401` applies to credential authentication failures.
+
+### Authentication error contract
+
+Authentication and security failures remain compatible with TaskFlow's RFC 9457 `ProblemDetail` contract: `application/problem+json` with `type`, `title`, `status`, `detail`, `instance`, and a stable application `code`, plus safe structured violations where applicable. Future Spring Security authentication/denial handling must preserve this contract, including failures occurring before controller advice can handle them.
+
+| Status | Meaning |
+| --- | --- |
+| `400 Bad Request` | Malformed request or validation failure. |
+| `401 Unauthorized` | Authentication required, invalid credentials, or missing/invalid/expired/revoked authentication token as applicable. |
+| `403 Forbidden` | Authenticated caller is forbidden from the requested operation. |
+| `409 Conflict` | Registration conflicts with an existing normalized email. |
+| `500 Internal Server Error` | Unexpected server failure with a safe public response. |
+
+In particular, `401` and `403` responses must not leak stack traces, token parsing details, internal security classes, password hashes, signing information, or sensitive credential values. Invalid email and invalid password authentication failures share the same safe login response. The approved registration `409` does disclose an email conflict; generic login errors reduce enumeration through login but do not remove that registration disclosure.
+
+### Angular authentication and session architecture
+
+Authentication is a business feature owned by `frontend/src/app/features/auth/`. When implemented, it owns login/register UI, the auth API client, auth-specific request/response models, feature route configuration, and auth-specific state/use cases.
+
+Application-wide auth/session infrastructure may live in `core/` only when actually required, such as the bearer-token HTTP interceptor, authentication route guard, or session bootstrap integration. Preserve the existing dependency direction: `core` must not import the auth feature. Root application composition can connect feature-owned authentication behavior with core infrastructure through narrowly scoped contracts when needed; do not move feature business behavior into `core` or mutable session state into `shared`.
+
+Session restoration follows this lifecycle:
+
+1. Start in an `initializing` state. A page reload loses the memory-only access token.
+2. Call `POST /api/auth/refresh`; the browser sends the HttpOnly refresh cookie without JavaScript reading it.
+3. A successful refresh repopulates the in-memory access token and current user and establishes the `authenticated` state.
+4. A failed refresh establishes an `anonymous` state. Route decisions wait for refresh/bootstrap to complete instead of treating initialization as anonymous authentication.
+
+At least these three states must be distinguishable conceptually: `initializing`, `authenticated`, and `anonymous`. Access JWT storage remains memory-only: never `localStorage`, `sessionStorage`, or a JavaScript-readable persistent cookie.
+
+The future functional HTTP interceptor adds `Authorization: Bearer <access token>` only to TaskFlow API requests. Match the intended API origin and path boundary so tokens cannot leak to unrelated/external URLs. Login/register/refresh behavior must avoid inappropriate bearer attachment where required, including during session restoration. Feature API clients continue to use the injected `API_BASE_URL` convention.
+
+Login/register routes belong to the auth feature. Protected application routes use functional Angular route guards. Unauthenticated navigation redirects to login and should preserve an appropriate application-local return URL, validated before navigation to avoid external redirects. Guards remain UX controls, never security boundaries.
+
+Login/register forms follow the existing Angular Signal Forms conventions. They may provide structural validation for UX but must not duplicate backend-only business/security decisions. Surface server validation and authentication failures safely as appropriate field or general form errors, without exposing credentials or internal failure details.
+
+### Deferred scope and implementation sequence
+
+The following are explicitly deferred until concrete requirements justify them:
+
+- MFA.
+- Password reset and email verification.
+- OAuth/social login.
+- Roles/admin authorization.
+- Remember-me variants.
+- Account lockout/rate limiting implementation.
+- Breached-password API integration.
+- Multi-device session management UI.
+- Access-token deny lists.
+- Authorization/ownership for Board/Task resources until their features exist.
+
+The planned MS4 sequence is user persistence → Spring Security → JWT → auth endpoints → refresh/logout → current user/backend authorization → Angular auth → auth UI/guards → final verification. Concrete JWT cryptographic configuration is implemented in MS4.4.
+
+MS4.1 is documentation only. It introduces no Spring Security dependencies, application/configuration changes, user entities, migrations, endpoints, JWT code, or frontend auth directories/components/services. Implementation starts in subsequent steps; this decision does not start MS4.2 or change the roadmap.
+
 ## Repository boundaries
 
 - `docs/` records architecture decisions and project direction.
