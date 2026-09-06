@@ -26,6 +26,7 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException exception) throws IOException {
+		response.setHeader("WWW-Authenticate", "Bearer");
 		write(request, response, HttpStatus.UNAUTHORIZED, "Authentication required",
 				"Authentication is required to access this resource.", "AUTHENTICATION_REQUIRED");
 	}

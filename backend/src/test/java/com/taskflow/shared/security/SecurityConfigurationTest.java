@@ -7,6 +7,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.taskflow.shared.security.jwt.AccessTokenService;
+import com.taskflow.shared.security.jwt.JwtProperties;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.UUID;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,6 +43,52 @@ class SecurityConfigurationTest {
 	@Autowired
 	private ApplicationContext context;
 
+	@Autowired
+	private AccessTokenService tokens;
+
+	@Autowired
+	private JwtEncoder encoder;
+
+	@Autowired
+	private JwtProperties jwtProperties;
+
+	@Autowired
+	private Clock clock;
+
+	@Test
+	void validBearerTokenPassesAuthenticationBoundary() throws Exception {
+		String token = tokens.issue(UUID.randomUUID()).value();
+		mockMvc.perform(get("/api/security-check").header("Authorization", "Bearer " + token))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+	}
+
+	@Test
+	void invalidAndExpiredBearerTokensReceiveSameSafe401() throws Exception {
+		AccessTokenService expiredTokens = new AccessTokenService(encoder, jwtProperties,
+				Clock.offset(clock, Duration.ofHours(-1)));
+		String expired = expiredTokens.issue(UUID.randomUUID()).value();
+		String valid = tokens.issue(UUID.randomUUID()).value();
+		int signature = valid.lastIndexOf('.') + 1;
+		String tampered = valid.substring(0, signature) + (valid.charAt(signature) == 'A' ? 'B' : 'A')
+				+ valid.substring(signature + 1);
+		for (String token : new String[] {"invalid-secret-token", expired, tampered}) {
+			var result = mockMvc.perform(get("/api/security-check").header("Authorization", "Bearer " + token))
+					.andExpect(status().isUnauthorized())
+					.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+					.andExpect(header().string("WWW-Authenticate", "Bearer"))
+					.andExpect(jsonPath("$.status").value(401))
+					.andExpect(jsonPath("$.type").value("urn:taskflow:problem:authentication_required"))
+					.andExpect(jsonPath("$.title").value("Authentication required"))
+					.andExpect(jsonPath("$.detail").value("Authentication is required to access this resource."))
+					.andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"))
+					.andExpect(jsonPath("$.instance").value("/api/security-check"))
+					.andReturn();
+			assertThat(objectMapper.readTree(result.getResponse().getContentAsString()).size()).isEqualTo(6);
+			assertThat(result.getResponse().getContentAsString()).doesNotContain(token, "JwtException", "trace");
+		}
+	}
+
 	@Test
 	void protectsUnmatchedApiPathWithSafe401WithoutBrowserLoginOrSession() throws Exception {
 		var result = mockMvc.perform(get("/api/security-check").accept(MediaType.TEXT_HTML))
@@ -51,7 +103,7 @@ class SecurityConfigurationTest {
 				.andExpect(jsonPath("$.exception").doesNotExist())
 				.andExpect(jsonPath("$.trace").doesNotExist())
 				.andExpect(header().doesNotExist("Location"))
-				.andExpect(header().doesNotExist("WWW-Authenticate"))
+				.andExpect(header().string("WWW-Authenticate", "Bearer"))
 				.andReturn();
 		assertThat(result.getRequest().getSession(false)).isNull();
 		assertThat(objectMapper.readTree(result.getResponse().getContentAsString()).size()).isEqualTo(6);
@@ -72,6 +124,10 @@ class SecurityConfigurationTest {
 
 	@Test
 	void preservesCsrfAndRequiresAuthenticationAfterValidCsrf() throws Exception {
+		String token = tokens.issue(UUID.randomUUID()).value();
+		mockMvc.perform(post("/api/security-check").header("Authorization", "Bearer " + token))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
 		mockMvc.perform(post("/api/security-check"))
 				.andExpect(status().isForbidden())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))

@@ -20,11 +20,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 public class PersistenceConfiguration {
 
 	@Bean
-	Clock utcClock() {
-		return Clock.systemUTC();
-	}
-
-	@Bean
 	DateTimeProvider utcDateTimeProvider(Clock utcClock) {
 		return () -> Optional.of(Instant.now(utcClock));
 	}

@@ -13,6 +13,10 @@ spring:
     enabled: false
 
 taskflow:
+  security:
+    jwt:
+      # TEST ONLY: fixed 32-byte key; never use outside the test profile.
+      secret-base64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
   persistence:
     auditing:
       enabled: false

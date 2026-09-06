@@ -9,6 +9,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,11 +31,22 @@ public class SecurityConfiguration {
 				.httpBasic(AbstractHttpConfigurer::disable)
 				.logout(AbstractHttpConfigurer::disable)
 				.requestCache(AbstractHttpConfigurer::disable)
+				.oauth2ResourceServer(resourceServer -> resourceServer
+						.jwt(Customizer.withDefaults())
+						.authenticationEntryPoint(problems)
+						.accessDeniedHandler(problems))
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.exceptionHandling(errors -> errors
 						.authenticationEntryPoint(problems)
 						.accessDeniedHandler(problems))
-				// Keep CSRF; complete Angular SPA integration with the first public unsafe auth endpoints.
+				.csrf(csrf -> csrf.withObjectPostProcessor(new ObjectPostProcessor<CsrfFilter>() {
+					@Override
+					public <O extends CsrfFilter> O postProcess(O filter) {
+						// Resource Server adds a Bearer exemption; preserve MS4.3 protection until SPA integration.
+						filter.setRequireCsrfProtectionMatcher(CsrfFilter.DEFAULT_CSRF_MATCHER);
+						return filter;
+					}
+				}))
 				.build();
 	}
 
