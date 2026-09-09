@@ -4,6 +4,8 @@ import com.taskflow.auth.api.dto.AuthenticationResponse;
 import com.taskflow.auth.api.dto.LoginRequest;
 import com.taskflow.auth.api.dto.RegisterRequest;
 import com.taskflow.auth.application.AuthenticationResult;
+import com.taskflow.auth.api.dto.CurrentUserResponse;
+import com.taskflow.auth.application.CurrentUserService;
 import com.taskflow.auth.application.AuthenticationService;
 import com.taskflow.auth.application.RefreshSessionLifecycle;
 import com.taskflow.shared.error.ProblemDetails;
@@ -33,13 +35,26 @@ public class AuthenticationController {
 	private final RefreshCookie cookies;
 	private final RefreshSessionLifecycle lifecycle;
 	private final CsrfTokenRepository csrf;
+	private final CurrentUserService currentUser;
 
 	public AuthenticationController(AuthenticationService authentication, RefreshCookie cookies,
-			RefreshSessionLifecycle lifecycle, CsrfTokenRepository csrf) {
+			RefreshSessionLifecycle lifecycle, CsrfTokenRepository csrf, CurrentUserService currentUser) {
 		this.authentication = authentication;
 		this.cookies = cookies;
 		this.lifecycle = lifecycle;
 		this.csrf = csrf;
+		this.currentUser = currentUser;
+	}
+
+	@GetMapping("/me")
+	ResponseEntity<?> me(HttpServletRequest request) {
+		var user = currentUser.currentUser();
+		if (user.isPresent()) {
+			return ResponseEntity.ok(new CurrentUserResponse(user.get().id(), user.get().email()));
+		}
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ProblemDetails.problem(HttpStatus.UNAUTHORIZED, "Session unavailable",
+						"Your session is no longer valid. Please sign in again.", "SESSION_INVALID", request));
 	}
 
 	@GetMapping("/csrf")
@@ -93,7 +108,7 @@ public class AuthenticationController {
 		// Controller-based authentication bypasses CsrfAuthenticationStrategy: replace the cookie deliberately.
 		csrf.saveToken(csrf.generateToken(request), request, response);
 		var cookie = cookies.issue(result.refreshToken());
-		var user = new AuthenticationResponse.CurrentUser(result.userId(), result.email());
+		var user = new CurrentUserResponse(result.userId(), result.email());
 		return ResponseEntity.status(status).header(HttpHeaders.SET_COOKIE, cookie.toString())
 				.body(new AuthenticationResponse(user, result.accessToken().value(), result.accessToken().expiresAt()));
 	}

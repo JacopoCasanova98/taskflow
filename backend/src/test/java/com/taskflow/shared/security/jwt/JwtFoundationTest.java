@@ -91,6 +91,14 @@ class JwtFoundationTest {
 		assertRejected(sign(claims().notBefore(NOW.plusSeconds(300))));
 	}
 
+	@Test
+	void rejectsMissingBlankMalformedAndShortenedUuidSubjects() {
+		assertRejected(sign(claims().claims(values -> values.remove("sub"))));
+		for (String subject : new String[] {"", " ", "private-invalid-subject", "1-1-1-1-1"}) {
+			assertRejected(sign(claims().subject(subject)));
+		}
+	}
+
 	private JwtClaimsSet.Builder claims() {
 		return JwtClaimsSet.builder().issuer("taskflow").subject(USER_ID.toString())
 				.audience(List.of("taskflow-api")).issuedAt(NOW).expiresAt(NOW.plusSeconds(900))

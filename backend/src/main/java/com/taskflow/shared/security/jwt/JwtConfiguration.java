@@ -61,7 +61,8 @@ public class JwtConfiguration {
 		timestamps.setClock(clock);
 		decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(timestamps,
 				new JwtClaimValidator<>("exp", value -> value != null),
-				new JwtIssuerValidator(properties.issuer()), new JwtAudienceValidator(properties.audience())));
+				new JwtIssuerValidator(properties.issuer()), new JwtAudienceValidator(properties.audience()),
+				new JwtSubjectValidator()));
 		return decoder;
 	}
 }

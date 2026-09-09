@@ -284,16 +284,14 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 	}
 
 	@Test
-	void logoutLeavesIssuedAccessJwtUsableAndDeferredRoutesUnimplemented() throws Exception {
+	void logoutLeavesIssuedAccessJwtUsableAndGetLifecycleRoutesUnimplemented() throws Exception {
 		var registration = mvc.perform(request("register", "user@example.com", PASSWORD, csrf()))
 				.andExpect(status().isCreated()).andReturn();
 		String jwt = mapper.readTree(registration.getResponse().getContentAsString()).get("accessToken").asText();
 		mvc.perform(request("logout", "unused", "unused", csrf())
 				.cookie(registration.getResponse().getCookie("TASKFLOW_REFRESH"))).andExpect(status().isNoContent());
-		for (String path : new String[] {"/api/security-check", "/api/auth/me"}) {
-			mvc.perform(get(path).header("Authorization", "Bearer " + jwt))
-					.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
-		}
+		mvc.perform(get("/api/security-check").header("Authorization", "Bearer " + jwt))
+				.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
 		for (String path : new String[] {"refresh", "logout"}) {
 			mvc.perform(get("/api/auth/" + path).header("Authorization", "Bearer " + jwt))
 					.andExpect(status().isMethodNotAllowed());
