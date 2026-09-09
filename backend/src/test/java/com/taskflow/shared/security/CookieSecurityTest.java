@@ -24,6 +24,25 @@ class CookieSecurityTest {
 		});
 	}
 
+	@Test
+	void refreshCookieSettingAndClearingShareBothSecurePolicies() {
+		for (boolean secure : new boolean[] {true, false}) {
+			var helper = new com.taskflow.auth.api.RefreshCookie(new CookieProperties(secure),
+					new com.taskflow.auth.application.RefreshSessionProperties(java.time.Duration.ofDays(30)));
+			var issued = helper.issue("opaque");
+			var cleared = helper.clear();
+			assertThat(cleared.getName()).isEqualTo(issued.getName()).isEqualTo("TASKFLOW_REFRESH");
+			assertThat(cleared.getPath()).isEqualTo(issued.getPath()).isEqualTo("/api/auth");
+			assertThat(cleared.getDomain()).isNull();
+			assertThat(issued.getDomain()).isNull();
+			assertThat(cleared.isSecure()).isEqualTo(issued.isSecure()).isEqualTo(secure);
+			assertThat(cleared.isHttpOnly()).isEqualTo(issued.isHttpOnly()).isTrue();
+			assertThat(cleared.getSameSite()).isEqualTo(issued.getSameSite()).isEqualTo("Strict");
+			assertThat(cleared.getMaxAge()).isEqualTo(java.time.Duration.ZERO);
+			assertThat(cleared.getValue()).isEmpty();
+		}
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties(CookieProperties.class)
 	static class PropertiesConfiguration { }

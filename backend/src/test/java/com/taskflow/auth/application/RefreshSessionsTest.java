@@ -36,6 +36,7 @@ class RefreshSessionsTest {
 		assertThat(entity.getUserId()).isEqualTo(userId);
 		assertThat(entity.getExpiresAt()).isEqualTo(now.plus(Duration.ofDays(30)));
 		assertThat(entity.getRevokedAt()).isNull();
+		assertThat(entity.getFamilyId()).isNotNull().isNotEqualTo(captured.getAllValues().getLast().getFamilyId());
 	}
 
 	@Test
@@ -47,7 +48,9 @@ class RefreshSessionsTest {
 	@Test
 	void replacesKnownBrowserSessionAndDoesNotBlockUnknownCookies() {
 		var old = new RefreshTokenEntity(UUID.randomUUID(), RefreshSessions.hash("old-cookie"), now.plusSeconds(600));
-		when(repository.findByTokenHash(RefreshSessions.hash("old-cookie"))).thenReturn(Optional.of(old));
+		when(repository.findFamilyIdByTokenHash(any())).thenReturn(Optional.of(old.getFamilyId()));
+		when(repository.lockFamilyRoot(any())).thenReturn(Optional.of(old));
+		when(repository.findByTokenHashForUpdate(RefreshSessions.hash("old-cookie"))).thenReturn(Optional.of(old));
 		sessions.issue(UUID.randomUUID(), "old-cookie");
 		assertThat(old.getRevokedAt()).isEqualTo(now);
 		assertThat(sessions.issue(UUID.randomUUID(), "unrecognized")).isNotBlank();

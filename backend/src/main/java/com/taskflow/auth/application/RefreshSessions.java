@@ -30,13 +30,36 @@ public class RefreshSessions {
 	// Called inside the owning authentication operation's write transaction.
 	public String issue(UUID userId, String presentedToken) {
 		if (presentedToken != null && !presentedToken.isBlank()) {
-			sessions.findByTokenHash(hash(presentedToken)).ifPresent(session -> session.revoke(clock.instant()));
+			findForConsumption(presentedToken).ifPresent(session -> session.revoke(clock.instant()));
 		}
-		byte[] bytes = new byte[32];
-		random.nextBytes(bytes);
-		String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+		String raw = generate();
 		sessions.saveAndFlush(new RefreshTokenEntity(userId, hash(raw), clock.instant().plus(properties.ttl())));
 		return raw;
+	}
+
+	// All callers own a write transaction. Lock the immutable family root first so replay
+	// cannot miss a descendant inserted by an overlapping rotation of another family member.
+	public java.util.Optional<RefreshTokenEntity> findForConsumption(String raw) {
+		String hash = hash(raw);
+		var family = sessions.findFamilyIdByTokenHash(hash);
+		if (family.isEmpty() || sessions.lockFamilyRoot(family.get()).isEmpty()) {
+			return java.util.Optional.empty();
+		}
+		return sessions.findByTokenHashForUpdate(hash);
+	}
+
+	public String rotate(RefreshTokenEntity current, java.time.Instant now) {
+		String raw = generate();
+		var replacement = sessions.saveAndFlush(new RefreshTokenEntity(current.getUserId(), hash(raw),
+				now.plus(properties.ttl()), current.getFamilyId()));
+		current.markRotated(replacement.getId(), now);
+		return raw;
+	}
+
+	private String generate() {
+		byte[] bytes = new byte[32];
+		random.nextBytes(bytes);
+		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 	}
 
 	public static String hash(String raw) {

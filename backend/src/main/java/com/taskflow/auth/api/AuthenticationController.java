@@ -5,9 +5,8 @@ import com.taskflow.auth.api.dto.LoginRequest;
 import com.taskflow.auth.api.dto.RegisterRequest;
 import com.taskflow.auth.application.AuthenticationResult;
 import com.taskflow.auth.application.AuthenticationService;
-import com.taskflow.auth.application.RefreshSessionProperties;
+import com.taskflow.auth.application.RefreshSessionLifecycle;
 import com.taskflow.shared.error.ProblemDetails;
-import com.taskflow.shared.security.CookieProperties;
 import com.taskflow.shared.web.ApiPaths;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,7 +14,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
@@ -30,17 +28,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(ApiPaths.API + "/auth")
 public class AuthenticationController {
-	public static final String REFRESH_COOKIE = "TASKFLOW_REFRESH";
+	public static final String REFRESH_COOKIE = RefreshCookie.NAME;
 	private final AuthenticationService authentication;
-	private final CookieProperties cookies;
-	private final RefreshSessionProperties refresh;
+	private final RefreshCookie cookies;
+	private final RefreshSessionLifecycle lifecycle;
 	private final CsrfTokenRepository csrf;
 
-	public AuthenticationController(AuthenticationService authentication, CookieProperties cookies,
-			RefreshSessionProperties refresh, CsrfTokenRepository csrf) {
+	public AuthenticationController(AuthenticationService authentication, RefreshCookie cookies,
+			RefreshSessionLifecycle lifecycle, CsrfTokenRepository csrf) {
 		this.authentication = authentication;
 		this.cookies = cookies;
-		this.refresh = refresh;
+		this.lifecycle = lifecycle;
 		this.csrf = csrf;
 	}
 
@@ -60,6 +58,30 @@ public class AuthenticationController {
 		return success(authentication.login(body.email(), body.password(), presentedRefresh), HttpStatus.OK, request, response);
 	}
 
+	@PostMapping("/refresh")
+	ResponseEntity<?> refresh(@CookieValue(name = REFRESH_COOKIE, required = false) String raw,
+			HttpServletRequest request, HttpServletResponse response) {
+		var result = lifecycle.refresh(raw);
+		if (result.isPresent()) { return success(result.get(), HttpStatus.OK, request, response); }
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.header(HttpHeaders.SET_COOKIE, cookies.clear().toString())
+				.body(ProblemDetails.problem(HttpStatus.UNAUTHORIZED, "Session unavailable",
+						"Your session is no longer valid. Please sign in again.", "SESSION_INVALID", request));
+	}
+
+	@PostMapping("/logout")
+	ResponseEntity<Void> logout(@CookieValue(name = REFRESH_COOKIE, required = false) String raw,
+			HttpServletRequest request, HttpServletResponse response) {
+		try {
+			lifecycle.logout(raw);
+		} finally {
+			response.addHeader(HttpHeaders.SET_COOKIE, cookies.clear().toString());
+		}
+		csrf.saveToken(null, request, response);
+		csrf.saveToken(csrf.generateToken(request), request, response);
+		return ResponseEntity.noContent().build();
+	}
+
 	@ExceptionHandler(BadCredentialsException.class)
 	ProblemDetail invalidCredentials(HttpServletRequest request) {
 		return ProblemDetails.problem(HttpStatus.UNAUTHORIZED, "Authentication failed",
@@ -70,9 +92,7 @@ public class AuthenticationController {
 			HttpServletRequest request, HttpServletResponse response) {
 		// Controller-based authentication bypasses CsrfAuthenticationStrategy: replace the cookie deliberately.
 		csrf.saveToken(csrf.generateToken(request), request, response);
-		ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE, result.refreshToken())
-				.httpOnly(true).secure(cookies.secure()).sameSite("Strict").path(ApiPaths.API + "/auth")
-				.maxAge(refresh.ttl()).build();
+		var cookie = cookies.issue(result.refreshToken());
 		var user = new AuthenticationResponse.CurrentUser(result.userId(), result.email());
 		return ResponseEntity.status(status).header(HttpHeaders.SET_COOKIE, cookie.toString())
 				.body(new AuthenticationResponse(user, result.accessToken().value(), result.accessToken().expiresAt()));

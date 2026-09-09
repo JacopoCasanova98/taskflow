@@ -30,7 +30,8 @@ public class SecurityConfiguration {
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
 						.requestMatchers(HttpMethod.GET, ApiPaths.API + "/auth/csrf").permitAll()
-						.requestMatchers(HttpMethod.POST, ApiPaths.API + "/auth/register", ApiPaths.API + "/auth/login").permitAll()
+						.requestMatchers(HttpMethod.POST, ApiPaths.API + "/auth/register", ApiPaths.API + "/auth/login",
+								ApiPaths.API + "/auth/refresh", ApiPaths.API + "/auth/logout").permitAll()
 						.requestMatchers(ApiPaths.API + "/**").authenticated()
 						.anyRequest().permitAll())
 				.formLogin(AbstractHttpConfigurer::disable)

@@ -49,6 +49,8 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 
 	@BeforeEach
 	void persistence() {
+		when(sessions.findFamilyIdByTokenHash(any())).thenReturn(Optional.of(UUID.randomUUID()));
+		when(sessions.lockFamilyRoot(any())).thenReturn(Optional.of(new RefreshTokenEntity(USER_ID, "unused", java.time.Instant.MAX)));
 		when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
 		when(users.saveAndFlush(any())).thenAnswer(invocation -> {
 			UserEntity user = invocation.getArgument(0);
@@ -73,7 +75,7 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 
 	@Test
 	void publicPostsStillRequireValidCsrfAndDoNotReachPersistence() throws Exception {
-		for (String path : new String[] {"register", "login"}) {
+		for (String path : new String[] {"register", "login", "refresh", "logout"}) {
 			mvc.perform(post("/api/auth/" + path).contentType(MediaType.APPLICATION_JSON)
 					.content(json("user@example.com", PASSWORD)))
 					.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
@@ -169,7 +171,7 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 		mvc.perform(request("register", "user@example.com", "x".repeat(15), csrf())).andExpect(status().isCreated());
 		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user()));
 		var old = new RefreshTokenEntity(USER_ID, RefreshSessions.hash("old-cookie"), java.time.Instant.now().plusSeconds(600));
-		when(sessions.findByTokenHash(RefreshSessions.hash("old-cookie"))).thenReturn(Optional.of(old));
+		when(sessions.findByTokenHashForUpdate(RefreshSessions.hash("old-cookie"))).thenReturn(Optional.of(old));
 		mvc.perform(request("login", "user@example.com", PASSWORD, csrf()).cookie(new Cookie("TASKFLOW_REFRESH", "old-cookie")))
 				.andExpect(status().isOk());
 		assertThat(old.getRevokedAt()).isNotNull();
@@ -194,10 +196,119 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 	@Test
 	void deferredEndpointsRemainProtected() throws Exception {
 		for (String path : new String[] {"refresh", "logout"}) {
-			mvc.perform(request(path, "user@example.com", PASSWORD, csrf()))
-					.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+			mvc.perform(get("/api/auth/" + path)).andExpect(status().isUnauthorized());
 		}
 		mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void refreshRotatesAndReturnsExistingSafeAuthenticationContract() throws Exception {
+		String raw = "a".repeat(43);
+		var old = new RefreshTokenEntity(USER_ID, RefreshSessions.hash(raw), java.time.Instant.now().plusSeconds(600));
+		when(sessions.findByTokenHashForUpdate(RefreshSessions.hash(raw))).thenReturn(Optional.of(old));
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user()));
+		when(sessions.saveAndFlush(any())).thenAnswer(invocation -> {
+			RefreshTokenEntity token = invocation.getArgument(0);
+			ReflectionTestUtils.setField(token, "id", UUID.randomUUID());
+			return token;
+		});
+		var result = mvc.perform(request("refresh", "unused", "unused", csrf())
+				.cookie(new Cookie("TASKFLOW_REFRESH", raw))).andExpect(status().isOk()).andReturn();
+		assertSuccess(result);
+		var saved = ArgumentCaptor.forClass(RefreshTokenEntity.class);
+		verify(sessions).saveAndFlush(saved.capture());
+		assertThat(old.getReplacedByTokenId()).isEqualTo(saved.getValue().getId());
+		assertThat(old.isRevoked()).isTrue();
+		assertThat(saved.getValue().getFamilyId()).isEqualTo(old.getFamilyId());
+		assertThat(result.getResponse().getCookie("TASKFLOW_REFRESH").getValue()).isNotEqualTo(raw);
+		verify(transactionManager).commit(any());
+	}
+
+	@Test
+	void invalidRefreshStatesShareExactlyOneSafeContractAndClearCookie() throws Exception {
+		String expected = null;
+		for (String state : new String[] {"missing", "malformed", "unknown", "expired", "revoked", "replay", "missing-user"}) {
+			String raw = "b".repeat(43);
+			var token = new RefreshTokenEntity(USER_ID, RefreshSessions.hash(raw),
+					java.time.Instant.now().plusSeconds(state.equals("expired") ? -60 : 600));
+			if (state.equals("revoked")) { token.revoke(java.time.Instant.now()); }
+			if (state.equals("replay")) { token.markRotated(UUID.randomUUID(), java.time.Instant.now()); }
+			when(sessions.findByTokenHashForUpdate(any())).thenReturn(
+					state.equals("unknown") ? Optional.empty() : Optional.of(token));
+			var request = request("refresh", "unused", "unused", csrf());
+			if (!state.equals("missing")) { request.cookie(new Cookie("TASKFLOW_REFRESH", state.equals("malformed") ? "bad" : raw)); }
+			var result = mvc.perform(request).andExpect(status().isUnauthorized())
+					.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+					.andExpect(jsonPath("$.code").value("SESSION_INVALID"))
+					.andExpect(jsonPath("$.title").value("Session unavailable"))
+					.andExpect(jsonPath("$.detail").value("Your session is no longer valid. Please sign in again.")).andReturn();
+			String body = result.getResponse().getContentAsString();
+			if (expected == null) { expected = body; }
+			assertThat(body).isEqualTo(expected).doesNotContain(raw, token.getTokenHash(), USER_ID.toString());
+			assertCleared(result);
+		}
+	}
+
+	@Test
+	void logoutIsIdempotentAndRenewsAnonymousCsrfForImmediateLogin() throws Exception {
+		for (String state : new String[] {"active", "missing", "malformed", "unknown", "expired", "revoked"}) {
+			String raw = "c".repeat(43);
+			var token = new RefreshTokenEntity(USER_ID, RefreshSessions.hash(raw),
+					java.time.Instant.now().plusSeconds(state.equals("expired") ? -60 : 600));
+			if (state.equals("revoked")) { token.revoke(java.time.Instant.now().minusSeconds(60)); }
+			when(sessions.findByTokenHashForUpdate(any())).thenReturn(state.equals("unknown") ? Optional.empty() : Optional.of(token));
+			Cookie oldCsrf = csrf();
+			var request = request("logout", "unused", "unused", oldCsrf);
+			if (!state.equals("missing")) { request.cookie(new Cookie("TASKFLOW_REFRESH", state.equals("malformed") ? "bad" : raw)); }
+			var result = mvc.perform(request).andExpect(status().isNoContent()).andExpect(content().string("")).andReturn();
+			assertCleared(result);
+			if (state.equals("active")) { assertThat(token.isRevoked()).isTrue(); }
+			var csrfCookies = java.util.Arrays.stream(result.getResponse().getCookies())
+					.filter(cookie -> cookie.getName().equals("XSRF-TOKEN")).toList();
+			assertThat(csrfCookies).anyMatch(cookie -> cookie.getMaxAge() == 0);
+			Cookie fresh = csrfCookies.getLast();
+			assertThat(fresh.getValue()).isNotBlank().isNotEqualTo(oldCsrf.getValue());
+			mvc.perform(request("login", "missing@example.com", PASSWORD, fresh))
+					.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+		}
+	}
+
+	@Test
+	void refreshAndLogoutDatabaseFailuresRemain500() throws Exception {
+		when(sessions.findByTokenHashForUpdate(any())).thenThrow(new DataAccessResourceFailureException("private failure"));
+		for (String path : new String[] {"refresh", "logout"}) {
+			var result = mvc.perform(request(path, "unused", "unused", csrf()).cookie(new Cookie("TASKFLOW_REFRESH", "d".repeat(43))))
+					.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("INTERNAL_ERROR")).andReturn();
+			assertThat(result.getResponse().getContentAsString()).doesNotContain("private failure", "SESSION_INVALID");
+		}
+	}
+
+	@Test
+	void logoutLeavesIssuedAccessJwtUsableAndDeferredRoutesUnimplemented() throws Exception {
+		var registration = mvc.perform(request("register", "user@example.com", PASSWORD, csrf()))
+				.andExpect(status().isCreated()).andReturn();
+		String jwt = mapper.readTree(registration.getResponse().getContentAsString()).get("accessToken").asText();
+		mvc.perform(request("logout", "unused", "unused", csrf())
+				.cookie(registration.getResponse().getCookie("TASKFLOW_REFRESH"))).andExpect(status().isNoContent());
+		for (String path : new String[] {"/api/security-check", "/api/auth/me"}) {
+			mvc.perform(get(path).header("Authorization", "Bearer " + jwt))
+					.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+		}
+		for (String path : new String[] {"refresh", "logout"}) {
+			mvc.perform(get("/api/auth/" + path).header("Authorization", "Bearer " + jwt))
+					.andExpect(status().isMethodNotAllowed());
+		}
+	}
+
+	private void assertCleared(MvcResult result) {
+		Cookie cookie = result.getResponse().getCookie("TASKFLOW_REFRESH");
+		assertThat(cookie.getValue()).isEmpty();
+		assertThat(cookie.getMaxAge()).isZero();
+		assertThat(cookie.getPath()).isEqualTo("/api/auth");
+		assertThat(cookie.isHttpOnly()).isTrue();
+		assertThat(cookie.getSecure()).isFalse();
+		assertThat(cookie.getAttribute("SameSite")).isEqualTo("Strict");
+		assertThat(cookie.getDomain()).isNull();
 	}
 
 	private UserEntity user() {
