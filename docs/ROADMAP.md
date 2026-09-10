@@ -26,6 +26,8 @@ Roadmap refinement: authentication completes the typed UUID identity foundation.
 
 ## MacroStep 5 — Core TaskFlow features
 
+In progress: MS5.1 establishes the Board → Column → Task domain design in [ARCHITECTURE.md](ARCHITECTURE.md#core-taskflow-domain-ms51). Persistence, APIs, ownership enforcement, and frontend implementation remain pending.
+
 - [ ] Define and deliver the initial TaskFlow capabilities
 - [ ] Enforce ownership of the first private Board/Task resources and test cross-user access
 

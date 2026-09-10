@@ -315,6 +315,136 @@ Evidence boundaries remain explicit:
 
 The original roadmap's concrete private-resource ownership intent is retained with a refined sequence: `AuthenticatedUser` provides the completed UUID identity foundation, but no Board/Task resource exists yet. Ownership enforcement and cross-user access tests are required alongside the first real private Board/Task resources in MS5. No fake resource, placeholder ownership policy, or MS5 implementation was introduced to close authentication.
 
+## Core TaskFlow domain (MS5.1)
+
+MS5.1 establishes the approved domain model for later implementation in MS5.2–MS5.4. This is documentation only: no Board, Column, or Task entities, migrations, repositories, services, controllers, DTOs, or frontend features are introduced. The existing feature-oriented architecture, authentication, persistence foundation, and RFC 9457 ProblemDetail contract remain authoritative.
+
+### Relationships and identifiers
+
+The core relationship is User 1 → N Board, Board 1 → N Column, and Column 1 → N Task. User already exists from MS4. Each child has exactly one parent; a parent may have zero or more children. Board is the ownership root for these private resources. Column ownership derives from its Board; Task ownership derives through Task → Column → Board → User. Columns themselves represent workflow state, so there is no separate status enum.
+
+All three resources inherit UUID `id`, `createdAt`, and `updatedAt` from the existing `BaseEntity` convention. Foreign keys use UUID. No numeric public IDs, sequential identifiers, slugs, or composite primary keys are introduced. Audit timestamps remain `Instant` in UTC, following the existing PostgreSQL `timestamptz` convention.
+
+Do not duplicate user ownership on Column or Task unless a later implementation review identifies and documents a concrete persistence requirement. Task has neither a persisted `boardId` nor a persisted `userId`; its Column relation determines its Board, owner, and workflow state.
+
+### Initial fields and structural constraints
+
+Every resource includes the inherited UUID and audit fields described above. The following table lists its additional fields and approved constraints. The character limits are practical initial bounds to keep future API validation and PostgreSQL schema definitions aligned; no arbitrary regex or additional business validation is introduced.
+
+| Resource | Field | Domain rule |
+| --- | --- | --- |
+| Board | owner/User relation | Required; exactly one owning User, referenced by UUID. |
+| Board | name | Required, non-blank, maximum 120 characters. |
+| Column | Board relation | Required; exactly one Board, referenced by UUID. |
+| Column | name | Required, non-blank, maximum 120 characters. |
+| Column | position | Required integer, at least zero, ordered within its Board. |
+| Task | Column relation | Required; exactly one Column, referenced by UUID. |
+| Task | title | Required, non-blank, maximum 200 characters. |
+| Task | description | Optional/nullable, maximum 4000 characters when present. |
+| Task | priority | Required; `LOW`, `MEDIUM`, or `HIGH`, default `MEDIUM`. |
+| Task | dueDate | Optional/nullable `LocalDate`. |
+| Task | position | Required integer, at least zero, ordered within its Column. |
+
+Board has no description, color, icon, template, visibility, sharing, archive state, or collaborators in the initial model.
+
+Priority is a domain decision only; no enum is implemented in MS5.1. MS5.10 owns richer priority API/UI, filtering, and sorting behavior. A due date denotes a calendar date rather than a scheduled instant: `2026-09-30` means due on that date, without timezone conversion semantics. It is distinct from technical `Instant` audit timestamps. MS5.11 owns detailed due-date behavior and UI.
+
+### Conceptual ER diagram
+
+The relation fields below describe conceptual UUID references, not final SQL names or JPA mappings. USER shows only the existing identity needed for this relationship; its authentication fields remain documented in MS4.
+
+```mermaid
+erDiagram
+    USER ||--o{ BOARD : owns
+    BOARD ||--o{ COLUMN : contains
+    COLUMN ||--o{ TASK : contains
+
+    USER {
+        UUID id PK
+    }
+    BOARD {
+        UUID id PK
+        UUID ownerId FK
+        string name "required; max 120"
+        Instant createdAt "UTC"
+        Instant updatedAt "UTC"
+    }
+    COLUMN {
+        UUID id PK
+        UUID boardId FK
+        string name "required; max 120"
+        integer position "zero-based"
+        Instant createdAt "UTC"
+        Instant updatedAt "UTC"
+    }
+    TASK {
+        UUID id PK
+        UUID columnId FK
+        string title "required; max 200"
+        string description "optional; max 4000"
+        priority priority "LOW MEDIUM HIGH; default MEDIUM"
+        LocalDate dueDate "optional"
+        integer position "zero-based"
+        Instant createdAt "UTC"
+        Instant updatedAt "UTC"
+    }
+```
+
+### Private-resource ownership and lookup direction
+
+Every Board operation must scope access using the UUID supplied by `AuthenticatedUser`, including listing only that user's Boards and assigning that user as owner on creation. A user must never access another user's Board. Column and Task operations enforce ownership through the same Board chain, including the parent resource when creating a child and both source and destination when moving a Task. Backend enforcement is authoritative.
+
+For authenticated requests, a Board, Column, or Task that does not exist and one owned by another user must produce the same resource-not-found behavior: `404 Not Found` with the same safe resource-specific ProblemDetail code and detail. Responses must not disclose another user's resource existence. Existing authentication and CSRF behavior remains unchanged.
+
+Prefer ownership-aware repository lookups conceptually shaped like `findByIdAndOwnerId(...)`, or nested queries that scope Column/Task through Board to the authenticated owner. Avoid `findById(id)` followed by a separate owner comparison when a scoped query can express ownership safely. Exact repository signatures and cross-user access tests belong to MS5.2–MS5.4; MS5.1 adds no ownership code.
+
+### Ordering and lifecycle
+
+Column positions are integers within a Board; Task positions are integers within a Column. Positions are conceptually zero-based and contiguous (`0, 1, 2, ...`) after completed mutations. Later ordering/reordering operations must execute transactionally, preserving this invariant in every affected collection, including after deletion or a Task move. No floating-point positions, fractional indexing, LexoRank, or general ordering framework is introduced. Concrete concurrency and persistence mechanics are deferred to implementation; MS5.9 owns frontend drag and drop.
+
+| Resource | Initial lifecycle |
+| --- | --- |
+| Board | Create, read, rename/update, delete. |
+| Column | Create, read through Board, rename, reorder, delete if empty. |
+| Task | Create, read, update, delete, reorder within Column, move between Columns in the same owned Board. |
+
+A Task move requires source and destination Columns to belong to the same owned Board. Moving Tasks across Boards is outside the initial scope, even if both Boards have the same owner.
+
+### Deletion and persistence lifecycle
+
+| Resource | Approved deletion policy |
+| --- | --- |
+| Board | Explicit deletion removes its Columns and Tasks. The future frontend must require explicit destructive confirmation. |
+| Column | Delete only when empty. Reject deletion of a non-empty Column with stable conflict code `COLUMN_NOT_EMPTY` and HTTP `409 Conflict` through the existing ProblemDetail contract. |
+| Task | May be deleted directly, subject to ownership. |
+
+Deleting a Column must not silently destroy user tasks. The empty-Column rule governs direct Column deletion at the application layer; explicit Board deletion intentionally removes its descendants.
+
+The expected ownership lifecycle is User deletion → Board → Column → Task, and Board deletion → Column → Task. This records lifecycle intent without introducing a User deletion API. MS5.2–MS5.4 must translate it into concrete migrations and entity mappings, carefully coordinating database foreign-key/delete behavior, JPA cascades, and the application-level empty-Column rule. Do not rely solely on ORM cascade assumptions. Flyway remains the only schema-authoring mechanism and its schema constraints remain authoritative; no migrations are added or changed in MS5.1.
+
+### API and frontend route direction
+
+The intended API uses plural resources under `/api`, existing DTO boundaries, and the established HTTP/ProblemDetail conventions. These are future endpoint directions, not implemented controllers or finalized request/response contracts.
+
+| Method | Path | Intent |
+| --- | --- | --- |
+| GET | `/api/boards` | List the authenticated user's Boards. |
+| POST | `/api/boards` | Create a Board owned by the authenticated user. |
+| GET | `/api/boards/{boardId}` | Read an owned Board. |
+| PATCH | `/api/boards/{boardId}` | Rename/update an owned Board. |
+| DELETE | `/api/boards/{boardId}` | Delete an owned Board and its descendants. |
+| POST | `/api/boards/{boardId}/columns` | Create a Column in an owned Board. |
+| PATCH | `/api/columns/{columnId}` | Update an owned Column. |
+| DELETE | `/api/columns/{columnId}` | Delete an owned, empty Column. |
+| POST | `/api/columns/{columnId}/tasks` | Create a Task in an owned Column. |
+| GET | `/api/tasks/{taskId}` | Read an owned Task. |
+| PATCH | `/api/tasks/{taskId}` | Update an owned Task. |
+| DELETE | `/api/tasks/{taskId}` | Delete an owned Task. |
+
+Exact reorder/move endpoint contracts are deferred to the relevant backend and drag-and-drop steps. Do not introduce RPC-style endpoints such as `/createBoard`.
+
+The future high-level frontend routes are `/boards` and `/boards/:boardId`. When the Board list UI arrives, the authenticated root may redirect to `/boards`. MS5.1 adds no Angular routes, Board UI, dashboard placeholder, dependencies, or drag-and-drop implementation.
+
 ## Repository boundaries
 
 - `docs/` records architecture decisions and project direction.
