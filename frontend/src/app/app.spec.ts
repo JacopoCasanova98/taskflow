@@ -1,3 +1,6 @@
+import { signal } from '@angular/core';
+import { AUTH_STATE } from './core/routing/auth-state-reader';
+import { AuthSessionService } from './features/auth/auth-session.service';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
@@ -8,9 +11,21 @@ describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(routes)],
-    })
-      .compileComponents();
+      providers: [
+        provideRouter(routes),
+        {
+          provide: AUTH_STATE,
+          useValue: { status: signal('authenticated'), isAuthenticated: signal(true) },
+        },
+        {
+          provide: AuthSessionService,
+          useValue: {
+            isAuthenticated: signal(true),
+            user: signal({ email: 'person@example.com' }),
+          },
+        },
+      ],
+    }).compileComponents();
   });
 
   it('identifies TaskFlow and provides a skip link to the main content landmark', async () => {

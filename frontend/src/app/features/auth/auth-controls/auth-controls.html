@@ -1,0 +1,9 @@
+@if (session.isAuthenticated()) {
+  <div class="controls">
+    <span>{{ session.user()?.email }}</span>
+    <button type="button" (click)="logout()" [disabled]="submitting()">
+      {{ submitting() ? 'Logging out…' : 'Log out' }}
+    </button>
+  </div>
+  <p aria-live="polite">{{ error() }}</p>
+}

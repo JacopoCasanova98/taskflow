@@ -1,5 +1,7 @@
 package com.taskflow.shared.error;
 
+import static com.taskflow.shared.error.ProblemDetails.problem;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -10,7 +12,6 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.ErrorResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -23,9 +24,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.net.URI;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @RestControllerAdvice
@@ -192,18 +191,4 @@ public class GlobalExceptionHandler {
 				.orElse("INVALID");
 	}
 
-	private ProblemDetail problem(
-			HttpStatusCode status,
-			String title,
-			String detail,
-			String code,
-			HttpServletRequest request
-	) {
-		ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-		problem.setTitle(title);
-		problem.setType(URI.create("urn:taskflow:problem:" + code.toLowerCase(Locale.ROOT)));
-		problem.setInstance(URI.create(request.getRequestURI()));
-		problem.setProperty("code", code);
-		return problem;
-	}
 }

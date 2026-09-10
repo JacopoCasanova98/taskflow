@@ -23,6 +23,13 @@ spring:
     problemdetails:
       enabled: true
 
+taskflow:
+  security:
+    cookies:
+      secure: ${TASKFLOW_COOKIE_SECURE:true}
+    jwt:
+      secret-base64: ${TASKFLOW_JWT_SECRET_BASE64:}
+
 server:
   error:
     include-binding-errors: never

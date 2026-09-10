@@ -10,6 +10,8 @@ import java.time.temporal.TemporalAccessor;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.taskflow.shared.config.TimeConfiguration;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
@@ -43,7 +45,7 @@ class BaseEntityTest {
 	@Test
 	void providesAuditTimestampsFromUtcClock() {
 		PersistenceConfiguration configuration = new PersistenceConfiguration();
-		Clock clock = configuration.utcClock();
+		Clock clock = new TimeConfiguration().utcClock();
 		Optional<TemporalAccessor> currentTime = configuration.utcDateTimeProvider(clock).getNow();
 
 		assertThat(clock.getZone()).isEqualTo(ZoneOffset.UTC);
