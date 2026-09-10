@@ -1,0 +1,43 @@
+<section aria-labelledby="auth-title">
+  <h1 id="auth-title">Create account</h1>
+  <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="authForm().submitting()">
+    <label for="email">Email</label>
+    <input
+      id="email"
+      type="email"
+      autocomplete="email"
+      [formField]="authForm.email"
+      [attr.aria-invalid]="authForm.email().touched() && authForm.email().invalid()"
+      aria-describedby="email-errors"
+    />
+    <div id="email-errors" class="errors" aria-live="polite">
+      @if (authForm.email().touched()) {
+        @for (error of authForm.email().errors(); track $index) {
+          <p>{{ error.message }}</p>
+        }
+      }
+    </div>
+    <label for="password">Password</label>
+    <input
+      id="password"
+      type="password"
+      autocomplete="new-password"
+      [formField]="authForm.password"
+      [attr.aria-invalid]="authForm.password().touched() && authForm.password().invalid()"
+      aria-describedby="password-errors password-hint"
+    />
+    <p id="password-hint">Use 15–128 characters.</p>
+    <div id="password-errors" class="errors" aria-live="polite">
+      @if (authForm.password().touched()) {
+        @for (error of authForm.password().errors(); track $index) {
+          <p>{{ error.message }}</p>
+        }
+      }
+    </div>
+    <p class="errors" aria-live="polite">{{ serverError() }}</p>
+    <button type="submit" [disabled]="authForm().submitting()">
+      {{ authForm().submitting() ? 'Creating account…' : 'Create account' }}
+    </button>
+  </form>
+  <p>Already have an account? <a routerLink="/login">Log in</a>.</p>
+</section>

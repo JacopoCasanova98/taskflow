@@ -1,3 +1,4 @@
+import { AUTH_STATE } from './core/routing/auth-state-reader';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -15,6 +16,7 @@ describe('Application configuration', () => {
     const initialization = TestBed.inject(ApplicationInitStatus);
     try {
       // TestBed runs application initializers when the test injector is first created.
+      expect(TestBed.inject(AUTH_STATE)).toBe(TestBed.inject(AuthSessionService));
       expect(TestBed.inject(API_BASE_URL)).toBe('/api');
       expect(TestBed.inject(AUTH_SESSION)).toBe(TestBed.inject(AuthSessionService));
       http.expectNone('/api/auth/refresh');
