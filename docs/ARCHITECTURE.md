@@ -256,20 +256,21 @@ In particular, `401` and `403` responses must not leak stack traces, token parsi
 
 ### Angular authentication and session architecture
 
-Authentication is a business feature owned by `frontend/src/app/features/auth/`. When implemented, it owns login/register UI, the auth API client, auth-specific request/response models, feature route configuration, and auth-specific state/use cases.
+MS4.8 implements authentication contracts, the focused `AuthApi` client, and signal-based `AuthSessionService` under `frontend/src/app/features/auth/`. The client uses injected `API_BASE_URL` and the six backend auth operations, including bodyless CSRF/logout responses. It does not handle cookies or Authorization headers itself. No dependencies or JWT decoding library are needed; user and expiry come from backend responses.
 
-Application-wide auth/session infrastructure may live in `core/` only when actually required, such as the bearer-token HTTP interceptor, authentication route guard, or session bootstrap integration. Preserve the existing dependency direction: `core` must not import the auth feature. Root application composition can connect feature-owned authentication behavior with core infrastructure through narrowly scoped contracts when needed; do not move feature business behavior into `core` or mutable session state into `shared`.
+Session state distinguishes `initializing`, `authenticated`, and `anonymous`. Authenticated state contains safe user data, access JWT, and expiry; anonymous state contains none of them. Signals are privately writable and expose readonly/computed views. Access JWTs exist in memory only; reload intentionally discards them. JavaScript never reads or deletes the server-owned HttpOnly refresh cookie.
 
-Session restoration follows this lifecycle:
+Root `provideAppInitializer` composes session restoration once: GET `/api/auth/csrf` must complete before POST `/api/auth/refresh`. Success uses the returned user/token/expiry without calling `/me`. Expected `401 SESSION_INVALID` completes startup anonymously. Network/infrastructure failures also finish anonymously but set a safe `initializationUnavailable` flag; each bootstrap HTTP phase has a ten-second timeout, and bootstrap does not loop. This flag records startup failure, not a confirmed absence of server refresh state.
 
-1. Start in an `initializing` state. A page reload loses the memory-only access token.
-2. Call `POST /api/auth/refresh`; the browser sends the HttpOnly refresh cookie without JavaScript reading it.
-3. A successful refresh repopulates the in-memory access token and current user and establishes the `authenticated` state.
-4. A failed refresh establishes an `anonymous` state. Route decisions wait for refresh/bootstrap to complete instead of treating initialization as anonymous authentication.
+Root `provideHttpClient` explicitly configures Angular's built-in XSRF support with `XSRF-TOKEN` / `X-XSRF-TOKEN` and the functional auth interceptor. No custom cookie reading, XSRF token state, or global `withCredentials` is introduced. The same-origin `/api` deployment/proxy convention is unchanged.
 
-At least these three states must be distinguishable conceptually: `initializing`, `authenticated`, and `anonymous`. Access JWT storage remains memory-only: never `localStorage`, `sessionStorage`, or a JavaScript-readable persistent cookie.
+The interceptor in `core/http` depends only on the narrow `AuthSessionBridge` contract. Root configuration binds its injection token to the feature implementation with `useExisting`; core never imports the auth feature. Bearer is attached only to the exact relative API base or its slash-delimited descendants. Absolute/external URLs, assets, and unrelated namespaces receive no TaskFlow Bearer. GET `/auth/csrf` and POST `/auth/register`, `/auth/login`, `/auth/refresh`, and `/auth/logout` are explicitly excluded by method/path; GET `/auth/me` receives Bearer.
 
-The future functional HTTP interceptor adds `Authorization: Bearer <access token>` only to TaskFlow API requests. Match the intended API origin and path boundary so tokens cannot leak to unrelated/external URLs. Login/register/refresh behavior must avoid inappropriate bearer attachment where required, including during session restoration. Feature API clients continue to use the injected `API_BASE_URL` convention.
+A protected request that carried an access token and receives 401 can refresh and retry once. Concurrent failures share one in-flight refresh observable, cleared on completion/error; late failures from an older access token reuse an already-renewed token. Anonymous, lifecycle, external, and non-401 requests never start automatic recovery. The retry re-enters HttpClient with a copied request-local retry marker, so both Bearer attachment and Angular's built-in XSRF stage run again. Since backend refresh renews the XSRF cookie, the previous XSRF header is removed from the retry; Angular alone supplies its fresh value. Retry 401s propagate without another refresh loop.
+
+Refresh success replaces memory state; structured `401 SESSION_INVALID` clears it and fails waiting callers. Infrastructure refresh failures propagate while preserving existing local state. Login/register success replaces state and failures remain observable for future forms. Logout clears state only after server success; failure preserves it and propagates, never claiming confirmed server revocation. A refresh started before a completed login/register/logout cannot overwrite the newer local session state. Cross-tab coordination is not introduced; the single-flight coordinator is scoped to the running application instance.
+
+Auth UI, forms, routes, and guards remain MS4.9. The following are future UI/route conventions:
 
 Login/register routes belong to the auth feature. Protected application routes use functional Angular route guards. Unauthenticated navigation redirects to login and should preserve an appropriate application-local return URL, validated before navigation to avoid external redirects. Guards remain UX controls, never security boundaries.
 
