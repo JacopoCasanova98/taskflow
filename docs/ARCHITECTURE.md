@@ -156,9 +156,9 @@ PostgreSQL is the application's persistent data store. Its use, local configurat
 
 The `infra/` directory contains infrastructure definitions. Docker assets support local containerized development and execution. Directories for Terraform and CloudFormation are reserved for infrastructure definitions when those tools are adopted.
 
-## Authentication architecture (MS4.1)
+## Authentication architecture (MS4)
 
-This section records the approved design for MacroStep 4. Authentication is not implemented by MS4.1; the existing MS1–MS3 conventions above remain authoritative.
+This section records the design established in MS4.1 and implemented in MS4.2–MS4.9, with final verification in MS4.10. The existing MS1–MS3 conventions above remain authoritative.
 
 ### Backend authentication and security boundaries
 
@@ -196,7 +196,7 @@ Passwords:
 
 - Never persist or log plaintext passwords.
 - MS4.3 uses Argon2id for new password hashes through Spring Security `DelegatingPasswordEncoder`, with encoding id `argon2id` (stored prefix `{argon2id}`). Parameters are salt length 16 bytes, hash length 32 bytes, parallelism 1, memory 19456 KiB (19 MiB), and iterations 2. Algorithm prefixes preserve future migration options; unknown or missing ids fail without a plaintext/noop fallback. This supersedes the preliminary `PasswordEncoderFactories.createDelegatingPasswordEncoder()` preference: its bcrypt default has a practical 72-byte input limit incompatible with TaskFlow's 128-character policy. Bouncy Castle supplies the Argon2 implementation.
-- Accept a minimum of 15 and a maximum of 128 characters, without arbitrary uppercase/lowercase/number/symbol composition requirements.
+- Registration accepts 15–128 characters without arbitrary uppercase/lowercase/number/symbol composition requirements. Login requires a nonempty password of at most 128 characters, without imposing registration's minimum.
 - Never silently trim or alter password contents. Implementation review must verify that the selected encoder supports the full accepted password range without silent truncation or alteration.
 - Validation errors must never echo submitted password values.
 
@@ -216,7 +216,7 @@ A revoked token with a replacement link is replay evidence, even if it has since
 
 Logout is an idempotent `204 No Content` operation: it locks and revokes the presented token if available, clears the refresh cookie, and exposes no session state. Missing, malformed, unknown, expired, or already revoked tokens also succeed. Normal logout does not invoke replay family revocation or revoke other browser sessions. It does not invalidate an existing access JWT, which may remain usable until its approximately 15-minute expiry; no JWT blacklist or access-token persistence is introduced. The custom controller removes CSRF state through the configured `CsrfTokenRepository` and then issues a fresh anonymous `XSRF-TOKEN` cookie for immediate subsequent login without a page reload or custom CSRF JSON.
 
-Flyway V3 adds `family_id` nullable, backfills existing rows with their own IDs, then enforces NOT NULL. It adds nullable `replaced_by_token_id` with self-referencing `fk_refresh_tokens_replaced_by` and `idx_refresh_tokens_family_id`. V1/V2 remain immutable. Database-free tests cover lifecycle behavior, transaction outcomes, lock metadata, HTTP contracts, and real SPA cookie/header exchange; actual PostgreSQL migration execution and simultaneous transaction/row-lock verification remain future integration-test boundaries.
+Flyway V3 adds `family_id` nullable, backfills existing rows with their own IDs, then enforces NOT NULL. It adds nullable `replaced_by_token_id` with self-referencing `fk_refresh_tokens_replaced_by` and `idx_refresh_tokens_family_id`. V1/V2/V3 remain immutable. Database-free tests cover lifecycle behavior, mocked transaction outcomes, lock metadata, and HTTP cookie/header contracts through MockMvc. They do not prove browser cookie semantics, PostgreSQL migration execution, or simultaneous transaction/row-lock behavior.
 
 The following action-oriented authentication endpoints are an explicit exception to the general plural-resource naming convention. They retain the `/api` prefix, DTO boundaries, validation conventions, and existing error contract. Authenticated-user DTOs expose only safe current-user fields; never serialize persistence entities or password hashes.
 
@@ -248,7 +248,7 @@ Authentication and security failures remain compatible with TaskFlow's RFC 9457 
 | --- | --- |
 | `400 Bad Request` | Malformed request or validation failure. |
 | `401 Unauthorized` | Authentication required, invalid credentials, or missing/invalid/expired/revoked authentication token as applicable. |
-| `403 Forbidden` | Authenticated caller is forbidden from the requested operation. |
+| `403 Forbidden` | Access denied or missing/invalid CSRF, including on public unsafe endpoints. |
 | `409 Conflict` | Registration conflicts with an existing normalized email. |
 | `500 Internal Server Error` | Unexpected server failure with a safe public response. |
 
@@ -300,9 +300,20 @@ The following are explicitly deferred until concrete requirements justify them:
 - Access-token deny lists.
 - Authorization/ownership for Board/Task resources until their features exist.
 
-The planned MS4 sequence is user persistence → Spring Security → JWT → auth endpoints → refresh/logout → current user/backend authorization → Angular auth → auth UI/guards → final verification. Concrete JWT cryptographic configuration is implemented in MS4.4.
+The implemented MS4 sequence is architecture → user persistence → Spring Security → JWT → register/login → refresh/logout → typed current-user identity and `/me` → Angular auth foundation → auth UI/guards → final verification.
 
-MS4.1 is documentation only. It introduces no Spring Security dependencies, application/configuration changes, user entities, migrations, endpoints, JWT code, or frontend auth directories/components/services. Implementation starts in subsequent steps; this decision does not start MS4.2 or change the roadmap.
+### Final verification and closure (MS4.10)
+
+The authentication implementation is complete within the verified scope. Final checks passed: 85 backend tests, 84 frontend tests, and the Angular production build. Static review found no authentication defect requiring a code change; production credentials, frontend token persistence, package boundaries, DTO contracts, dependencies, and migration/entity alignment were reviewed. No implementation, dependency, or migration changes were needed.
+
+Evidence boundaries remain explicit:
+
+- Backend tests exercise real password encoding, JWT signing/validation, Spring Security and MVC contracts, with mocked repositories and transaction management. They verify persistence interactions, lock annotations/order, rotation/replay semantics, and commit-before-error control flow, not actual PostgreSQL locks, constraints, auditing, Flyway execution, or concurrent transactions.
+- Angular tests exercise session/HTTP recovery, built-in XSRF handling in the test DOM, Signal Forms, guards, and routing. They do not prove real frontend/backend integration or browser enforcement of HttpOnly, Secure, SameSite, and cookie scope.
+- No usable local PostgreSQL configuration was found during MS4.10; no real HTTP authentication smoke test or browser E2E test ran. PostgreSQL integration/concurrency and browser/container verification remain for later software-quality and infrastructure steps, without adding new infrastructure here.
+- Production HTTPS uses Secure cookies by default; local HTTP requires the explicit cookie override. The refresh cookie remains HttpOnly and invisible to JavaScript; XSRF-TOKEN is intentionally readable by Angular. Reload discards the memory-only access JWT and bootstrap restores the session through CSRF then refresh. Cross-tab refresh coordination remains deferred; single-flight applies within one application instance.
+
+The original roadmap's concrete private-resource ownership intent is retained with a refined sequence: `AuthenticatedUser` provides the completed UUID identity foundation, but no Board/Task resource exists yet. Ownership enforcement and cross-user access tests are required alongside the first real private Board/Task resources in MS5. No fake resource, placeholder ownership policy, or MS5 implementation was introduced to close authentication.
 
 ## Repository boundaries
 
