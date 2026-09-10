@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
 	ProblemDetail handleApiException(ApiException exception, HttpServletRequest request) {
 		return problem(
 				exception.getStatus(),
-				"Request could not be completed",
+				exception.getTitle(),
 				exception.getMessage(),
 				exception.getCode(),
 				request

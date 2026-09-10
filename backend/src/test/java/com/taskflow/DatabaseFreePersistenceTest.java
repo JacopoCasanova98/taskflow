@@ -1,12 +1,15 @@
 package com.taskflow;
 
 import com.taskflow.auth.persistence.RefreshTokenRepository;
+import com.taskflow.board.persistence.BoardRepository;
 import com.taskflow.user.persistence.UserRepository;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /** Repository/transaction collaborators for the deliberately database-free test profile. */
 public abstract class DatabaseFreePersistenceTest {
+	@MockitoBean
+	protected BoardRepository boards;
 	@MockitoBean
 	protected UserRepository users;
 	@MockitoBean
