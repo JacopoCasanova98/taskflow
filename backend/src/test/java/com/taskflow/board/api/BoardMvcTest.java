@@ -166,11 +166,11 @@ class BoardMvcTest extends DatabaseFreePersistenceTest {
 	@Test
 	void deletesOwnedBoardWithNoBody() throws Exception {
 		var existing = board(ID, "Roadmap", CREATED);
-		when(boards.findByIdAndOwnerId(ID, OWNER_A)).thenReturn(Optional.of(existing));
+		when(boards.findByIdAndOwnerIdForUpdate(ID, OWNER_A)).thenReturn(Optional.of(existing));
 		mvc.perform(unsafe("DELETE", "/api/boards/" + ID, OWNER_A))
 				.andExpect(status().isNoContent()).andExpect(content().string(""));
 		var order = inOrder(boards);
-		order.verify(boards).findByIdAndOwnerId(ID, OWNER_A);
+		order.verify(boards).findByIdAndOwnerIdForUpdate(ID, OWNER_A);
 		order.verify(boards).delete(existing);
 		verifyNoMoreInteractions(boards);
 		assertTransaction(false);
@@ -191,8 +191,13 @@ class BoardMvcTest extends DatabaseFreePersistenceTest {
 		assertThat(crossUser).isEqualTo(missing);
 		assertThat(ownedByA.getName()).isEqualTo("Private");
 		verify(boards).findByIdAndOwnerId(ID, OWNER_A);
-		verify(boards).findByIdAndOwnerId(ID, OWNER_B);
-		verify(boards).findByIdAndOwnerId(ABSENT, OWNER_B);
+		if (method.equals("DELETE")) {
+			verify(boards).findByIdAndOwnerIdForUpdate(ID, OWNER_B);
+			verify(boards).findByIdAndOwnerIdForUpdate(ABSENT, OWNER_B);
+		} else {
+			verify(boards).findByIdAndOwnerId(ID, OWNER_B);
+			verify(boards).findByIdAndOwnerId(ABSENT, OWNER_B);
+		}
 		verifyNoMoreInteractions(boards);
 	}
 

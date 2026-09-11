@@ -100,10 +100,10 @@ class BoardServiceTest {
 	@Test
 	void deletesOnlyAfterResolvingOwnedBoard() {
 		var board = board(ID, "Roadmap", CREATED);
-		when(boards.findByIdAndOwnerId(ID, OWNER)).thenReturn(Optional.of(board));
+		when(boards.findByIdAndOwnerIdForUpdate(ID, OWNER)).thenReturn(Optional.of(board));
 		service.deleteBoard(ID);
 		var order = inOrder(boards);
-		order.verify(boards).findByIdAndOwnerId(ID, OWNER);
+		order.verify(boards).findByIdAndOwnerIdForUpdate(ID, OWNER);
 		order.verify(boards).delete(board);
 		verify(identity).currentUser();
 		verifyNoMoreInteractions(boards);
@@ -119,7 +119,8 @@ class BoardServiceTest {
 			assertNotFound(() -> service.getBoard(id));
 			assertNotFound(() -> service.renameBoard(id, "Changed"));
 			assertNotFound(() -> service.deleteBoard(id));
-			verify(boards, times(3)).findByIdAndOwnerId(id, OTHER);
+			verify(boards, times(2)).findByIdAndOwnerId(id, OTHER);
+			verify(boards).findByIdAndOwnerIdForUpdate(id, OTHER);
 		}
 		assertThat(board.getName()).isEqualTo("Private");
 		verifyNoMoreInteractions(boards);

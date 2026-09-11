@@ -48,7 +48,10 @@ public class BoardService {
 
 	@Transactional
 	public void deleteBoard(UUID boardId) {
-		boards.delete(ownedBoard(boardId));
+		var board = boards.findByIdAndOwnerIdForUpdate(boardId, identity.currentUser().id())
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND",
+						"Board not found", "The requested board was not found."));
+		boards.delete(board);
 	}
 
 	private BoardEntity ownedBoard(UUID boardId) {
