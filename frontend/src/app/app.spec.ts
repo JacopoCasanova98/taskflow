@@ -6,6 +6,8 @@ import { Title } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
 import { routes } from './app.routes';
+import { of } from 'rxjs';
+import { BoardApi } from './features/boards/board-api';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -13,6 +15,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter(routes),
+        { provide: BoardApi, useValue: { listBoards: () => of([]) } },
         {
           provide: AUTH_STATE,
           useValue: { status: signal('authenticated'), isAuthenticated: signal(true) },
@@ -42,7 +45,7 @@ describe('App', () => {
     expect(skipLink?.getAttribute('href')).toBe(`#${main?.id}`);
   });
 
-  it('renders unknown routes inside main and clears routed content at the root', async () => {
+  it('renders unknown routes inside main and renders Boards at the root', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
@@ -61,7 +64,8 @@ describe('App', () => {
 
       await router.navigateByUrl('/');
       await fixture.whenStable();
-      expect(element.querySelector('main')?.textContent?.trim()).toBe('');
+      expect(element.querySelector('main h1')?.textContent).toBe('Boards');
+      expect(router.url).toBe('/boards');
       expect(element.querySelector('header')?.textContent).toContain('TaskFlow');
     } finally {
       title.setTitle(originalTitle);
