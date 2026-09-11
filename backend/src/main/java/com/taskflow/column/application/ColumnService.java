@@ -22,13 +22,15 @@ public class ColumnService {
 	private final BoardRepository boards;
 	private final ColumnRepository columns;
 	private final Clock clock;
+	private final ColumnTaskPresence taskPresence;
 
 	public ColumnService(AuthenticatedUserProvider identity, BoardRepository boards,
-			ColumnRepository columns, Clock clock) {
+			ColumnRepository columns, Clock clock, ColumnTaskPresence taskPresence) {
 		this.identity = identity;
 		this.boards = boards;
 		this.columns = columns;
 		this.clock = clock;
+		this.taskPresence = taskPresence;
 	}
 
 	@Transactional(readOnly = true)
@@ -56,7 +58,10 @@ public class ColumnService {
 		var column = lockedColumn(columnId, identity.currentUser().id());
 		UUID boardId = column.getBoard().getId();
 		int position = column.getPosition();
-		// MS5.4 must enforce COLUMN_NOT_EMPTY when Task persistence exists.
+		if (taskPresence.hasTasks(columnId)) {
+			throw new ApiException(HttpStatus.CONFLICT, "COLUMN_NOT_EMPTY", "Column not empty",
+					"The column must be empty before it can be deleted.");
+		}
 		columns.delete(column);
 		columns.compactAfterDeletion(boardId, position, clock.instant());
 	}

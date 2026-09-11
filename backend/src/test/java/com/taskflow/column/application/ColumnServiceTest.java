@@ -30,7 +30,8 @@ class ColumnServiceTest {
 	private final AuthenticatedUserProvider identity = mock(AuthenticatedUserProvider.class);
 	private final BoardRepository boards = mock(BoardRepository.class);
 	private final ColumnRepository columns = mock(ColumnRepository.class);
-	private final ColumnService service = new ColumnService(identity, boards, columns, Clock.fixed(NOW, ZoneOffset.UTC));
+	private final ColumnTaskPresence taskPresence = mock(ColumnTaskPresence.class);
+	private final ColumnService service = new ColumnService(identity, boards, columns, Clock.fixed(NOW, ZoneOffset.UTC), taskPresence);
 	private final BoardEntity board = new BoardEntity(OWNER, "Board");
 
 	@BeforeEach
@@ -110,10 +111,11 @@ class ColumnServiceTest {
 		var c = column("Delete", position);
 		direct(c);
 		service.deleteColumn(c.getId());
-		var order = inOrder(columns, boards);
+		var order = inOrder(columns, boards, taskPresence);
 		order.verify(columns).findBoardIdByIdAndOwnerId(c.getId(), OWNER);
 		order.verify(boards).findByIdAndOwnerIdForUpdate(BOARD, OWNER);
 		order.verify(columns).findByIdAndBoard_OwnerId(c.getId(), OWNER);
+		order.verify(taskPresence).hasTasks(c.getId());
 		order.verify(columns).delete(c);
 		order.verify(columns).compactAfterDeletion(BOARD, position, NOW);
 		verifyNoMoreInteractions(columns, boards);
@@ -152,6 +154,22 @@ class ColumnServiceTest {
 			verify(columns, times(2)).findBoardIdByIdAndOwnerId(id, OTHER);
 		}
 		verifyNoMoreInteractions(boards, columns);
+	}
+
+	@Test
+	void nonEmptyColumnCannotBeDeletedOrResequenced() {
+		var c = column("Keep", 1); direct(c);
+		when(taskPresence.hasTasks(c.getId())).thenReturn(true);
+		assertError(() -> service.deleteColumn(c.getId()), "COLUMN_NOT_EMPTY", 409,
+				"Column not empty", "The column must be empty before it can be deleted.");
+		var order = inOrder(columns, boards, taskPresence);
+		order.verify(columns).findBoardIdByIdAndOwnerId(c.getId(), OWNER);
+		order.verify(boards).findByIdAndOwnerIdForUpdate(BOARD, OWNER);
+		order.verify(columns).findByIdAndBoard_OwnerId(c.getId(), OWNER);
+		order.verify(taskPresence).hasTasks(c.getId());
+		verify(columns, never()).delete(any());
+		verify(columns, never()).compactAfterDeletion(any(), anyInt(), any());
+		assertThat(c.getPosition()).isEqualTo(1);
 	}
 
 	@Test

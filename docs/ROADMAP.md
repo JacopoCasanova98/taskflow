@@ -26,7 +26,7 @@ Roadmap refinement: authentication completes the typed UUID identity foundation.
 
 ## MacroStep 5 — Core TaskFlow features
 
-In progress: MS5.1 domain design and MS5.2 Board backend are complete. MS5.3 Column backend is implemented with V5 persistence, Board-derived ownership, ordered read/create/rename/delete, complete-list reorder, and a shared parent Board mutation-lock protocol; see [ARCHITECTURE.md](ARCHITECTURE.md#column-backend-ms53). Task (MS5.4) and frontend features remain pending. Actual PostgreSQL migration/persistence/concurrency verification remains an explicit integration-test boundary.
+In progress: MS5.1 domain design, MS5.2 Board backend, and MS5.3 Column backend are complete. MS5.4 Task backend implements V6, owner-scoped CRUD, basic priority/due-date persistence, full PUT content replacement, same-Board placement/resequencing, and COLUMN_NOT_EMPTY enforcement using the shared Board mutation lock; see [ARCHITECTURE.md](ARCHITECTURE.md#task-backend-ms54). MS5.4 is complete with 342 green backend tests (128 added). MS5.5 frontend work has not started. Actual PostgreSQL migration/persistence/concurrency verification remains an explicit integration-test boundary.
 
 - [ ] Define and deliver the initial TaskFlow capabilities
 - [ ] Enforce ownership of the first private Board/Task resources and test cross-user access

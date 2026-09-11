@@ -17,6 +17,8 @@ public interface ColumnRepository extends JpaRepository<ColumnEntity, UUID> {
 
 	Optional<ColumnEntity> findByIdAndBoard_OwnerId(UUID id, UUID ownerId);
 
+	Optional<ColumnEntity> findByIdAndBoard_IdAndBoard_OwnerId(UUID id, UUID boardId, UUID ownerId);
+
 	// Scalar discovery avoids managing stale Column state before acquiring the Board lock.
 	@Query("select c.board.id from ColumnEntity c where c.id = :id and c.board.ownerId = :ownerId")
 	Optional<UUID> findBoardIdByIdAndOwnerId(@Param("id") UUID id, @Param("ownerId") UUID ownerId);
