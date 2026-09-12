@@ -1,4 +1,4 @@
-import { inject, Injectable, signal } from '@angular/core';
+import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   catchError,
@@ -10,6 +10,7 @@ import {
   startWith,
   Subject,
   switchMap,
+  defer,
 } from 'rxjs';
 import { isHttpProblem } from '../../../core/http/http-problem';
 import { ColumnApi } from '../../columns/column-api';
@@ -40,7 +41,29 @@ export class BoardWorkspaceState {
   private readonly value = signal<WorkspaceState>({ status: 'loading' });
   private readonly retries = new Subject<void>();
   private readonly untilDestroyed = takeUntilDestroyed<WorkspaceState>();
+  private readonly generationState = signal(0);
+  readonly generation = this.generationState.asReadonly();
   readonly workspace = this.value.asReadonly();
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.generationState.update((value) => value + 1));
+  }
+
+  /** Apply a confirmed response only to the still-current ready workspace. */
+  updateColumns(
+    generation: number,
+    update: (columns: readonly WorkspaceColumn[]) => readonly WorkspaceColumn[],
+  ): void {
+    const current = this.workspace();
+    if (this.generation() === generation && current.status === 'ready') {
+      this.value.set({ ...current, columns: update(current.columns) });
+    }
+  }
+
+  boardNotFound(): void {
+    this.generationState.update((value) => value + 1);
+    this.value.set({ status: 'not-found' });
+  }
 
   connect(boardIds: Observable<string>): void {
     boardIds
@@ -49,7 +72,12 @@ export class BoardWorkspaceState {
         switchMap((id) =>
           this.retries.pipe(
             startWith(undefined),
-            switchMap(() => this.load(id).pipe(startWith({ status: 'loading' } as WorkspaceState))),
+            switchMap(() =>
+              defer(() => {
+                this.generationState.update((value) => value + 1);
+                return this.load(id).pipe(startWith({ status: 'loading' } as WorkspaceState));
+              }),
+            ),
           ),
         ),
         this.untilDestroyed,

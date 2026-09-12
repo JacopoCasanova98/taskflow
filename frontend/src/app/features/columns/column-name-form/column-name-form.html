@@ -1,0 +1,31 @@
+<form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="nameForm().submitting()">
+  <label [for]="inputId()">Column name</label>
+  <input
+    #nameInput
+    [id]="inputId()"
+    type="text"
+    [formField]="nameForm.name"
+    [attr.aria-invalid]="nameForm.name().touched() && nameForm.name().invalid()"
+    [attr.aria-describedby]="inputId() + '-errors'"
+  />
+  <div [id]="inputId() + '-errors'" class="errors" aria-live="polite">
+    @if (nameForm.name().touched()) {
+      @for (error of nameForm.name().errors(); track $index) {
+        <p>{{ error.message }}</p>
+      }
+    }
+    <p>{{ serverError() }}</p>
+  </div>
+  <div class="actions">
+    <button class="primary" type="submit" [disabled]="disabled() || nameForm().submitting()">
+      {{ nameForm().submitting() ? 'Saving…' : action() }}
+    </button>
+    <button
+      type="button"
+      [disabled]="disabled() || nameForm().submitting()"
+      (click)="closed.emit()"
+    >
+      Cancel
+    </button>
+  </div>
+</form>

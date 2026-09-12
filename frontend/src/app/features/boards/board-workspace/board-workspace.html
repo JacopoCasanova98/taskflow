@@ -1,4 +1,7 @@
 <a routerLink="/boards">Back to boards</a>
+@if (columns.notice()) {
+  <p role="status">{{ columns.notice() }}</p>
+}
 @let workspace = state.workspace();
 @switch (workspace.status) {
   @case ('loading') {
@@ -16,25 +19,18 @@
   }
   @case ('ready') {
     <h1>{{ workspace.board.name }}</h1>
-    @if (workspace.columns.length === 0) {
-      <p>This board has no columns yet.</p>
-    } @else {
-      <div class="lanes" role="region" aria-label="Board columns" tabindex="0">
-        @for (lane of workspace.columns; track lane.column.id) {
-          <section class="lane" [attr.aria-labelledby]="'column-' + lane.column.id">
-            <h2 [id]="'column-' + lane.column.id">{{ lane.column.name }}</h2>
-            @if (lane.tasks.length === 0) {
-              <p class="empty">No tasks yet.</p>
-            } @else {
-              <ul aria-label="Tasks">
-                @for (task of lane.tasks; track task.id) {
-                  <li class="task">{{ task.title }}</li>
-                }
-              </ul>
+    <app-column-controls>
+      <ng-template let-lane>
+        @if (lane.tasks.length === 0) {
+          <p class="empty">No tasks yet.</p>
+        } @else {
+          <ul aria-label="Tasks">
+            @for (task of lane.tasks; track task.id) {
+              <li class="task">{{ task.title }}</li>
             }
-          </section>
+          </ul>
         }
-      </div>
-    }
+      </ng-template>
+    </app-column-controls>
   }
 }

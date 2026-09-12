@@ -37,7 +37,7 @@ describe('Board workspace page', () => {
     expect(element.querySelector('h1')?.textContent).toBe(board.name);
     expect(element.textContent).toContain('This board has no columns yet.');
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/boards');
-    expect(element.querySelector('button')).toBeNull();
+    expect(element.querySelector('button')?.textContent?.trim()).toBe('Add column');
   });
   it('renders semantic lanes and title-only tasks in server order with empty-column guidance', async () => {
     http.expectOne('/api/boards/one').flush(board);
@@ -70,7 +70,8 @@ describe('Board workspace page', () => {
     expect(element.textContent).toContain('No tasks yet.');
     for (const hidden of ['HIGH', '2026-09-12', 'Hidden description'])
       expect(element.textContent).not.toContain(hidden);
-    expect(element.querySelector('button, input, form, [draggable]')).toBeNull();
+    expect(element.querySelector('li button, input, form, [draggable]')).toBeNull();
+    expect(element.textContent).not.toContain('Add task');
   });
   it('shows a safe not-found message and real back link', async () => {
     http

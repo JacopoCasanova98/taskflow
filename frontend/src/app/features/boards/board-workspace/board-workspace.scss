@@ -6,26 +6,6 @@ h1 {
   margin-block: 1rem 1.5rem;
   overflow-wrap: anywhere;
 }
-.lanes {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  overflow-x: auto;
-  padding: 0.25rem 0.25rem 1rem;
-}
-.lane {
-  flex: 0 0 19rem;
-  min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  background: #eef2f7;
-  overflow-wrap: anywhere;
-}
-h2 {
-  margin: 0 0 1rem;
-  font-size: 1.15rem;
-}
 ul {
   display: grid;
   gap: 0.75rem;
@@ -38,17 +18,8 @@ ul {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0.4rem;
+  overflow-wrap: anywhere;
 }
 .empty {
   margin: 0;
-}
-@media (max-width: 40rem) {
-  .lanes {
-    flex-direction: column;
-    overflow-x: visible;
-  }
-  .lane {
-    flex: auto;
-    width: 100%;
-  }
 }
