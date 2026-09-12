@@ -1,5 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter, RouterLink } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { of, Subject, throwError } from 'rxjs';
 import { BoardApi } from '../board-api';
 import { Board } from '../board.models';
@@ -31,10 +33,19 @@ describe('Board list page', () => {
       renameBoard: vi.fn().mockReturnValue(of({ ...first, name: 'Canonical rename' })),
       deleteBoard: vi.fn().mockReturnValue(of(undefined)),
     };
-    TestBed.configureTestingModule({ providers: [{ provide: BoardApi, useValue: api }] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: BoardApi, useValue: api }],
+    });
     fixture = TestBed.createComponent(BoardList);
     await settle();
     element = fixture.nativeElement;
+  });
+  it('links the Board name without nesting mutation controls', async () => {
+    await loaded();
+    const link = fixture.debugElement.query(By.directive(RouterLink));
+    expect(link.nativeElement.textContent.trim()).toBe(first.name);
+    expect(link.nativeElement.getAttribute('href')).toBe('/boards/one');
+    expect(link.nativeElement.querySelector('button')).toBeNull();
   });
   async function settle() {
     // Http mocks resolve firstValueFrom in a microtask before Angular schedules rendering.
@@ -92,7 +103,7 @@ describe('Board list page', () => {
     expect(api.listBoards).toHaveBeenCalledTimes(1);
     expect(api.createBoard).not.toHaveBeenCalled();
   });
-  it('renders server-ordered names and labelled actions without workspace links', async () => {
+  it('renders server-ordered names and labelled actions with workspace links', async () => {
     await loaded();
     expect(Array.from(element.querySelectorAll('li h2')).map((h) => h.textContent)).toEqual([
       first.name,
@@ -100,7 +111,7 @@ describe('Board list page', () => {
     ]);
     expect(element.querySelector('[aria-label="Rename Product Roadmap"]')).not.toBeNull();
     expect(element.querySelector('[aria-label="Delete Product Roadmap"]')).not.toBeNull();
-    expect(element.querySelector('a')).toBeNull();
+    expect(element.querySelector('a')?.getAttribute('href')).toBe('/boards/one');
   });
   it('shows useful empty state only after successful empty load', async () => {
     await loaded([]);

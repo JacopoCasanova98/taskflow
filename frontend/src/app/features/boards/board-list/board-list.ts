@@ -1,11 +1,12 @@
 import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { BoardNameForm } from '../board-name-form/board-name-form';
 import { Board } from '../board.models';
 import { BoardListState } from './board-list-state';
 
 @Component({
   selector: 'app-board-list',
-  imports: [BoardNameForm],
+  imports: [BoardNameForm, RouterLink],
   providers: [BoardListState],
   templateUrl: './board-list.html',
   styleUrls: ['../board-controls.scss', './board-list.scss'],

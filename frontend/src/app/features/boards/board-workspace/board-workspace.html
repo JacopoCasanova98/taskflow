@@ -1,0 +1,40 @@
+<a routerLink="/boards">Back to boards</a>
+@let workspace = state.workspace();
+@switch (workspace.status) {
+  @case ('loading') {
+    <p role="status">Loading board…</p>
+  }
+  @case ('not-found') {
+    <div role="status">
+      <h1>Board not found</h1>
+      <p>This board is no longer available.</p>
+    </div>
+  }
+  @case ('error') {
+    <p role="alert">We couldn't load this board.</p>
+    <button type="button" (click)="state.retry()">Retry</button>
+  }
+  @case ('ready') {
+    <h1>{{ workspace.board.name }}</h1>
+    @if (workspace.columns.length === 0) {
+      <p>This board has no columns yet.</p>
+    } @else {
+      <div class="lanes" role="region" aria-label="Board columns" tabindex="0">
+        @for (lane of workspace.columns; track lane.column.id) {
+          <section class="lane" [attr.aria-labelledby]="'column-' + lane.column.id">
+            <h2 [id]="'column-' + lane.column.id">{{ lane.column.name }}</h2>
+            @if (lane.tasks.length === 0) {
+              <p class="empty">No tasks yet.</p>
+            } @else {
+              <ul aria-label="Tasks">
+                @for (task of lane.tasks; track task.id) {
+                  <li class="task">{{ task.title }}</li>
+                }
+              </ul>
+            }
+          </section>
+        }
+      </div>
+    }
+  }
+}

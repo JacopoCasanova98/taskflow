@@ -11,6 +11,9 @@ export class BoardApi {
   listBoards() {
     return this.http.get<Board[]>(this.base);
   }
+  getBoard(boardId: string) {
+    return this.http.get<Board>(this.base + '/' + encodeURIComponent(boardId));
+  }
   createBoard(request: CreateBoardRequest) {
     return this.http.post<Board>(this.base, request);
   }

@@ -38,7 +38,9 @@
       @for (board of state.boards(); track board.id) {
         <li class="panel" [attr.aria-labelledby]="'board-' + board.id">
           <div class="board-heading">
-            <h2 [id]="'board-' + board.id">{{ board.name }}</h2>
+            <h2 [id]="'board-' + board.id">
+              <a [routerLink]="['/boards', board.id]">{{ board.name }}</a>
+            </h2>
             <div class="actions">
               <button
                 type="button"

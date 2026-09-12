@@ -35,6 +35,14 @@ describe('BoardApi', () => {
     request.flush(response);
     expect(received).toHaveBeenCalledExactlyOnceWith(response);
   });
+  it('gets an owned Board by id', () => {
+    const received = vi.fn();
+    api.getBoard(board.id).subscribe(received);
+    const request = http.expectOne('/api/boards/' + board.id);
+    expect(request.request.method).toBe('GET');
+    request.flush(board);
+    expect(received).toHaveBeenCalledExactlyOnceWith(board);
+  });
   it('creates using name only and returns the 201 Board body', () => {
     const received = vi.fn();
     api.createBoard({ name: board.name }).subscribe(received);
