@@ -7,7 +7,7 @@ import { BehaviorSubject } from 'rxjs';
 import { API_BASE_URL } from '../../core/config/api-base-url';
 import { BoardWorkspaceState } from '../boards/board-workspace/board-workspace-state';
 import { ColumnManagement } from '../columns/column-management';
-import { TaskPriorityView } from './task-priority-view';
+import { TaskView } from './task-view';
 import { TaskManagement } from './task-management';
 import { Task, UpdateTaskRequest } from './task.models';
 
@@ -44,7 +44,7 @@ describe('Task management', () => {
       providers: [
         BoardWorkspaceState,
         TaskManagement,
-        TaskPriorityView,
+        TaskView,
         ColumnManagement,
         provideHttpClient(),
         provideHttpClientTesting(),

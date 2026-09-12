@@ -1,9 +1,10 @@
+import { TaskLocalDay } from '../../tasks/task-local-day';
 import { TaskDetails } from '../../tasks/task-details/task-details';
 import { CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TaskPriorityView } from '../../tasks/task-priority-view';
-import { TaskPriorityControls } from '../../tasks/task-priority-controls';
+import { TaskView } from '../../tasks/task-view';
+import { TaskViewControls } from '../../tasks/task-view-controls';
 import { distinctUntilChanged, tap, map } from 'rxjs';
 import { TaskList } from '../../tasks/task-list';
 import { TaskManagement } from '../../tasks/task-management';
@@ -13,20 +14,13 @@ import { BoardWorkspaceState } from './board-workspace-state';
 
 @Component({
   selector: 'app-board-workspace',
-  imports: [
-    RouterLink,
-    ColumnControls,
-    TaskList,
-    CdkDropListGroup,
-    TaskDetails,
-    TaskPriorityControls,
-  ],
-  providers: [BoardWorkspaceState, ColumnManagement, TaskManagement, TaskPriorityView],
+  imports: [RouterLink, ColumnControls, TaskList, CdkDropListGroup, TaskDetails, TaskViewControls],
+  providers: [BoardWorkspaceState, ColumnManagement, TaskManagement, TaskView, TaskLocalDay],
   templateUrl: './board-workspace.html',
   styleUrls: ['../board-controls.scss', './board-workspace.scss'],
 })
 export class BoardWorkspace {
-  readonly priorityView = inject(TaskPriorityView);
+  readonly taskView = inject(TaskView);
   readonly tasks = inject(TaskManagement);
   readonly columns = inject(ColumnManagement);
   readonly state = inject(BoardWorkspaceState);
@@ -36,7 +30,7 @@ export class BoardWorkspace {
       inject(ActivatedRoute).paramMap.pipe(
         map((params) => params.get('boardId')!),
         distinctUntilChanged(),
-        tap(() => this.priorityView.reset()),
+        tap(() => this.taskView.reset()),
       ),
     );
   }

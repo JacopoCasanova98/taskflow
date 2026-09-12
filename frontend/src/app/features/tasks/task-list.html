@@ -22,7 +22,7 @@
 @if (lane().tasks.length === 0) {
   <p>No tasks yet.</p>
 } @else if (visibleTasks().length === 0) {
-  <p>No tasks match this priority.</p>
+  <p>No tasks match the current filter.</p>
 }
 <ul
   aria-label="Tasks"
@@ -45,6 +45,9 @@
         {{ task.title }}
       </button>
       <app-task-priority-indicator [priority]="task.priority" />
+      @if (task.dueDate) {
+        <div class="task-due"><app-task-due-indicator [dueDate]="task.dueDate" /></div>
+      }
     </li>
   }
 </ul>

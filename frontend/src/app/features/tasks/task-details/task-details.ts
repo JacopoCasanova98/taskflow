@@ -1,13 +1,14 @@
 import { Component, inject, input, signal } from '@angular/core';
 import { Task, UpdateTaskRequest } from '../task.models';
 import { TaskManagement } from '../task-management';
+import { TaskDueIndicator } from '../task-due-indicator';
 import { TaskPriorityIndicator } from '../task-priority-indicator';
 import { TaskForm } from '../task-form/task-form';
 import { BoardWorkspaceState } from '../../boards/board-workspace/board-workspace-state';
 
 @Component({
   selector: 'app-task-details',
-  imports: [TaskForm, TaskPriorityIndicator],
+  imports: [TaskForm, TaskPriorityIndicator, TaskDueIndicator],
   templateUrl: './task-details.html',
   styleUrl: '../task-controls.scss',
 })

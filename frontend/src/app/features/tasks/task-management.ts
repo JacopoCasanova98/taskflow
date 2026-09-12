@@ -3,7 +3,7 @@ import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
 import { httpValidationFields, isHttpProblem } from '../../core/http/http-problem';
 import { BoardWorkspaceState } from '../boards/board-workspace/board-workspace-state';
-import { TaskPriorityView } from './task-priority-view';
+import { TaskView } from './task-view';
 import { TaskApi } from './task-api';
 import { CreateTaskRequest, Task, UpdateTaskRequest } from './task.models';
 import { planTaskPlacement, TaskDropListData } from './task-placement';
@@ -27,7 +27,7 @@ const fieldMessages: Record<TaskField, string> = {
 @Injectable()
 export class TaskManagement {
   private readonly workspace = inject(BoardWorkspaceState);
-  private readonly priorityView = inject(TaskPriorityView);
+  private readonly taskView = inject(TaskView);
   private readonly api = inject(TaskApi);
   private readonly feedback = signal<{
     generation: number;
@@ -146,7 +146,7 @@ export class TaskManagement {
   }
 
   async drop(event: CdkDragDrop<TaskDropListData, TaskDropListData, string>): Promise<void> {
-    if (!this.priorityView.manual()) return;
+    if (!this.taskView.manual()) return;
     if (event.previousContainer === event.container && event.previousIndex === event.currentIndex)
       return;
     const state = this.workspace.workspace();

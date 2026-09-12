@@ -132,7 +132,7 @@ describe('Task CRUD in workspace', () => {
     expect(details.textContent).toContain(task.description);
     expect(details.querySelector('b')).toBeNull();
     expect(details.textContent).toContain('Priority: High');
-    expect(details.textContent).toContain('Due date: 2026-09-30');
+    expect(details.querySelector('time')?.getAttribute('datetime')).toBe('2026-09-30');
     expect(details.textContent).not.toContain('created');
     expect(details.querySelector('[draggable]')).toBeNull();
     for (const name of ['Edit', 'Delete', 'Close']) expect(button(name)).toBeDefined();
@@ -171,7 +171,7 @@ describe('Task CRUD in workspace', () => {
     expect(details.querySelector('h3')?.textContent).toBe('Canonical update');
     expect(details.textContent).toContain('Priority: Low');
     expect(details.querySelector('.description')).toBeNull();
-    expect(details.textContent).not.toContain('Due date:');
+    expect(details.textContent).toContain('No due date');
   });
   it('requires named confirmation, allows Cancel, and sends delete once', async () => {
     await click('View task: Fix login');

@@ -9,7 +9,7 @@ import { API_BASE_URL } from '../../core/config/api-base-url';
 import { BoardWorkspace } from '../boards/board-workspace/board-workspace';
 import { Task } from './task.models';
 import { TaskDropListData } from './task-placement';
-import { TaskPriorityView } from './task-priority-view';
+import { TaskView } from './task-view';
 
 const tasks: Task[] = (['LOW', 'HIGH', 'MEDIUM', 'HIGH'] as const).map((priority, position) => ({
   id: 'ABCD'[position],
@@ -36,7 +36,7 @@ describe('Priority view in the Board workspace', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
-  let view: TaskPriorityView;
+  let view: TaskView;
   beforeEach(async () => {
     params = new BehaviorSubject(convertToParamMap({ boardId: 'one' }));
     TestBed.configureTestingModule({
@@ -51,7 +51,7 @@ describe('Priority view in the Board workspace', () => {
     fixture = TestBed.createComponent(BoardWorkspace);
     http = TestBed.inject(HttpTestingController);
     element = fixture.nativeElement;
-    view = fixture.debugElement.injector.get(TaskPriorityView);
+    view = fixture.debugElement.injector.get(TaskView);
     await load();
   });
   afterEach(() => http.verify());
@@ -144,7 +144,7 @@ describe('Priority view in the Board workspace', () => {
     expect(titles()).toBe('BD');
     expect(titles(1)).toBe('');
     expect(lanes()).toHaveLength(3);
-    expect(lanes()[1].textContent).toContain('No tasks match this priority.');
+    expect(lanes()[1].textContent).toContain('No tasks match the current filter.');
     expect(lanes()[1].textContent).not.toContain('No tasks yet.');
     expect(lanes()[2].textContent).toContain('No tasks yet.');
     expect(canonical()).toBe(before);
@@ -171,7 +171,7 @@ describe('Priority view in the Board workspace', () => {
     await change('task-priority-filter', 'HIGH');
     assertDragDisabled(true);
     expect(element.querySelector('#task-movement-guidance')?.textContent).toContain(
-      'manual order with all priorities visible',
+      'manual order with all filters cleared',
     );
     await fixture.componentInstance.tasks.drop(event);
     await change('task-priority-order', 'PRIORITY_HIGH_TO_LOW');

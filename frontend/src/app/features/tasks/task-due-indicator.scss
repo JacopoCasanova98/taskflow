@@ -1,0 +1,15 @@
+:host {
+  display: inline;
+}
+.due {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.overdue {
+  color: #991b1b;
+  background: #fef2f2;
+}
+.today {
+  color: #854d0e;
+  background: #fefce8;
+}
