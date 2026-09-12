@@ -21,25 +21,27 @@
 }
 @if (lane().tasks.length === 0) {
   <p>No tasks yet.</p>
-} @else {
-  <ul aria-label="Tasks">
-    @for (task of lane().tasks; track task.id) {
-      <li class="task">
-        <button
-          class="task-title"
-          type="button"
-          [attr.aria-label]="'View task: ' + task.title"
-          [disabled]="management.busy()"
-          (click)="management.selectedId.set(task.id)"
-        >
-          {{ task.title }}
-        </button>
-      </li>
-    }
-  </ul>
 }
-@if (selected(); as task) {
-  @for (id of [task.id]; track id) {
-    <app-task-details [task]="task" />
+<ul
+  aria-label="Tasks"
+  cdkDropList
+  [cdkDropListData]="dropData()"
+  [cdkDropListDisabled]="management.busy()"
+  (cdkDropListDropped)="management.drop($event)"
+  [class.empty-drop-list]="lane().tasks.length === 0"
+>
+  @for (task of lane().tasks; track task.id) {
+    <li class="task" cdkDrag [cdkDragData]="task.id" [cdkDragDisabled]="management.busy()">
+      <span class="task-grip" cdkDragHandle aria-hidden="true" title="Drag to move task"></span>
+      <button
+        class="task-title"
+        type="button"
+        [attr.aria-label]="'View task: ' + task.title"
+        [disabled]="management.busy()"
+        (click)="management.selectedId.set(task.id)"
+      >
+        {{ task.title }}
+      </button>
+    </li>
   }
-}
+</ul>

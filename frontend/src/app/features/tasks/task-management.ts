@@ -1,9 +1,11 @@
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
 import { httpValidationFields, isHttpProblem } from '../../core/http/http-problem';
 import { BoardWorkspaceState } from '../boards/board-workspace/board-workspace-state';
 import { TaskApi } from './task-api';
 import { CreateTaskRequest, Task, UpdateTaskRequest } from './task.models';
+import { planTaskPlacement, TaskDropListData } from './task-placement';
 
 export type TaskField = 'title' | 'description' | 'priority' | 'dueDate';
 export type TaskMutationResult =
@@ -139,6 +141,83 @@ export class TaskManagement {
         if (this.selectedId() === id) this.selectedId.set(null);
       },
     );
+  }
+
+  async drop(event: CdkDragDrop<TaskDropListData, TaskDropListData, string>): Promise<void> {
+    if (event.previousContainer === event.container && event.previousIndex === event.currentIndex)
+      return;
+    const state = this.workspace.workspace();
+    if (state.status !== 'ready' || this.busy()) return;
+    // Only current canonical lane data can initiate a write, including after a reload.
+    const source = state.columns.find(
+      (lane) => lane.column.id === event.previousContainer.data.columnId,
+    );
+    const target = state.columns.find((lane) => lane.column.id === event.container.data.columnId);
+    if (
+      source?.tasks !== event.previousContainer.data.tasks ||
+      target?.tasks !== event.container.data.tasks
+    )
+      return;
+    const plan = planTaskPlacement(
+      state.columns,
+      event.previousContainer.data.columnId,
+      event.container.data.columnId,
+      event.item.data,
+      event.previousIndex,
+      event.currentIndex,
+    );
+    if (!plan) return;
+    const pending = this.workspace.beginWrite();
+    if (!pending) return;
+    const { generation } = pending;
+    const rollback = () =>
+      this.workspace.updateColumns(generation, (columns) =>
+        columns.map(
+          (lane) => plan.snapshot.find((original) => original.column.id === lane.column.id) ?? lane,
+        ),
+      );
+    this.feedback.set(null);
+    this.workspace.updateColumns(generation, () => plan.columns);
+    try {
+      const task = await firstValueFrom(this.api.placeTask(plan.taskId, plan.request));
+      if (generation !== this.workspace.generation()) return;
+      if (
+        !task ||
+        task.id !== plan.taskId ||
+        task.columnId !== plan.request.columnId ||
+        task.position !== plan.request.position
+      ) {
+        rollback();
+        this.reconcile('Tasks changed on the server. Reloading the board.');
+        return;
+      }
+      this.workspace.updateColumns(generation, (columns) =>
+        columns.map((lane) =>
+          lane.column.id === task.columnId
+            ? { ...lane, tasks: lane.tasks.map((entry) => (entry.id === task.id ? task : entry)) }
+            : lane,
+        ),
+      );
+    } catch (error: unknown) {
+      if (generation !== this.workspace.generation()) return;
+      rollback();
+      if (isHttpProblem(error, 404, 'TASK_NOT_FOUND')) {
+        this.reconcile('This task is no longer available.', false);
+      } else if (
+        isHttpProblem(error, 409, 'TASK_PLACEMENT_CONFLICT') ||
+        isHttpProblem(error, 404, 'COLUMN_NOT_FOUND')
+      ) {
+        this.reconcile('Tasks changed on the server. Reloading the board.');
+      } else {
+        this.feedback.set({
+          generation,
+          loadingOnly: false,
+          message: "We couldn't move the task. Please try again.",
+        });
+      }
+    } finally {
+      this.workspace.endWrite(pending);
+    }
   }
 
   private async mutate<T>(

@@ -23,3 +23,8 @@ export interface Task {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+export interface TaskPlacementRequest {
+  columnId: string;
+  position: number;
+}

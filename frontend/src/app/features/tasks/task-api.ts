@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { API_BASE_URL } from '../../core/config/api-base-url';
-import { Task, CreateTaskRequest, UpdateTaskRequest } from './task.models';
+import { Task, CreateTaskRequest, UpdateTaskRequest, TaskPlacementRequest } from './task.models';
 
 @Injectable({ providedIn: 'root' })
 export class TaskApi {
@@ -19,6 +19,12 @@ export class TaskApi {
   }
   updateTask(taskId: string, request: UpdateTaskRequest) {
     return this.http.put<Task>(this.base + '/tasks/' + encodeURIComponent(taskId), request);
+  }
+  placeTask(taskId: string, request: TaskPlacementRequest) {
+    return this.http.put<Task>(this.base + '/tasks/' + encodeURIComponent(taskId) + '/placement', {
+      columnId: request.columnId,
+      position: request.position,
+    });
   }
   deleteTask(taskId: string) {
     return this.http.delete<void>(this.base + '/tasks/' + encodeURIComponent(taskId));

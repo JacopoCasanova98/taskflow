@@ -102,6 +102,15 @@ describe('TaskApi CRUD', () => {
     request.flush({ ...task, ...body });
     expect(next).toHaveBeenCalledExactlyOnceWith({ ...task, ...body });
   });
+  it('places with only columnId and final position and receives the canonical Task', () => {
+    const next = vi.fn();
+    api.placeTask('task/id', { columnId: 'target', position: 0 }).subscribe(next);
+    const request = http.expectOne('/api/tasks/task%2Fid/placement');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ columnId: 'target', position: 0 });
+    request.flush(task);
+    expect(next).toHaveBeenCalledExactlyOnceWith(task);
+  });
   it('deletes without a request body and accepts bodyless 204', () => {
     const complete = vi.fn();
     api.deleteTask('task').subscribe({ complete });

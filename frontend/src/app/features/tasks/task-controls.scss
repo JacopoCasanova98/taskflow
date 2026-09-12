@@ -83,3 +83,44 @@ h4 {
 .description {
   white-space: pre-wrap;
 }
+
+.cdk-drop-list {
+  min-height: 4rem;
+  align-content: start;
+}
+.empty-drop-list {
+  border: 1px dashed var(--border);
+  border-radius: 0.4rem;
+}
+.task-grip {
+  display: inline-block;
+  width: 0.75rem;
+  height: 1.25rem;
+  margin-right: 0.65rem;
+  vertical-align: middle;
+  background: radial-gradient(circle, currentColor 1px, transparent 2px) 0 0 / 5px 5px;
+  cursor: grab;
+  touch-action: none;
+}
+.cdk-drag-disabled .task-grip {
+  cursor: default;
+  opacity: 0.45;
+}
+.cdk-drag-preview {
+  box-sizing: border-box;
+  box-shadow: 0 4px 12px #0003;
+}
+.cdk-drag-placeholder {
+  opacity: 0.4;
+  border: 2px dashed var(--accent);
+}
+.cdk-drag-animating,
+.cdk-drop-list-dragging .task:not(.cdk-drag-placeholder) {
+  transition: transform 180ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cdk-drag-animating,
+  .cdk-drop-list-dragging .task {
+    transition: none;
+  }
+}

@@ -63,7 +63,7 @@ export class BoardWorkspaceState {
     inject(DestroyRef).onDestroy(() => this.generationState.update((value) => value + 1));
   }
 
-  /** Apply a confirmed response only to the still-current ready workspace. */
+  /** Apply a controlled mutation only to the still-current ready workspace. */
   updateColumns(
     generation: number,
     update: (columns: readonly WorkspaceColumn[]) => readonly WorkspaceColumn[],

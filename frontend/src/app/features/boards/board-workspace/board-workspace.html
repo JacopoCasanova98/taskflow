@@ -22,10 +22,15 @@
   }
   @case ('ready') {
     <h1>{{ workspace.board.name }}</h1>
-    <app-column-controls>
+    <app-column-controls cdkDropListGroup>
       <ng-template let-lane>
         <app-task-list [lane]="lane" />
       </ng-template>
     </app-column-controls>
+    @if (tasks.selected(); as task) {
+      @for (id of [task.id]; track id) {
+        <app-task-details [task]="task" />
+      }
+    }
   }
 }

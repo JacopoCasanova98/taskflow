@@ -1,3 +1,13 @@
+import { By } from '@angular/platform-browser';
+import {
+  CdkDrag,
+  CdkDragDrop,
+  CdkDragHandle,
+  CdkDropList,
+  CdkDropListGroup,
+} from '@angular/cdk/drag-drop';
+import { TaskList } from './task-list';
+import { TaskDropListData } from './task-placement';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -306,5 +316,156 @@ describe('Task CRUD in workspace', () => {
     expect(button('Add task to B').disabled).toBe(false);
     await click('Add task to B');
     expect(element.querySelector<HTMLInputElement>('[id$="-title"]')?.value).toBe('');
+  });
+
+  function dropTask() {
+    const lists = fixture.debugElement.queryAll(By.directive(CdkDropList));
+    const source = lists[1].injector.get(CdkDropList) as CdkDropList<TaskDropListData>;
+    const target = lists[0].injector.get(CdkDropList) as CdkDropList<TaskDropListData>;
+    const item = fixture.debugElement
+      .query(By.directive(CdkDrag))
+      .injector.get(CdkDrag) as CdkDrag<string>;
+    const event = {
+      previousContainer: source,
+      container: target,
+      item,
+      previousIndex: 0,
+      currentIndex: 0,
+    } as CdkDragDrop<TaskDropListData, TaskDropListData, string>;
+    // Invoke the application's actual template binding, without simulating CDK pointer geometry.
+    lists[0].triggerEventHandler('cdkDropListDropped', event);
+  }
+  it('connects exactly the current Board task lists, including empty Columns, with task-only drag handles', () => {
+    const group = fixture.debugElement
+      .query(By.directive(CdkDropListGroup))
+      .injector.get(CdkDropListGroup);
+    const lists = fixture.debugElement.queryAll(By.directive(CdkDropList));
+    expect(lists).toHaveLength(3);
+    for (const [index, node] of lists.entries()) {
+      expect(node.injector.get(CdkDropListGroup)).toBe(group);
+      expect(node.injector.get(CdkDropList).data).toEqual({
+        columnId: columns[index].id,
+        tasks: index === 1 ? [task] : [],
+      });
+    }
+    const drags = fixture.debugElement.queryAll(By.directive(CdkDrag));
+    expect(drags).toHaveLength(1);
+    expect(drags[0].nativeElement.tagName).toBe('LI');
+    expect(drags[0].injector.get(CdkDrag).data).toBe(task.id);
+    const handles = fixture.debugElement.queryAll(By.directive(CdkDragHandle));
+    expect(handles).toHaveLength(1);
+    expect(handles[0].nativeElement.tagName).toBe('SPAN');
+    expect(button('View task: Fix login').disabled).toBe(false);
+    expect(button('Move B left').disabled).toBe(false);
+    expect(button('Move B right').disabled).toBe(false);
+  });
+  it.each(['success', 'error'])(
+    'renders an optimistic empty-Column move, keeps details open and handles %s',
+    async (outcome) => {
+      await click('View task: Fix login');
+      const details = element.querySelector('app-task-details');
+      dropTask();
+      await settle();
+      const lanes = fixture.debugElement.queryAll(By.directive(TaskList));
+      expect(lanes[0].nativeElement.textContent).toContain('Fix login');
+      expect(lanes[1].nativeElement.textContent).toContain('No tasks yet.');
+      expect(element.querySelector('app-task-details')).toBe(details);
+      for (const name of [
+        'Add task to A',
+        'Edit',
+        'Delete',
+        'Rename B',
+        'Delete B',
+        'Move B left',
+        'Move B right',
+        'Add column',
+      ])
+        expect(button(name).disabled).toBe(true);
+      for (const node of fixture.debugElement.queryAll(By.directive(CdkDrag)))
+        expect(node.injector.get(CdkDrag).disabled).toBe(true);
+      for (const node of fixture.debugElement.queryAll(By.directive(CdkDropList)))
+        expect(node.injector.get(CdkDropList).disabled).toBe(true);
+      const request = http.expectOne('/api/tasks/b0/placement');
+      expect(request.request.body).toEqual({ columnId: 'a', position: 0 });
+      if (outcome === 'success') request.flush({ ...task, columnId: 'a', title: 'Canonical move' });
+      else request.flush({ detail: 'Secret' }, { status: 500, statusText: 'Failure' });
+      await settle();
+      expect(element.querySelector('app-task-details')).toBe(details);
+      expect(details?.querySelector('h3')?.textContent).toBe(
+        outcome === 'success' ? 'Canonical move' : task.title,
+      );
+      if (outcome === 'error') {
+        expect(lanes[1].nativeElement.textContent).toContain('Fix login');
+        expect(element.textContent).toContain("We couldn't move the task. Please try again.");
+        expect(element.textContent).not.toContain('Secret');
+      }
+      expect(fixture.debugElement.query(By.directive(CdkDrag)).injector.get(CdkDrag).disabled).toBe(
+        false,
+      );
+      expect(button('Edit').disabled).toBe(false);
+    },
+  );
+  it.each(['success', 'error'])(
+    'preserves an unsent edit draft during movement and %s',
+    async (outcome) => {
+      await click('View task: Fix login');
+      await click('Edit');
+      await fill('title', 'Unsent draft');
+      const form = element.querySelector('form');
+      dropTask();
+      await settle();
+      expect(element.querySelector('form')).toBe(form);
+      expect(button('Save task').disabled).toBe(true);
+      await submit();
+      http.expectNone('/api/tasks/b0');
+      const request = http.expectOne('/api/tasks/b0/placement');
+      if (outcome === 'success') request.flush({ ...task, columnId: 'a' });
+      else request.flush({}, { status: 500, statusText: 'Failure' });
+      await settle();
+      expect(element.querySelector('form')).toBe(form);
+      expect(element.querySelector<HTMLInputElement>('[id$="-title"]')?.value).toBe('Unsent draft');
+      expect(button('Save task').disabled).toBe(false);
+    },
+  );
+  it('preserves an open create form and disables its submission during placement', async () => {
+    await click('Add task to A');
+    await fill('title', 'Create draft');
+    dropTask();
+    await settle();
+    expect(button('Create task').disabled).toBe(true);
+    await submit();
+    http.expectNone('/api/columns/a/tasks');
+    http.expectOne('/api/tasks/b0/placement').flush({ ...task, columnId: 'a' });
+    await settle();
+    expect(element.querySelector<HTMLInputElement>('[id$="-title"]')?.value).toBe('Create draft');
+    expect(button('Create task').disabled).toBe(false);
+  });
+  it('disables confirmed Task deletion during placement', async () => {
+    await click('View task: Fix login');
+    await click('Delete');
+    dropTask();
+    await settle();
+    expect(button('Delete task').disabled).toBe(true);
+    await click('Delete task');
+    http.expectNone('/api/tasks/b0');
+    http.expectOne('/api/tasks/b0/placement').flush({ ...task, columnId: 'a' });
+    await settle();
+    expect(button('Delete task').disabled).toBe(false);
+  });
+  it('disables dragging while either a Task or Column request is pending', async () => {
+    await click('View task: Fix login');
+    await click('Edit');
+    await submit();
+    expect(fixture.debugElement.query(By.directive(CdkDrag)).injector.get(CdkDrag).disabled).toBe(
+      true,
+    );
+    http.expectOne('/api/tasks/b0').flush(task);
+    await settle();
+    await click('Move B left');
+    expect(fixture.debugElement.query(By.directive(CdkDrag)).injector.get(CdkDrag).disabled).toBe(
+      true,
+    );
+    http.expectOne('/api/boards/one/columns/order').flush(columns);
+    await settle();
   });
 });
