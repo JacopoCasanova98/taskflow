@@ -11,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { form, FormField, maxLength, required, submit, validate } from '@angular/forms/signals';
+import { priorityLabels, taskPriorities } from '../task-priority';
 import { Task, TaskPriority, UpdateTaskRequest } from '../task.models';
 import { TaskField, TaskMutationResult } from '../task-management';
 
@@ -21,6 +22,8 @@ import { TaskField, TaskMutationResult } from '../task-management';
   styleUrl: '../task-controls.scss',
 })
 export class TaskForm implements OnInit {
+  readonly priorityLabels = priorityLabels;
+  readonly priorities = taskPriorities;
   readonly inputId = input.required<string>();
   readonly action = input.required<string>();
   readonly initialTask = input<Task | null>(null);

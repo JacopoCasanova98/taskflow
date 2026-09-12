@@ -131,7 +131,7 @@ describe('Task CRUD in workspace', () => {
     expect(details.querySelector('h3')?.textContent).toBe('Fix login');
     expect(details.textContent).toContain(task.description);
     expect(details.querySelector('b')).toBeNull();
-    expect(details.textContent).toContain('Priority: HIGH');
+    expect(details.textContent).toContain('Priority: High');
     expect(details.textContent).toContain('Due date: 2026-09-30');
     expect(details.textContent).not.toContain('created');
     expect(details.querySelector('[draggable]')).toBeNull();
@@ -144,7 +144,7 @@ describe('Task CRUD in workspace', () => {
     await click('Edit');
     expect(element.querySelector<HTMLInputElement>('[id$="-title"]')?.value).toBe(task.title);
     expect(element.querySelector('textarea')?.value).toBe(task.description);
-    expect(element.querySelector('select')?.value).toBe('HIGH');
+    expect(element.querySelector<HTMLSelectElement>('select[id$="-priority"]')?.value).toBe('HIGH');
     await fill('title', ' Updated ');
     await fill('description', '');
     await fill('priority', 'LOW');
@@ -169,7 +169,7 @@ describe('Task CRUD in workspace', () => {
     expect(element.querySelector('form')).toBeNull();
     const details = element.querySelector('app-task-details')!;
     expect(details.querySelector('h3')?.textContent).toBe('Canonical update');
-    expect(details.textContent).toContain('Priority: LOW');
+    expect(details.textContent).toContain('Priority: Low');
     expect(details.querySelector('.description')).toBeNull();
     expect(details.textContent).not.toContain('Due date:');
   });

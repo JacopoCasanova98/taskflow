@@ -21,17 +21,19 @@
 }
 @if (lane().tasks.length === 0) {
   <p>No tasks yet.</p>
+} @else if (visibleTasks().length === 0) {
+  <p>No tasks match this priority.</p>
 }
 <ul
   aria-label="Tasks"
   cdkDropList
   [cdkDropListData]="dropData()"
-  [cdkDropListDisabled]="management.busy()"
+  [cdkDropListDisabled]="dragDisabled()"
   (cdkDropListDropped)="management.drop($event)"
-  [class.empty-drop-list]="lane().tasks.length === 0"
+  [class.empty-drop-list]="lane().tasks.length === 0 && view.manual()"
 >
-  @for (task of lane().tasks; track task.id) {
-    <li class="task" cdkDrag [cdkDragData]="task.id" [cdkDragDisabled]="management.busy()">
+  @for (task of visibleTasks(); track task.id) {
+    <li class="task" cdkDrag [cdkDragData]="task.id" [cdkDragDisabled]="dragDisabled()">
       <span class="task-grip" cdkDragHandle aria-hidden="true" title="Drag to move task"></span>
       <button
         class="task-title"
@@ -42,6 +44,7 @@
       >
         {{ task.title }}
       </button>
+      <app-task-priority-indicator [priority]="task.priority" />
     </li>
   }
 </ul>

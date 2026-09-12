@@ -39,7 +39,7 @@ describe('Board workspace page', () => {
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/boards');
     expect(element.querySelector('button')?.textContent?.trim()).toBe('Add column');
   });
-  it('renders semantic lanes and title-only tasks in server order with empty-column guidance', async () => {
+  it('renders semantic lanes and Task summaries in server order with empty-column guidance', async () => {
     http.expectOne('/api/boards/one').flush(board);
     http.expectOne('/api/boards/one/columns').flush([
       { id: 'z', name: 'Planning', position: 0 },
@@ -62,7 +62,9 @@ describe('Board workspace page', () => {
       'Planning',
       'Doing',
     ]);
-    expect(Array.from(element.querySelectorAll('li'), (li) => li.textContent?.trim())).toEqual([
+    expect(
+      Array.from(element.querySelectorAll('li .task-title'), (button) => button.textContent?.trim()),
+    ).toEqual([
       'Second alphabetically',
       'First alphabetically',
     ]);

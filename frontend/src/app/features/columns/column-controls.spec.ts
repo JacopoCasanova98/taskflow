@@ -77,7 +77,7 @@ describe('Column controls in Board workspace', () => {
   it('creates the first Column and resets its form after success', async () => {
     await load([]);
     await click('Add column');
-    expect(element.querySelector('label')?.textContent).toBe('Column name');
+    expect(element.querySelector('app-column-controls form label')?.textContent).toBe('Column name');
     await fill('  First  ');
     await submit();
     const request = http.expectOne('/api/boards/one/columns');

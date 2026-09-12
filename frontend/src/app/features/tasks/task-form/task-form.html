@@ -46,9 +46,9 @@
       !!serverFields().priority || (taskForm.priority().touched() && taskForm.priority().invalid())
     "
   >
-    <option value="LOW">LOW</option>
-    <option value="MEDIUM">MEDIUM</option>
-    <option value="HIGH">HIGH</option>
+    @for (priority of priorities; track priority) {
+      <option [value]="priority">{{ priorityLabels[priority] }}</option>
+    }
   </select>
   <div class="errors" aria-live="polite" [id]="inputId() + '-priority-errors'">
     @if (taskForm.priority().touched()) {

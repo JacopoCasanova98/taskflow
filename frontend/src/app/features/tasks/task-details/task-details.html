@@ -13,7 +13,7 @@
     @if (task().description) {
       <p class="description">{{ task().description }}</p>
     }
-    <p>Priority: {{ task().priority }}</p>
+    <p><app-task-priority-indicator [priority]="task().priority" /></p>
     @if (task().dueDate) {
       <p>Due date: {{ task().dueDate }}</p>
     }
