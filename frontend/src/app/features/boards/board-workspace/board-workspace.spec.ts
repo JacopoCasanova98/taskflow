@@ -70,8 +70,9 @@ describe('Board workspace page', () => {
     expect(element.textContent).toContain('No tasks yet.');
     for (const hidden of ['HIGH', '2026-09-12', 'Hidden description'])
       expect(element.textContent).not.toContain(hidden);
-    expect(element.querySelector('li button, input, form, [draggable]')).toBeNull();
-    expect(element.textContent).not.toContain('Add task');
+    expect(element.querySelector('input, form, [draggable]')).toBeNull();
+    expect(element.textContent).toContain('Add task');
+    expect(element.querySelector('li button')?.getAttribute('aria-label')).toContain('View task:');
   });
   it('shows a safe not-found message and real back link', async () => {
     http

@@ -1,4 +1,4 @@
-import { DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   catchError,
@@ -44,6 +44,20 @@ export class BoardWorkspaceState {
   private readonly generationState = signal(0);
   readonly generation = this.generationState.asReadonly();
   readonly workspace = this.value.asReadonly();
+  private readonly pendingWrite = signal<{ readonly generation: number } | null>(null);
+  readonly writing = computed(() => this.pendingWrite()?.generation === this.generation());
+
+  /** One Column or Task write at a time in this workspace generation. */
+  beginWrite(): { readonly generation: number } | null {
+    if (this.writing() || this.workspace().status !== 'ready') return null;
+    const write = { generation: this.generation() };
+    this.pendingWrite.set(write);
+    return write;
+  }
+
+  endWrite(write: { readonly generation: number }): void {
+    if (this.pendingWrite() === write) this.pendingWrite.set(null);
+  }
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.generationState.update((value) => value + 1));

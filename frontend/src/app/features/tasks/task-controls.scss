@@ -1,0 +1,85 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+input,
+textarea,
+select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.6rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+}
+textarea {
+  resize: vertical;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+button {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+button:hover:not(:disabled) {
+  background: #eff6ff;
+}
+.errors {
+  color: #b91c1c;
+}
+ul {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin-block: 1rem;
+}
+.task {
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  overflow-wrap: anywhere;
+}
+.task-title {
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+h3,
+h4 {
+  margin-block: 0.5rem 1rem;
+}
+.description {
+  white-space: pre-wrap;
+}

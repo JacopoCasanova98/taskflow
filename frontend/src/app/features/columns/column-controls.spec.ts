@@ -89,7 +89,7 @@ describe('Column controls in Board workspace', () => {
     await click('Add column');
     expect(element.querySelector('input')?.value).toBe('');
   });
-  it('renames inline from current name while retaining read-only Task cards', async () => {
+  it('renames inline from current name while retaining Task summaries', async () => {
     await load();
     await click('Rename B');
     expect(element.querySelector('input')?.value).toBe('B');
@@ -104,8 +104,9 @@ describe('Column controls in Board workspace', () => {
       'C',
     ]);
     expect(element.querySelector('form')).toBeNull();
-    expect(element.querySelector('li button, [draggable]')).toBeNull();
-    expect(element.textContent).not.toContain('Add task');
+    expect(element.querySelector('[draggable]')).toBeNull();
+    expect(element.textContent).toContain('Add task');
+    expect(element.querySelector('li button')?.getAttribute('aria-label')).toContain('View task:');
   });
   it('requires confirmation, permits cancellation, and submits deletion only once', async () => {
     await load();

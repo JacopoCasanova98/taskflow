@@ -1,0 +1,92 @@
+<form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="taskForm().submitting()">
+  <label [for]="inputId() + '-title'">Title</label>
+  <input
+    #titleInput
+    [id]="inputId() + '-title'"
+    type="text"
+    [formField]="taskForm.title"
+    [attr.aria-describedby]="inputId() + '-title-errors'"
+    [attr.aria-invalid]="
+      !!serverFields().title || (taskForm.title().touched() && taskForm.title().invalid())
+    "
+  />
+  <div class="errors" aria-live="polite" [id]="inputId() + '-title-errors'">
+    @if (taskForm.title().touched()) {
+      @for (error of taskForm.title().errors(); track $index) {
+        <p>{{ error.message }}</p>
+      }
+    }
+    <p>{{ serverFields().title }}</p>
+  </div>
+  <label [for]="inputId() + '-description'">Description (optional)</label>
+  <textarea
+    [id]="inputId() + '-description'"
+    rows="4"
+    [formField]="taskForm.description"
+    [attr.aria-describedby]="inputId() + '-description-errors'"
+    [attr.aria-invalid]="
+      !!serverFields().description ||
+      (taskForm.description().touched() && taskForm.description().invalid())
+    "
+  ></textarea>
+  <div class="errors" aria-live="polite" [id]="inputId() + '-description-errors'">
+    @if (taskForm.description().touched()) {
+      @for (error of taskForm.description().errors(); track $index) {
+        <p>{{ error.message }}</p>
+      }
+    }
+    <p>{{ serverFields().description }}</p>
+  </div>
+  <label [for]="inputId() + '-priority'">Priority</label>
+  <select
+    [id]="inputId() + '-priority'"
+    [formField]="taskForm.priority"
+    [attr.aria-describedby]="inputId() + '-priority-errors'"
+    [attr.aria-invalid]="
+      !!serverFields().priority || (taskForm.priority().touched() && taskForm.priority().invalid())
+    "
+  >
+    <option value="LOW">LOW</option>
+    <option value="MEDIUM">MEDIUM</option>
+    <option value="HIGH">HIGH</option>
+  </select>
+  <div class="errors" aria-live="polite" [id]="inputId() + '-priority-errors'">
+    @if (taskForm.priority().touched()) {
+      @for (error of taskForm.priority().errors(); track $index) {
+        <p>{{ error.message }}</p>
+      }
+    }
+    <p>{{ serverFields().priority }}</p>
+  </div>
+  <label [for]="inputId() + '-dueDate'">Due date (optional)</label>
+  <input
+    [id]="inputId() + '-dueDate'"
+    type="date"
+    [formField]="taskForm.dueDate"
+    [attr.aria-describedby]="inputId() + '-dueDate-errors'"
+    [attr.aria-invalid]="
+      !!serverFields().dueDate || (taskForm.dueDate().touched() && taskForm.dueDate().invalid())
+    "
+  />
+  <div class="errors" aria-live="polite" [id]="inputId() + '-dueDate-errors'">
+    @if (taskForm.dueDate().touched()) {
+      @for (error of taskForm.dueDate().errors(); track $index) {
+        <p>{{ error.message }}</p>
+      }
+    }
+    <p>{{ serverFields().dueDate }}</p>
+  </div>
+  <p class="errors" role="alert">{{ serverError() }}</p>
+  <div class="actions">
+    <button type="submit" [disabled]="disabled() || taskForm().submitting()">
+      {{ taskForm().submitting() ? 'Saving…' : action() }}
+    </button>
+    <button
+      type="button"
+      [disabled]="disabled() || taskForm().submitting()"
+      (click)="closed.emit()"
+    >
+      Cancel
+    </button>
+  </div>
+</form>

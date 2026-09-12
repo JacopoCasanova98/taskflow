@@ -16,9 +16,8 @@ type Operation = 'create' | 'rename' | 'delete' | 'reorder';
 export class ColumnManagement {
   private readonly workspace = inject(BoardWorkspaceState);
   private readonly api = inject(ColumnApi);
-  private readonly pending = signal<{ generation: number; operation: Operation } | null>(null);
   private readonly feedback = signal<{ generation: number; message: string } | null>(null);
-  readonly busy = computed(() => this.pending()?.generation === this.workspace.generation());
+  readonly busy = this.workspace.writing;
   readonly notice = computed(() => {
     const feedback = this.feedback();
     return feedback?.generation === this.workspace.generation() &&
@@ -98,10 +97,9 @@ export class ColumnManagement {
     request: () => Observable<T>,
     apply: (response: T, generation: number) => void,
   ): Promise<ColumnMutationResult> {
-    if (this.busy() || this.workspace.workspace().status !== 'ready') return this.stale();
-    const generation = this.workspace.generation();
-    const pending = { generation, operation };
-    this.pending.set(pending);
+    const pending = this.workspace.beginWrite();
+    if (!pending) return this.stale();
+    const { generation } = pending;
     this.feedback.set(null);
     try {
       const response = await firstValueFrom(request());
@@ -134,7 +132,7 @@ export class ColumnManagement {
               ' Please try again.';
       return { success: false, error: message };
     } finally {
-      if (this.pending() === pending) this.pending.set(null);
+      this.workspace.endWrite(pending);
     }
   }
 

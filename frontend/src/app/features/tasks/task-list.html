@@ -1,0 +1,45 @@
+@if (management.creatingIn() === lane().column.id) {
+  <section [attr.aria-labelledby]="'create-task-title-' + lane().column.id">
+    <h3 [id]="'create-task-title-' + lane().column.id">Create task</h3>
+    <app-task-form
+      [inputId]="'create-task-' + lane().column.id"
+      action="Create task"
+      [save]="create"
+      [disabled]="management.busy()"
+      (closed)="management.creatingIn.set(null)"
+    />
+  </section>
+} @else {
+  <button
+    type="button"
+    [attr.aria-label]="'Add task to ' + lane().column.name"
+    [disabled]="management.busy() || management.creatingIn() !== null"
+    (click)="management.creatingIn.set(lane().column.id)"
+  >
+    Add task
+  </button>
+}
+@if (lane().tasks.length === 0) {
+  <p>No tasks yet.</p>
+} @else {
+  <ul aria-label="Tasks">
+    @for (task of lane().tasks; track task.id) {
+      <li class="task">
+        <button
+          class="task-title"
+          type="button"
+          [attr.aria-label]="'View task: ' + task.title"
+          [disabled]="management.busy()"
+          (click)="management.selectedId.set(task.id)"
+        >
+          {{ task.title }}
+        </button>
+      </li>
+    }
+  </ul>
+}
+@if (selected(); as task) {
+  @for (id of [task.id]; track id) {
+    <app-task-details [task]="task" />
+  }
+}

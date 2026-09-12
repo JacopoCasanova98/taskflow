@@ -2,6 +2,9 @@
 @if (columns.notice()) {
   <p role="status">{{ columns.notice() }}</p>
 }
+@if (tasks.notice()) {
+  <p role="status">{{ tasks.notice() }}</p>
+}
 @let workspace = state.workspace();
 @switch (workspace.status) {
   @case ('loading') {
@@ -21,15 +24,7 @@
     <h1>{{ workspace.board.name }}</h1>
     <app-column-controls>
       <ng-template let-lane>
-        @if (lane.tasks.length === 0) {
-          <p class="empty">No tasks yet.</p>
-        } @else {
-          <ul aria-label="Tasks">
-            @for (task of lane.tasks; track task.id) {
-              <li class="task">{{ task.title }}</li>
-            }
-          </ul>
-        }
+        <app-task-list [lane]="lane" />
       </ng-template>
     </app-column-controls>
   }

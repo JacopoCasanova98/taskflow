@@ -14,3 +14,18 @@ export function isHttpProblem(error: unknown, status: number, code: string): boo
     (error.error as HttpProblem).code === code
   );
 }
+
+/** Extract field names only. Feature code supplies safe copy and an allowlist. */
+export function httpValidationFields(error: unknown): readonly string[] | null {
+  if (!isHttpProblem(error, 400, 'VALIDATION_FAILED')) return null;
+  const violations: unknown = (error as HttpErrorResponse).error.violations;
+  if (!Array.isArray(violations)) return [];
+  return violations.map((violation: unknown) =>
+    typeof violation === 'object' &&
+    violation !== null &&
+    'field' in violation &&
+    typeof violation.field === 'string'
+      ? violation.field
+      : '',
+  );
+}
