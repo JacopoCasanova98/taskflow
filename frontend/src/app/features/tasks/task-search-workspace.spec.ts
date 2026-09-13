@@ -157,7 +157,7 @@ describe('Task Search in the Board workspace', () => {
     expect(element.textContent).toContain('Searching…');
     expect(titles()).toHaveLength(2);
     expect(element.textContent).not.toContain('No tasks match your search.');
-    expect(element.textContent).not.toContain('No tasks yet.');
+    expect(element.querySelectorAll('app-task-list')[2].textContent).toContain('No tasks yet.');
     request('none').flush([]);
     await settle();
     expect(element.textContent).toContain('No tasks match your search.');
@@ -200,22 +200,20 @@ describe('Task Search in the Board workspace', () => {
     expect(fixture.componentInstance.state.workspace().status).toBe('not-found');
     expect(element.textContent).not.toContain('private');
   });
-  it('keeps Search exclusive with Priority and Due filters while preserving existing sort', async () => {
+  it('combines Search with Priority and Due while preserving existing sort', async () => {
     view.setDueDateFilter('OVERDUE');
     view.setOrder('PRIORITY_HIGH_TO_LOW');
     await search('match', tasks);
-    expect(view.filter()).toBe('ALL');
-    expect(view.dueDateFilter()).toBe('ALL');
-    expect(titles()).toEqual(['Payment', 'Fix login']);
-    expect(canonical().columns[0].tasks.map((t) => t.position)).toEqual([0, 1]);
+    expect(view.dueDateFilter()).toBe('OVERDUE');
+    expect(titles()).toEqual([]);
     view.setFilter('HIGH');
-    await settle();
-    expect(view.search.input()).toBe('');
-    expect(view.filter()).toBe('HIGH');
-    await search('match', tasks);
     view.setDueDateFilter('NO_DUE_DATE');
     await settle();
-    expect(view.search.active()).toBe(false);
+    expect(view.search.input()).toBe('match');
+    expect(view.filter()).toBe('HIGH');
+    expect(titles()).toEqual(['Payment']);
+    expect(canonical().columns[0].tasks.map((t) => t.position)).toEqual([0, 1]);
+    http.expectNone(r => r.url.endsWith('/search'));
   });
   it('disables CDK and rejects direct drops without any optimistic mutation or request', async () => {
     const lists = fixture.debugElement.queryAll(By.directive(CdkDropList));
@@ -366,7 +364,7 @@ describe('Task Search in the Board workspace', () => {
     http.expectOne('/api/boards/one/columns').flush([]);
     await settle();
     await search('login', []);
-    expect(element.querySelector('[role="status"]')?.textContent).toContain(
+    expect(element.textContent).toContain(
       'No tasks match your search.',
     );
   });

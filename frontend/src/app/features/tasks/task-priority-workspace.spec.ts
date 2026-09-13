@@ -128,7 +128,7 @@ describe('Priority view in the Board workspace', () => {
     expect(select('task-priority-filter').value).toBe('ALL');
     expect(select('task-priority-order').value).toBe('MANUAL');
     expect(element.querySelector('label[for="task-priority-filter"]')?.textContent).toBe(
-      'Priority filter',
+      'Priority',
     );
     expect(element.querySelector('label[for="task-priority-order"]')?.textContent).toBe(
       'Task order',
@@ -144,7 +144,7 @@ describe('Priority view in the Board workspace', () => {
     expect(titles()).toBe('BD');
     expect(titles(1)).toBe('');
     expect(lanes()).toHaveLength(3);
-    expect(lanes()[1].textContent).toContain('No tasks match the current filter.');
+    expect(lanes()[1].textContent).toContain('No tasks match the current filters.');
     expect(lanes()[1].textContent).not.toContain('No tasks yet.');
     expect(lanes()[2].textContent).toContain('No tasks yet.');
     expect(canonical()).toBe(before);

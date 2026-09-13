@@ -26,7 +26,7 @@ export class BoardWorkspace {
   readonly state = inject(BoardWorkspaceState);
 
   constructor() {
-    this.taskView.search.connect(this.state);
+    this.taskView.connect(this.state);
     this.state.connect(
       inject(ActivatedRoute).paramMap.pipe(
         map((params) => params.get('boardId')!),

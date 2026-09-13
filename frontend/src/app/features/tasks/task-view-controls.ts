@@ -30,7 +30,21 @@ import { priorityLabels } from './task-priority';
         }
       </div>
       <div>
-        <label for="task-priority-filter">Priority filter</label>
+        <label for="task-column-filter">Column</label>
+        <select
+          id="task-column-filter"
+          #column
+          [value]="view.columnFilter()"
+          (change)="view.setColumnFilter(column.value)"
+        >
+          <option value="ALL">All columns</option>
+          @for (column of view.columns(); track column.id) {
+            <option [value]="column.id">{{ column.name }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label for="task-priority-filter">Priority</label>
         <select
           id="task-priority-filter"
           #filter
@@ -69,9 +83,23 @@ import { priorityLabels } from './task-priority';
           <option value="PRIORITY_LOW_TO_HIGH">Priority: Low to High</option>
         </select>
       </div>
+      <div class="clear-filters">
+        <button
+          type="button"
+          [disabled]="view.activeFilterCount() === 0"
+          (click)="view.clearFilters()"
+        >
+          Clear filters
+        </button>
+      </div>
     </div>
+    <p role="status">
+      @if (view.activeFilterCount(); as count) {
+        {{ count }} {{ count === 1 ? 'filter active' : 'filters active' }}
+      }
+    </p>
     @if (view.search.empty()) {
-      <p role="status">No tasks match your search.</p>
+      <p role="status">{{ view.emptyMessage() }}</p>
     }
     @if (view.search.status() === 'loading') {
       <p role="status">Searching…</p>

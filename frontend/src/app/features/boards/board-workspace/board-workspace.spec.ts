@@ -37,7 +37,7 @@ describe('Board workspace page', () => {
     expect(element.querySelector('h1')?.textContent).toBe(board.name);
     expect(element.textContent).toContain('This board has no columns yet.');
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/boards');
-    expect(element.querySelector('button')?.textContent?.trim()).toBe('Add column');
+    expect(element.querySelector('app-column-controls button')?.textContent?.trim()).toBe('Add column');
   });
   it('renders semantic lanes and Task summaries in server order with empty-column guidance', async () => {
     http.expectOne('/api/boards/one').flush(board);

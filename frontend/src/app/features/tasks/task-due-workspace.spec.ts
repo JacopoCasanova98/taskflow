@@ -172,18 +172,19 @@ describe('Due dates in the Board workspace', () => {
     expect(titles()).toBe('ABCD');
     expect(canonical()).toBe(before);
   });
-  it('keeps filter dimensions exclusive while retaining Priority sort', async () => {
+  it('combines Priority and Due filters while retaining Priority sort', async () => {
     await change('task-priority-order', 'PRIORITY_HIGH_TO_LOW');
     await change('task-priority-filter', 'HIGH');
     await change('task-due-filter', 'OVERDUE');
-    expect(select('task-priority-filter').value).toBe('ALL');
+    expect(select('task-priority-filter').value).toBe('HIGH');
     expect(titles()).toBe('B');
     expect(select('task-priority-order').value).toBe('PRIORITY_HIGH_TO_LOW');
     await change('task-priority-filter', 'LOW');
-    expect(select('task-due-filter').value).toBe('ALL');
-    expect(titles()).toBe('A');
+    expect(select('task-due-filter').value).toBe('OVERDUE');
+    expect(titles()).toBe('');
     await change('task-due-filter', 'ALL');
     expect(select('task-priority-filter').value).toBe('LOW');
+    expect(titles()).toBe('A');
   });
   it('sorts overdue Tasks by Priority with stable manual ties without changing state', async () => {
     fixture.componentInstance.state.retry();
@@ -216,7 +217,7 @@ describe('Due dates in the Board workspace', () => {
   });
   it('distinguishes filtered-empty from canonical-empty Columns', async () => {
     await change('task-due-filter', 'OVERDUE');
-    expect(lanes()[1].textContent).toContain('No tasks match the current filter.');
+    expect(lanes()[1].textContent).toContain('No tasks match the current filters.');
     expect(lanes()[1].textContent).not.toContain('No tasks yet.');
     expect(lanes()[2].textContent).toContain('No tasks yet.');
     await change('task-due-filter', 'ALL');

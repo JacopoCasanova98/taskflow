@@ -4,7 +4,6 @@ import { EMPTY, Subject, catchError, of, switchMap, timer } from 'rxjs';
 import { isHttpProblem } from '../../core/http/http-problem';
 import { BoardWorkspaceState } from '../boards/board-workspace/board-workspace-state';
 import { TaskApi } from './task-api';
-import { Task } from './task.models';
 
 /** Owned by TaskView on one Board page. Search responses retain IDs only. */
 export class TaskSearch {
@@ -14,6 +13,7 @@ export class TaskSearch {
   readonly active = computed(() => this.query() !== '');
   readonly status = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   private readonly ids = signal<ReadonlySet<string> | null>(null);
+  readonly membership = this.ids.asReadonly();
   readonly empty = computed(
     () => this.active() && this.status() === 'ready' && this.ids()?.size === 0,
   );
@@ -112,9 +112,5 @@ export class TaskSearch {
   refresh(resetReconciliation = true): void {
     if (resetReconciliation) this.reconciled = false;
     this.requests.next({ delay: 0 });
-  }
-  project(tasks: readonly Task[]): readonly Task[] {
-    const ids = this.ids();
-    return this.active() && ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
   }
 }

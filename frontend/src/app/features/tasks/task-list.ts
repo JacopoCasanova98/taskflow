@@ -6,9 +6,7 @@ import { TaskForm } from './task-form/task-form';
 import { TaskPriorityIndicator } from './task-priority-indicator';
 import { TaskDueIndicator } from './task-due-indicator';
 import { TaskLocalDay } from './task-local-day';
-import { filterTasksByDueDate } from './task-due-date';
 import { TaskView } from './task-view';
-import { projectTasksByPriority } from './task-priority';
 import { UpdateTaskRequest } from './task.models';
 
 @Component({
@@ -27,15 +25,7 @@ export class TaskList {
   readonly view = inject(TaskView);
   private readonly localDay = inject(TaskLocalDay);
   readonly visibleTasks = computed(() =>
-    projectTasksByPriority(
-      filterTasksByDueDate(
-        this.view.search.project(this.lane().tasks),
-        this.view.dueDateFilter(),
-        this.localDay.today(),
-      ),
-      this.view.filter(),
-      this.view.order(),
-    ),
+    this.view.project(this.lane().tasks, this.localDay.today()),
   );
   readonly dragDisabled = computed(() => this.management.busy() || !this.view.manual());
   readonly create = (request: UpdateTaskRequest) =>
