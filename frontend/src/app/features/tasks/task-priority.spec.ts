@@ -37,7 +37,7 @@ describe('Priority projection', () => {
     expect(tasks).toEqual(before);
     for (const task of result) expect(task).toBe(tasks.find((entry) => entry.id === task.id));
   });
-  it('uses manual positions, never titles or IDs, to break equal-priority ties', () => {
+  it('uses manual positions before IDs to break equal-priority ties', () => {
     const input = [tasks[3], tasks[1]];
     expect(projectTasksByPriority(input, 'ALL', 'PRIORITY_HIGH_TO_LOW')).toEqual([
       tasks[1],
@@ -47,14 +47,17 @@ describe('Priority projection', () => {
       tasks[1],
       tasks[3],
     ]);
-    expect(projectTasksByPriority(input, 'ALL', 'MANUAL')).toEqual(input);
+    expect(projectTasksByPriority(input, 'ALL', 'MANUAL')).toEqual([tasks[1], tasks[3]]);
   });
-  it('preserves original array order for equal ranks and positions', () => {
+  it('uses IDs for equal ranks and positions', () => {
     const input = [
       { ...tasks[1], id: 'Z' },
       { ...tasks[1], id: 'A' },
     ];
-    expect(projectTasksByPriority(input, 'ALL', 'PRIORITY_HIGH_TO_LOW')).toEqual(input);
+    expect(projectTasksByPriority(input, 'ALL', 'PRIORITY_HIGH_TO_LOW')).toEqual([
+      input[1],
+      input[0],
+    ]);
   });
   it('handles actual and filtered empty arrays', () => {
     expect(projectTasksByPriority([], 'ALL', 'MANUAL')).toEqual([]);

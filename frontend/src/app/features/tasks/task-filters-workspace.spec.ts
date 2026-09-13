@@ -164,6 +164,36 @@ describe('Combined Task filters in the Board workspace', () => {
     } as CdkDragDrop<TaskDropListData, TaskDropListData, string>;
   }
 
+  it('sorts combined Search membership locally and preserves sorting when clearing filters', async () => {
+    const response = [
+      ...tasks,
+      { ...tasks[0], id: 'T6', title: 'T6', position: 3, updatedAt: '2026-09-12T13:00:00Z' },
+    ];
+    fixture.componentInstance.state.retry();
+    await load('one', response);
+    await localFilters();
+    await search(response.slice(0, 4).concat(response[5]));
+    const before = canonical();
+    for (const order of [
+      'CREATED_NEWEST',
+      'DUE_DATE_ASC',
+      'PRIORITY_LOW_TO_HIGH',
+      'UPDATED_OLDEST',
+      'MANUAL',
+    ]) {
+      await change('task-priority-order', order);
+      expect(titles()).toEqual(['T1', 'T6']);
+      http.expectNone(() => true);
+    }
+    await change('task-priority-order', 'UPDATED_NEWEST');
+    expect(titles()).toEqual(['T6', 'T1']);
+    await click('Clear filters');
+    expect(view.order()).toBe('UPDATED_NEWEST');
+    expect(titles()).toEqual(['T6', 'T1', 'T2', 'T5']);
+    expect(titles(1)).toEqual(['T3', 'T4']);
+    expect(canonical()).toBe(before);
+    http.expectNone(() => true);
+  });
   it('labels native controls and derives Column UUID/name options in canonical order', () => {
     for (const [id, label] of [
       ['task-search', 'Search tasks'],

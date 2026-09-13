@@ -2,7 +2,8 @@ import { computed, effect, Injectable, signal } from '@angular/core';
 import { BoardWorkspaceState } from '../boards/board-workspace/board-workspace-state';
 import { DueDateFilter, dueDateFilters } from './task-due-date';
 import { Task } from './task.models';
-import { PriorityFilter, TaskOrder, taskPriorities } from './task-priority';
+import { PriorityFilter, taskPriorities } from './task-priority';
+import { TaskOrder, taskOrders } from './task-order';
 import { projectTasks } from './task-projection';
 import { TaskSearch } from './task-search';
 
@@ -69,8 +70,7 @@ export class TaskView {
       this.dueDateValue.set(value as DueDateFilter);
   }
   setOrder(value: string): void {
-    if (value === 'MANUAL' || value === 'PRIORITY_HIGH_TO_LOW' || value === 'PRIORITY_LOW_TO_HIGH')
-      this.orderValue.set(value);
+    if (taskOrders.some((order) => order === value)) this.orderValue.set(value as TaskOrder);
   }
   project(tasks: readonly Task[], today: string): readonly Task[] {
     return projectTasks(tasks, {

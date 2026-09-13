@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { TaskView } from './task-view';
 import { dueDateFilters, dueDateFilterLabels } from './task-due-date';
+import { taskOrders, taskOrderLabels } from './task-order';
 import { priorityLabels } from './task-priority';
 
 @Component({
@@ -78,9 +79,9 @@ import { priorityLabels } from './task-priority';
           [value]="view.order()"
           (change)="view.setOrder(order.value)"
         >
-          <option value="MANUAL">Manual order</option>
-          <option value="PRIORITY_HIGH_TO_LOW">Priority: High to Low</option>
-          <option value="PRIORITY_LOW_TO_HIGH">Priority: Low to High</option>
+          @for (mode of orders; track mode) {
+            <option [value]="mode">{{ orderLabels[mode] }}</option>
+          }
         </select>
       </div>
       <div class="clear-filters">
@@ -121,6 +122,8 @@ import { priorityLabels } from './task-priority';
   styleUrl: './task-view-controls.scss',
 })
 export class TaskViewControls {
+  readonly orders = taskOrders;
+  readonly orderLabels = taskOrderLabels;
   readonly view = inject(TaskView);
   readonly priorities = ['HIGH', 'MEDIUM', 'LOW'] as const;
   readonly dueFilters = dueDateFilters;

@@ -760,3 +760,31 @@ Final MS5.13 verification: **526 frontend tests** across 33 files passed (**48 a
 - `.github/workflows/` is reserved for continuous integration and delivery automation.
 - `scripts/` holds repeatable development and operational automation.
 - `.agents/` holds repository context and guidance for AI-assisted work.
+
+## General Task sorting (MS5.14)
+
+MS5.14 extends the existing client-side presentation projection. `TaskView` owns page-scoped order; `task-projection.ts` applies Search membership → Column → Priority → Due-date filters → `sortTasks` from `task-order.ts`. Each Task list supplies only its own Column's canonical Tasks. Sorting never flattens the Board, redistributes Tasks, changes Column order/options, or mutates canonical arrays, Task objects, `columnId`, or persisted `Task.position`. The sorter returns a new array retaining canonical object identities. Changing order makes zero HTTP requests, including Search refreshes.
+
+The labelled native Task order select supports exactly:
+
+- `MANUAL`: Manual order.
+- `PRIORITY_HIGH_TO_LOW`: Priority: High to Low.
+- `PRIORITY_LOW_TO_HIGH`: Priority: Low to High.
+- `DUE_DATE_ASC`: Due date: Soonest first.
+- `DUE_DATE_DESC`: Due date: Latest first.
+- `CREATED_NEWEST`: Created: Newest first.
+- `CREATED_OLDEST`: Created: Oldest first.
+- `UPDATED_NEWEST`: Updated: Newest first.
+- `UPDATED_OLDEST`: Updated: Oldest first.
+
+Manual order explicitly compares persisted position ascending, then ID ascending as a defensive fallback. Priority retains HIGH/MEDIUM/LOW and LOW/MEDIUM/HIGH semantics. Due dates compare normalized `YYYY-MM-DD` strings as calendar dates without timezone conversion; null due dates always come last in both directions. Created/Updated compare server `createdAt`/`updatedAt` ISO instants using native parsing, with an epoch fallback for malformed values. Every primary tie, including two null due dates, uses the same position-then-ID comparator. IDs are only the final deterministic fallback and are not displayed as sort data.
+
+Filters remain independent from sorting and determine membership first. Priority filter plus Priority sort and Due filter plus Due sort are valid combinations. Clear filters preserves the selected order. Same-Board Retry, Search reconciliation, and stale-write reload retain presentation state and reproject canonical responses; navigation to another Board resets Manual. No URL or browser storage persistence is introduced.
+
+Canonical create/update responses immediately participate in the selected projection, including a later server `updatedAt` moving an edited Task under Updated newest. No client timestamps, placement request, or sort-induced reload is involved. Confirmed deletion recomputes the projection; existing canonical position compaction remains independent. Returning to Manual restores persisted manual order. Details remain selected by canonical ID, and tracked Task identities preserve unsent create/edit drafts when order changes.
+
+Every nonmanual mode disables CDK Task dragging and is rejected by the existing defensive drop guard. Movement still requires Manual, cleared Search/all filters, and no pending write. The existing generic movement guidance, canonical drop data, Column movement, native keyboard-accessible select, and wrapping responsive controls remain intact. There is no mapping from projected indexes to persisted positions.
+
+No backend sorting API, query parameter, repository method, migration, DTO field, or dependency is added. Alphabetical, status/Column, and special overdue-first sorts are outside scope. MS5.15 Dashboard statistics and MS5.16 functional acceptance remain not started.
+
+Final MS5.14 verification: **561 frontend tests across 34 files passed (35 added)**, including all existing regressions. New pure/component/HTTP cases cover nine modes, position/ID ties, null-last dates, instant offsets, canonical Manual round trips, combined Search/filters with zero-request order changes, canonical create/edit/delete reprojection (explicitly Updated newest after edit), drafts/details, all-mode CDK disabling, a new-mode defensive drop callback, Clear filters, same-Board reload, and Board navigation. The production build passed without warnings on the approved rerun after the sandboxed build aborted with exit 134 and no diagnostics. `git diff --check` passed. Backend and dependency diffs are empty; the backend suite was not rerun (last verified baseline: 351 tests). No live backend or real-browser responsive/end-to-end session was performed.

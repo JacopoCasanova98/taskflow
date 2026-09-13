@@ -1,6 +1,7 @@
 import { DueDateFilter, filterTasksByDueDate } from './task-due-date';
 import { Task } from './task.models';
-import { PriorityFilter, projectTasksByPriority, TaskOrder } from './task-priority';
+import { PriorityFilter } from './task-priority';
+import { sortTasks, TaskOrder } from './task-order';
 
 export interface TaskProjection {
   readonly searchActive: boolean;
@@ -22,7 +23,9 @@ export function projectTasks(tasks: readonly Task[], view: TaskProjection): read
   const inColumn = searched.filter(
     (task) => view.columnId === 'ALL' || task.columnId === view.columnId,
   );
-  const priority = projectTasksByPriority(inColumn, view.priority, 'MANUAL');
+  const priority = inColumn.filter(
+    (task) => view.priority === 'ALL' || task.priority === view.priority,
+  );
   const due = filterTasksByDueDate(priority, view.dueDate, view.today);
-  return projectTasksByPriority(due, 'ALL', view.order);
+  return sortTasks(due, view.order);
 }

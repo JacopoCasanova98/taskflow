@@ -52,10 +52,16 @@ describe('Task AND projection', () => {
     ['no match', { columnId: 'a', dueDate: 'UPCOMING' }, []],
   ])('applies %s without changing canonical Tasks', (_, changes, expected) => {
     const before = structuredClone(tasks);
-    const result = projectTasks(tasks, { ...baseline, ...changes });
-    expect(result.map((t) => t.id)).toEqual(expected);
-    expect(result).not.toBe(tasks);
-    for (const task of result) expect(task).toBe(tasks.find((t) => t.id === task.id));
+    // Production projects one canonical Column at a time.
+    for (const columnId of ['a', 'b']) {
+      const lane = tasks.filter((t) => t.columnId === columnId);
+      const result = projectTasks(lane, { ...baseline, ...changes });
+      expect(result.map((t) => t.id)).toEqual(
+        expected.filter((id) => lane.some((t) => t.id === id)),
+      );
+      expect(result).not.toBe(lane);
+      for (const task of result) expect(task).toBe(lane.find((t) => t.id === task.id));
+    }
     expect(tasks).toEqual(before);
   });
   it('applies local filters before the first Search result without client text matching', () => {
@@ -85,7 +91,10 @@ describe('Task AND projection', () => {
     });
     expect(result.map((t) => t.id)).toEqual(['T1', 'T5', 'T2']);
     expect(result.map((t) => t.position)).toEqual([0, 2, 1]);
-    expect(projectTasks(tasks, baseline)).toEqual(tasks);
+    for (const columnId of ['a', 'b']) {
+      const lane = tasks.filter((t) => t.columnId === columnId);
+      expect(projectTasks(lane, baseline)).toEqual(lane);
+    }
   });
   it('recomputes combined due membership for the next local day', () => {
     const filters: TaskProjection = {

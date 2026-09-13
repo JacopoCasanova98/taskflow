@@ -7,6 +7,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { BehaviorSubject } from 'rxjs';
 import { API_BASE_URL } from '../../core/config/api-base-url';
 import { BoardWorkspace } from '../boards/board-workspace/board-workspace';
+import { taskOrders, taskOrderLabels } from './task-order';
 import { Task } from './task.models';
 import { TaskDropListData } from './task-placement';
 import { TaskView } from './task-view';
@@ -124,6 +125,108 @@ describe('Priority view in the Board workspace', () => {
       currentIndex: 1,
     } as CdkDragDrop<TaskDropListData, TaskDropListData, string>;
   }
+  it('offers every approved mode with human labels', () => {
+    expect(
+      Array.from(select('task-priority-order').options, (o) => [o.value, o.textContent?.trim()]),
+    ).toEqual(taskOrders.map((order) => [order, taskOrderLabels[order]]));
+  });
+  it('changes every sort locally per Column and restores canonical Manual with zero HTTP', async () => {
+    const before = canonical();
+    const snapshot = structuredClone(before);
+    for (const order of taskOrders) {
+      await change('task-priority-order', order);
+      expect(view.order()).toBe(order);
+      expect(titles(1)).toBe('E');
+      expect(lanes()).toHaveLength(3);
+      assertDragDisabled(order !== 'MANUAL');
+      expect(canonical()).toBe(before);
+    }
+    await change('task-priority-order', 'MANUAL');
+    expect(titles()).toBe('ABCD');
+    expect(canonical()).toEqual(snapshot);
+    http.expectNone(() => true);
+  });
+  it('rejects stale drop callbacks in Created newest without optimistic movement', async () => {
+    const event = dropEvent();
+    const before = canonical();
+    await change('task-priority-order', 'CREATED_NEWEST');
+    await fixture.componentInstance.tasks.drop(event);
+    expect(canonical()).toBe(before);
+    http.expectNone(() => true);
+  });
+  it.each(['CREATED_NEWEST', 'DUE_DATE_ASC', 'UPDATED_NEWEST'] as const)(
+    'projects create, edit and delete responses under %s without placement or reload',
+    async (order) => {
+      await change('task-priority-order', order);
+      const created = {
+        ...tasks[0],
+        id: 'N',
+        title: 'N',
+        position: 4,
+        dueDate: '2026-09-20',
+        createdAt: '2026-09-12T10:00:00Z',
+        updatedAt: '2026-09-12T10:00:00Z',
+      };
+      const creation = fixture.componentInstance.tasks.create('a', created);
+      http.expectOne('/api/columns/a/tasks').flush(created);
+      await creation;
+      await settle();
+      expect(titles()).toBe('NABCD');
+      expect(canonical().columns[0].tasks[4]).toEqual(created);
+      await click('View task: B');
+      const updated = { ...tasks[1], dueDate: '2026-09-10', updatedAt: '2026-09-12T13:00:00Z' };
+      const update = fixture.componentInstance.tasks.update('B', updated);
+      http.expectOne('/api/tasks/B').flush(updated);
+      await update;
+      await settle();
+      expect(titles()).toBe(order === 'CREATED_NEWEST' ? 'NABCD' : 'BNACD');
+      expect(canonical().columns[0].tasks[1]).toEqual(updated);
+      expect(fixture.componentInstance.tasks.selected()).toBe(canonical().columns[0].tasks[1]);
+      const deletion = fixture.componentInstance.tasks.delete('N');
+      http.expectOne('/api/tasks/N').flush(null, { status: 204, statusText: 'No Content' });
+      await deletion;
+      await settle();
+      expect(titles()).toBe(order === 'CREATED_NEWEST' ? 'ABCD' : 'BACD');
+      http.expectNone(() => true);
+    },
+  );
+  it.each(['create', 'edit'])(
+    'preserves unsent %s form and canonical details through sorting',
+    async (kind) => {
+      if (kind === 'create') await click('Add task to a');
+      else {
+        await click('View task: A');
+        await click('Edit');
+      }
+      const selected = fixture.componentInstance.tasks.selected();
+      const form = element.querySelector('form');
+      const input = element.querySelector<HTMLInputElement>('form input')!;
+      input.value = 'Unsent draft';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+      for (const order of taskOrders) await change('task-priority-order', order);
+      expect(element.querySelector('form')).toBe(form);
+      expect(input.value).toBe('Unsent draft');
+      expect(fixture.componentInstance.tasks.selected()).toBe(selected);
+    },
+  );
+  it('preserves Updated newest on Clear filters and reload but resets on Board change', async () => {
+    await change('task-priority-order', 'UPDATED_NEWEST');
+    await change('task-priority-filter', 'HIGH');
+    await click('Clear filters');
+    expect(view.order()).toBe('UPDATED_NEWEST');
+    fixture.componentInstance.state.retry();
+    await load(
+      'one',
+      tasks.map((t) => (t.id === 'B' ? { ...t, updatedAt: '2026-09-12T13:00:00Z' } : t)),
+    );
+    expect(view.order()).toBe('UPDATED_NEWEST');
+    expect(titles()).toBe('BACD');
+    params.next(convertToParamMap({ boardId: 'two' }));
+    await load('two');
+    expect(view.order()).toBe('MANUAL');
+    expect(titles()).toBe('ABCD');
+  });
   it('defaults to labeled native controls and shows a textual indicator on every card', () => {
     expect(select('task-priority-filter').value).toBe('ALL');
     expect(select('task-priority-order').value).toBe('MANUAL');
