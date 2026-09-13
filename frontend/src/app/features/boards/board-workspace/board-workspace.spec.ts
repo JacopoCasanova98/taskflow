@@ -72,7 +72,7 @@ describe('Board workspace page', () => {
     expect(element.textContent).toContain('No tasks yet.');
     for (const hidden of ['HIGH', '2026-09-12', 'Hidden description'])
       expect(element.textContent).not.toContain(hidden);
-    expect(element.querySelector('input, form, [draggable]')).toBeNull();
+    expect(element.querySelector('input:not([type="search"]), form, [draggable]')).toBeNull();
     expect(element.textContent).toContain('Add task');
     expect(element.querySelector('li button')?.getAttribute('aria-label')).toContain('View task:');
   });

@@ -13,6 +13,23 @@ import { priorityLabels } from './task-priority';
       [attr.aria-describedby]="view.manual() ? null : 'task-movement-guidance'"
     >
       <div>
+        <label for="task-search">Search tasks</label>
+        <input
+          id="task-search"
+          type="search"
+          placeholder="Search title or description"
+          #search
+          [value]="view.search.input()"
+          (input)="view.setSearch(search.value)"
+          aria-describedby="task-search-help"
+          [attr.aria-invalid]="view.search.query().length > 200 ? true : null"
+        />
+        <span id="task-search-help">Up to 200 characters.</span>
+        @if (view.search.input()) {
+          <button type="button" (click)="view.search.clear()">Clear search</button>
+        }
+      </div>
+      <div>
         <label for="task-priority-filter">Priority filter</label>
         <select
           id="task-priority-filter"
@@ -53,9 +70,23 @@ import { priorityLabels } from './task-priority';
         </select>
       </div>
     </div>
+    @if (view.search.empty()) {
+      <p role="status">No tasks match your search.</p>
+    }
+    @if (view.search.status() === 'loading') {
+      <p role="status">Searching…</p>
+    }
+    @if (view.search.status() === 'error') {
+      @if (view.search.query().length > 200) {
+        <p role="alert">Use no more than 200 characters to search tasks.</p>
+      } @else {
+        <p role="alert">We couldn't search tasks. Please try again.</p>
+        <button type="button" (click)="view.search.refresh()">Retry search</button>
+      }
+    }
     @if (!view.manual()) {
       <p id="task-movement-guidance" role="status">
-        Task movement is available in manual order with all filters cleared.
+        Task movement is available in manual order with search and all filters cleared.
       </p>
     }
   `,

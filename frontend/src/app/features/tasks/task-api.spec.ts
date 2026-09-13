@@ -65,6 +65,18 @@ describe('TaskApi CRUD', () => {
     http = TestBed.inject(HttpTestingController);
   });
   afterEach(() => http.verify());
+  it('searches with encoded HttpParams and returns Task responses', () => {
+    const next = vi.fn();
+    api.searchBoardTasks('board/id', 'Login  %_\\ &+?').subscribe(next);
+    const request = http.expectOne((r) => r.url === '/api/boards/board%2Fid/tasks/search');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('q')).toBe('Login  %_\\ &+?');
+    expect(request.request.urlWithParams).toContain('%25');
+    expect(request.request.urlWithParams).toContain('%26');
+    expect(request.request.urlWithParams).toContain('%2B');
+    request.flush([task]);
+    expect(next).toHaveBeenCalledExactlyOnceWith([task]);
+  });
   it('gets one canonical Task directly', () => {
     const next = vi.fn();
     api.getTask('task').subscribe(next);

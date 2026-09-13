@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { API_BASE_URL } from '../../core/config/api-base-url';
 import { Task, CreateTaskRequest, UpdateTaskRequest, TaskPlacementRequest } from './task.models';
@@ -8,6 +8,14 @@ export class TaskApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
 
+  searchBoardTasks(boardId: string, query: string) {
+    return this.http.get<Task[]>(
+      this.base + '/boards/' + encodeURIComponent(boardId) + '/tasks/search',
+      {
+        params: new HttpParams().set('q', query),
+      },
+    );
+  }
   getTask(taskId: string) {
     return this.http.get<Task>(this.base + '/tasks/' + encodeURIComponent(taskId));
   }

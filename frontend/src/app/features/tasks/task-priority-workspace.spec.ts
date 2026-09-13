@@ -171,7 +171,7 @@ describe('Priority view in the Board workspace', () => {
     await change('task-priority-filter', 'HIGH');
     assertDragDisabled(true);
     expect(element.querySelector('#task-movement-guidance')?.textContent).toContain(
-      'manual order with all filters cleared',
+      'manual order with search and all filters cleared',
     );
     await fixture.componentInstance.tasks.drop(event);
     await change('task-priority-order', 'PRIORITY_HIGH_TO_LOW');

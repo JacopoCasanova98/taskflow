@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping(ApiPaths.API)
@@ -26,6 +27,11 @@ public class TaskController {
 	private final TaskService tasks;
 
 	public TaskController(TaskService tasks) { this.tasks = tasks; }
+
+	@GetMapping("/boards/{boardId}/tasks/search")
+	List<TaskResponse> search(@PathVariable UUID boardId, @RequestParam String q) {
+		return tasks.searchTasks(boardId, q).stream().map(TaskResponse::from).toList();
+	}
 
 	@GetMapping("/columns/{columnId}/tasks")
 	List<TaskResponse> list(@PathVariable UUID columnId) {

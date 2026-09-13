@@ -16,7 +16,8 @@ label {
   font-weight: 600;
   margin-bottom: 0.35rem;
 }
-select {
+select,
+input {
   max-width: 100%;
   padding: 0.5rem;
   font: inherit;
@@ -27,4 +28,9 @@ select {
 }
 p {
   margin-bottom: 0;
+}
+
+#task-search-help {
+  display: block;
+  font-size: 0.875rem;
 }

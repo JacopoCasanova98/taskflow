@@ -236,6 +236,60 @@ class TaskServiceTest {
 		verify(tasks, never()).delete(any());
 		verify(tasks, never()).flush();
 	}
+	@Test
+	void searchChecksOwnedBoardThenPassesNormalizedEscapedPatternAndMapsSafeTasks() {
+		when(boards.findByIdAndOwnerId(BOARD, OWNER)).thenReturn(Optional.of(board));
+		var entity = task(source, "Login", 0);
+		when(tasks.searchBoardTasks(BOARD, OWNER, "%Login  !%!_!!%")).thenReturn(List.of(entity));
+		assertThat(service.searchTasks(BOARD, "  Login  %_!  ")).extracting(Task::id).containsExactly(entity.getId());
+		var order = inOrder(boards, tasks);
+		order.verify(boards).findByIdAndOwnerId(BOARD, OWNER);
+		order.verify(tasks).searchBoardTasks(BOARD, OWNER, "%Login  !%!_!!%");
+		verifyNoMoreInteractions(boards, tasks);
+		verifyNoInteractions(columns);
+	}
+	@Test
+	void blankSearchChecksOwnershipButNeverQueriesTasks() {
+		when(boards.findByIdAndOwnerId(BOARD, OWNER)).thenReturn(Optional.of(board));
+		assertThat(service.searchTasks(BOARD, "  ")).isEmpty();
+		verifyNoInteractions(tasks);
+	}
+	@Test
+	void searchLengthAppliesAfterTrimming() {
+		when(boards.findByIdAndOwnerId(BOARD, OWNER)).thenReturn(Optional.of(board));
+		service.searchTasks(BOARD, " " + "x".repeat(200) + " ");
+		verify(tasks).searchBoardTasks(BOARD, OWNER, "%" + "x".repeat(200) + "%");
+		assertError(() -> service.searchTasks(BOARD, "x".repeat(201)), "INVALID_SEARCH_QUERY", 400);
+		verifyNoMoreInteractions(tasks);
+	}
+	@Test
+	void missingAndCrossUserSearchHaveIdenticalSafeContractEvenWhenBlank() {
+		when(boards.findByIdAndOwnerId(BOARD, OWNER)).thenReturn(Optional.of(board));
+		when(identity.currentUser()).thenReturn(new AuthenticatedUser(OTHER));
+		for (UUID id : List.of(BOARD, UUID.randomUUID()))
+			assertError(() -> service.searchTasks(id, ""), "BOARD_NOT_FOUND", 404);
+		verifyNoInteractions(tasks, columns);
+		verify(boards, never()).findById(any());
+	}
+	@Test
+	void likeEscapePolicyTreatsPercentUnderscoreEscapeAndBackslashLiterally() {
+		assertThat(TaskService.searchPattern("%_!" + (char) 92)).isEqualTo("%!%!_!!" + (char) 92 + "%");
+		assertThat(TaskService.searchPattern("MiXeD  phrase")).isEqualTo("%MiXeD  phrase%");
+	}
+	@Test
+	void searchQueryContractIsScopedBoundCaseInsensitiveAndDeterministic() throws Exception {
+		var method = TaskRepository.class.getMethod("searchBoardTasks", UUID.class, UUID.class, String.class);
+		String query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class).value();
+		assertThat(query).contains("t.column.board.id = :boardId", "t.column.board.ownerId = :ownerId",
+				"lower(t.title) like lower(:pattern) escape '!'", "lower(t.description) like lower(:pattern) escape '!'",
+				"order by t.column.position asc, t.position asc, t.id asc");
+		assertThat(java.util.Arrays.stream(method.getParameters()).map(p ->
+				p.getAnnotation(org.springframework.data.repository.query.Param.class).value()))
+				.containsExactly("boardId", "ownerId", "pattern");
+		assertThat(TaskService.class.getMethod("searchTasks", UUID.class, String.class)
+				.getAnnotation(org.springframework.transaction.annotation.Transactional.class).readOnly()).isTrue();
+	}
+
 	private void mutate(String op, UUID id) {
 		switch (op) {
 			case "create" -> service.createTask(id, "Title", null, null, null);

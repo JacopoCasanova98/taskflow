@@ -63,7 +63,7 @@ describe('Column controls in Board workspace', () => {
     await settle();
   }
   async function fill(value: string) {
-    const input = element.querySelector('input')!;
+    const input = element.querySelector<HTMLInputElement>('form input')!;
     input.value = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await settle();
@@ -87,12 +87,12 @@ describe('Column controls in Board workspace', () => {
     expect(element.querySelector('h2')?.textContent).toBe('Canonical');
     expect(element.querySelector('form')).toBeNull();
     await click('Add column');
-    expect(element.querySelector('input')?.value).toBe('');
+    expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('');
   });
   it('renames inline from current name while retaining Task summaries', async () => {
     await load();
     await click('Rename B');
-    expect(element.querySelector('input')?.value).toBe('B');
+    expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('B');
     expect(element.textContent).toContain('Task b');
     await fill('New');
     await submit();
@@ -196,7 +196,7 @@ describe('Column controls in Board workspace', () => {
       expect(element.textContent).not.toContain("We couldn't load");
       expect(element.textContent).not.toContain('Secret');
       if (operation === 'create' || operation === 'rename')
-        expect(element.querySelector('input')?.value).toBe('Entered name');
+        expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('Entered name');
     },
   );
   it('drops old editors and confirmation errors on route change', async () => {

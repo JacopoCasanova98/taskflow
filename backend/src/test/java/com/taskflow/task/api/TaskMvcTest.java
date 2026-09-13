@@ -388,6 +388,45 @@ class TaskMvcTest extends DatabaseFreePersistenceTest {
 	private Cookie csrf() throws Exception {
 		return mvc.perform(get("/api/auth/csrf")).andExpect(status().isNoContent()).andReturn().getResponse().getCookie("XSRF-TOKEN");
 	}
+	@Test
+	void searchIsAuthenticatedSafeReadWithoutCsrfAndReturnsOnlyTaskResponse() throws Exception {
+		String path = "/api/boards/" + BOARD + "/tasks/search";
+		mvc.perform(get(path).param("q", "login")).andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+		when(boards.findByIdAndOwnerId(BOARD, A)).thenReturn(Optional.of(board));
+		when(tasks.searchBoardTasks(BOARD, A, "%login%")).thenReturn(List.of(task));
+		mvc.perform(authenticated("GET", path, A).param("q", " login "))
+				.andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(ID.toString()))
+				.andExpect(jsonPath("$[0].description").value("Description"))
+				.andExpect(jsonPath("$[0].ownerId").doesNotExist()).andExpect(jsonPath("$[0].column").doesNotExist())
+				.andExpect(jsonPath("$[0].board").doesNotExist());
+		mvc.perform(authenticated("GET", path, A).param("q", "  "))
+				.andExpect(status().isOk()).andExpect(content().json("[]"));
+	}
+	@Test
+	void searchMissingAndCrossUserBoardUseSameSafe404() throws Exception {
+		when(boards.findByIdAndOwnerId(BOARD, A)).thenReturn(Optional.of(board));
+		for (UUID id : List.of(BOARD, UUID.randomUUID()))
+			mvc.perform(authenticated("GET", "/api/boards/" + id + "/tasks/search", B).param("q", ""))
+					.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("BOARD_NOT_FOUND"))
+					.andExpect(jsonPath("$.detail").value("The requested board was not found."));
+		verifyNoInteractions(tasks);
+	}
+	@Test
+	void searchInvalidQueryMalformedIdAndUnexpectedErrorStaySafe() throws Exception {
+		String path = "/api/boards/" + BOARD + "/tasks/search";
+		when(boards.findByIdAndOwnerId(BOARD, A)).thenReturn(Optional.of(board));
+		mvc.perform(authenticated("GET", path, A).param("q", "x".repeat(201)))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_SEARCH_QUERY"));
+		mvc.perform(authenticated("GET", "/api/boards/invalid/tasks/search", A).param("q", "login"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+		when(tasks.searchBoardTasks(BOARD, A, "%login%")).thenThrow(new IllegalStateException("private SQL"));
+		var response = mvc.perform(authenticated("GET", path, A).param("q", "login"))
+				.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+				.andReturn().getResponse().getContentAsString();
+		assertThat(response).doesNotContain("private SQL", "IllegalStateException");
+	}
+
 	private static String method(String op) {
 		return switch (op) { case "create" -> "POST"; case "update", "place" -> "PUT"; case "delete" -> "DELETE"; default -> "GET"; };
 	}

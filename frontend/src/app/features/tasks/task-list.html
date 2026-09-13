@@ -19,7 +19,11 @@
     Add task
   </button>
 }
-@if (lane().tasks.length === 0) {
+@if (view.search.active()) {
+  @if (view.search.status() === 'ready' && visibleTasks().length === 0) {
+    <p>No tasks match your search.</p>
+  }
+} @else if (lane().tasks.length === 0) {
   <p>No tasks yet.</p>
 } @else if (visibleTasks().length === 0) {
   <p>No tasks match the current filter.</p>

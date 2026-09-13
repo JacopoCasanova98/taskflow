@@ -28,7 +28,11 @@ export class TaskList {
   private readonly localDay = inject(TaskLocalDay);
   readonly visibleTasks = computed(() =>
     projectTasksByPriority(
-      filterTasksByDueDate(this.lane().tasks, this.view.dueDateFilter(), this.localDay.today()),
+      filterTasksByDueDate(
+        this.view.search.project(this.lane().tasks),
+        this.view.dueDateFilter(),
+        this.localDay.today(),
+      ),
       this.view.filter(),
       this.view.order(),
     ),

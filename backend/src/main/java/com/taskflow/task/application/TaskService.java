@@ -32,6 +32,25 @@ public class TaskService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<Task> searchTasks(UUID boardId, String query) {
+		UUID owner = identity.currentUser().id();
+		boards.findByIdAndOwnerId(boardId, owner).orElseThrow(() ->
+				new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found", "The requested board was not found."));
+		String normalized = query.strip();
+		if (normalized.length() > 200) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_SEARCH_QUERY", "Invalid search query",
+					"Search queries must contain no more than 200 characters.");
+		}
+		if (normalized.isBlank()) return List.of();
+		return tasks.searchBoardTasks(boardId, owner, searchPattern(normalized)).stream().map(TaskService::toTask).toList();
+	}
+
+	/** ! is the explicit LIKE escape; backslashes therefore remain literal. */
+	static String searchPattern(String query) {
+		return "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+	}
+
+	@Transactional(readOnly = true)
 	public List<Task> listTasks(UUID columnId) {
 		UUID owner = identity.currentUser().id();
 		columns.findByIdAndBoard_OwnerId(columnId, owner).orElseThrow(TaskService::columnNotFound);
