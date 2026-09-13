@@ -44,6 +44,15 @@ export class BoardWorkspaceState {
   private readonly generationState = signal(0);
   readonly generation = this.generationState.asReadonly();
   readonly workspace = this.value.asReadonly();
+  private readonly statisticsVersion = signal(0);
+  readonly statisticsRevision = this.statisticsVersion.asReadonly();
+
+  /** Invalidate only after a confirmed mutation in this ready generation. */
+  mutationConfirmed(generation: number): void {
+    if (generation === this.generation() && this.workspace().status === 'ready')
+      this.statisticsVersion.update((value) => value + 1);
+  }
+
   private readonly pendingWrite = signal<{ readonly generation: number } | null>(null);
   readonly writing = computed(() => this.pendingWrite()?.generation === this.generation());
 

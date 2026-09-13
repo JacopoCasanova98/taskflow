@@ -23,6 +23,7 @@
   @case ('ready') {
     <h1>{{ workspace.board.name }}</h1>
     <app-task-view-controls />
+    <app-board-statistics />
     <app-column-controls cdkDropListGroup>
       <ng-template let-lane>
         <app-task-list [lane]="lane" />

@@ -15,6 +15,8 @@ public interface ColumnRepository extends JpaRepository<ColumnEntity, UUID> {
 
 	long countByBoard_Id(UUID boardId);
 
+	List<ColumnEntity> findAllByBoard_IdAndBoard_OwnerIdOrderByPositionAscIdAsc(UUID boardId, UUID ownerId);
+
 	Optional<ColumnEntity> findByIdAndBoard_OwnerId(UUID id, UUID ownerId);
 
 	Optional<ColumnEntity> findByIdAndBoard_IdAndBoard_OwnerId(UUID id, UUID boardId, UUID ownerId);

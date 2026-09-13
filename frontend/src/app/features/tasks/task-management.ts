@@ -201,6 +201,7 @@ export class TaskManagement {
             : lane,
         ),
       );
+      this.workspace.mutationConfirmed(generation);
     } catch (error: unknown) {
       if (generation !== this.workspace.generation()) return;
       rollback();
@@ -236,6 +237,7 @@ export class TaskManagement {
       const response = await firstValueFrom(request());
       if (generation !== this.workspace.generation()) return this.stale();
       apply(response, generation);
+      this.workspace.mutationConfirmed(generation);
       if (generation === this.workspace.generation() && this.taskView.search.active())
         this.taskView.search.refresh();
       return generation === this.workspace.generation() ? { success: true } : this.stale();

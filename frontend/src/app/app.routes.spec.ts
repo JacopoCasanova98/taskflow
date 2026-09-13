@@ -1,3 +1,4 @@
+import { BoardStatisticsApi } from './features/boards/statistics/board-statistics-api';
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
@@ -25,6 +26,18 @@ describe('Application routing', () => {
     listBoards.mockClear();
     TestBed.configureTestingModule({
       providers: [
+        {
+          provide: BoardStatisticsApi,
+          useValue: {
+            getStatistics: () =>
+              of({
+                totalTasks: 0,
+                overdueTasks: 0,
+                priorityDistribution: { low: 0, medium: 0, high: 0 },
+                statusDistribution: [],
+              }),
+          },
+        },
         provideRouter(routes),
         { provide: ColumnApi, useValue: { listColumns: () => of([]) } },
         { provide: TaskApi, useValue: { listTasks: vi.fn() } },

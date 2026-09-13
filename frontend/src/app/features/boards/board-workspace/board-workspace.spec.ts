@@ -1,3 +1,5 @@
+import { BoardStatisticsApi } from '../statistics/board-statistics-api';
+import { of as statisticsOf } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -15,6 +17,19 @@ describe('Board workspace page', () => {
   beforeEach(async () => {
     TestBed.configureTestingModule({
       providers: [
+        // This suite isolates its existing workspace behavior; statistics HTTP is covered separately.
+        {
+          provide: BoardStatisticsApi,
+          useValue: {
+            getStatistics: () =>
+              statisticsOf({
+                totalTasks: 0,
+                overdueTasks: 0,
+                priorityDistribution: { low: 0, medium: 0, high: 0 },
+                statusDistribution: [],
+              }),
+          },
+        },
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -58,7 +73,7 @@ describe('Board workspace page', () => {
       { id: 'a', title: 'First alphabetically', position: 1 },
     ]);
     await fixture.whenStable();
-    expect(Array.from(element.querySelectorAll('h2'), (h) => h.textContent)).toEqual([
+    expect(Array.from(element.querySelectorAll('app-column-controls h2'), (h) => h.textContent)).toEqual([
       'Planning',
       'Doing',
     ]);
@@ -68,7 +83,7 @@ describe('Board workspace page', () => {
       'Second alphabetically',
       'First alphabetically',
     ]);
-    expect(element.querySelectorAll('section[aria-labelledby]').length).toBe(2);
+    expect(element.querySelectorAll('app-column-controls section[aria-labelledby]').length).toBe(2);
     expect(element.textContent).toContain('No tasks yet.');
     for (const hidden of ['HIGH', '2026-09-12', 'Hidden description'])
       expect(element.textContent).not.toContain(hidden);

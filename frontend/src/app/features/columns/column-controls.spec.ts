@@ -1,3 +1,5 @@
+import { BoardStatisticsApi } from '../boards/statistics/board-statistics-api';
+import { of as statisticsOf } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -22,6 +24,19 @@ describe('Column controls in Board workspace', () => {
     params = new BehaviorSubject(convertToParamMap({ boardId: 'one' }));
     TestBed.configureTestingModule({
       providers: [
+        // This suite isolates its existing workspace behavior; statistics HTTP is covered separately.
+        {
+          provide: BoardStatisticsApi,
+          useValue: {
+            getStatistics: () =>
+              statisticsOf({
+                totalTasks: 0,
+                overdueTasks: 0,
+                priorityDistribution: { low: 0, medium: 0, high: 0 },
+                statusDistribution: [],
+              }),
+          },
+        },
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -84,7 +99,7 @@ describe('Column controls in Board workspace', () => {
     expect(request.request.body).toEqual({ name: 'First' });
     request.flush({ ...columns[0], name: 'Canonical' });
     await settle();
-    expect(element.querySelector('h2')?.textContent).toBe('Canonical');
+    expect(element.querySelector('app-column-controls h2')?.textContent).toBe('Canonical');
     expect(element.querySelector('form')).toBeNull();
     await click('Add column');
     expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('');

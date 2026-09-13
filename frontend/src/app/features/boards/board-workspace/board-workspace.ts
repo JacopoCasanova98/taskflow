@@ -1,3 +1,5 @@
+import { BoardStatisticsPanel } from '../statistics/board-statistics';
+import { BoardStatisticsState } from '../statistics/board-statistics-state';
 import { TaskLocalDay } from '../../tasks/task-local-day';
 import { TaskDetails } from '../../tasks/task-details/task-details';
 import { CdkDropListGroup } from '@angular/cdk/drag-drop';
@@ -14,8 +16,23 @@ import { BoardWorkspaceState } from './board-workspace-state';
 
 @Component({
   selector: 'app-board-workspace',
-  imports: [RouterLink, ColumnControls, TaskList, CdkDropListGroup, TaskDetails, TaskViewControls],
-  providers: [BoardWorkspaceState, ColumnManagement, TaskManagement, TaskView, TaskLocalDay],
+  imports: [
+    BoardStatisticsPanel,
+    RouterLink,
+    ColumnControls,
+    TaskList,
+    CdkDropListGroup,
+    TaskDetails,
+    TaskViewControls,
+  ],
+  providers: [
+    BoardStatisticsState,
+    BoardWorkspaceState,
+    ColumnManagement,
+    TaskManagement,
+    TaskView,
+    TaskLocalDay,
+  ],
   templateUrl: './board-workspace.html',
   styleUrls: ['../board-controls.scss', './board-workspace.scss'],
 })

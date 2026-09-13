@@ -105,6 +105,7 @@ export class ColumnManagement {
       const response = await firstValueFrom(request());
       if (generation !== this.workspace.generation()) return this.stale();
       apply(response, generation);
+      this.workspace.mutationConfirmed(generation);
       return { success: true };
     } catch (error: unknown) {
       if (generation !== this.workspace.generation()) return this.stale();

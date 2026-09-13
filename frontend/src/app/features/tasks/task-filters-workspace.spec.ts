@@ -1,3 +1,5 @@
+import { BoardStatisticsApi } from '../boards/statistics/board-statistics-api';
+import { of as statisticsOf } from 'rxjs';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -45,6 +47,19 @@ describe('Combined Task filters in the Board workspace', () => {
     params = new BehaviorSubject(convertToParamMap({ boardId: 'one' }));
     TestBed.configureTestingModule({
       providers: [
+        // This suite isolates its existing workspace behavior; statistics HTTP is covered separately.
+        {
+          provide: BoardStatisticsApi,
+          useValue: {
+            getStatistics: () =>
+              statisticsOf({
+                totalTasks: 0,
+                overdueTasks: 0,
+                priorityDistribution: { low: 0, medium: 0, high: 0 },
+                statusDistribution: [],
+              }),
+          },
+        },
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),

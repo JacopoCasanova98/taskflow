@@ -1,13 +1,51 @@
 package com.taskflow.task.persistence;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.taskflow.task.domain.TaskPriority;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
+	interface Totals {
+		long getTotal();
+		long getOverdue();
+	}
+	interface PriorityCount {
+		TaskPriority getPriority();
+		long getTaskCount();
+	}
+	interface ColumnCount {
+		UUID getColumnId();
+		long getTaskCount();
+	}
+
+	@Query("""
+			select count(t) as total,
+			coalesce(sum(case when t.dueDate < :asOf then 1 else 0 end), 0) as overdue
+			from TaskEntity t
+			where t.column.board.id = :boardId and t.column.board.ownerId = :ownerId
+			""")
+	Totals aggregateBoardTotals(@Param("boardId") UUID boardId, @Param("ownerId") UUID ownerId,
+			@Param("asOf") LocalDate asOf);
+
+	@Query("""
+			select t.priority as priority, count(t) as taskCount from TaskEntity t
+			where t.column.board.id = :boardId and t.column.board.ownerId = :ownerId
+			group by t.priority
+			""")
+	List<PriorityCount> aggregateBoardPriorities(@Param("boardId") UUID boardId, @Param("ownerId") UUID ownerId);
+
+	@Query("""
+			select t.column.id as columnId, count(t) as taskCount from TaskEntity t
+			where t.column.board.id = :boardId and t.column.board.ownerId = :ownerId
+			group by t.column.id
+			""")
+	List<ColumnCount> aggregateBoardColumns(@Param("boardId") UUID boardId, @Param("ownerId") UUID ownerId);
+
 	List<TaskEntity> findAllByColumn_IdAndColumn_Board_OwnerIdOrderByPositionAscIdAsc(UUID columnId, UUID ownerId);
 	Optional<TaskEntity> findByIdAndColumn_Board_OwnerId(UUID id, UUID ownerId);
 	Optional<TaskEntity> findByIdAndColumn_Board_IdAndColumn_Board_OwnerId(UUID id, UUID boardId, UUID ownerId);
