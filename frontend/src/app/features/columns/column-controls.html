@@ -1,0 +1,91 @@
+@if (!creating()) {
+  <button type="button" [disabled]="mutations.busy()" (click)="creating.set(true)">
+    Add column
+  </button>
+} @else {
+  <section class="create" aria-labelledby="create-column-title">
+    <h2 id="create-column-title">Add column</h2>
+    <app-column-name-form
+      inputId="create-column-name"
+      action="Add column"
+      [save]="create"
+      [disabled]="mutations.busy()"
+      (closed)="creating.set(false)"
+    />
+  </section>
+}
+<p role="alert">{{ reorderError() }}</p>
+@if (lanes().length === 0) {
+  <p>This board has no columns yet.</p>
+} @else {
+  <div class="lanes" role="region" aria-label="Board columns" tabindex="0">
+    @for (lane of lanes(); track lane.column.id; let first = $first; let last = $last) {
+      <section class="lane" [attr.aria-labelledby]="'column-' + lane.column.id">
+        <h2 [id]="'column-' + lane.column.id">{{ lane.column.name }}</h2>
+        <div class="actions">
+          <button
+            type="button"
+            [disabled]="mutations.busy() || editing() !== null || confirming() !== null"
+            [attr.aria-label]="'Rename ' + lane.column.name"
+            (click)="editing.set(lane.column)"
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            [disabled]="mutations.busy() || confirming() !== null || editing() !== null"
+            [attr.aria-label]="'Delete ' + lane.column.name"
+            (click)="confirm(lane.column)"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            [disabled]="mutations.busy() || first"
+            [attr.aria-label]="'Move ' + lane.column.name + ' left'"
+            (click)="move(lane.column.id, -1)"
+          >
+            Move left
+          </button>
+          <button
+            type="button"
+            [disabled]="mutations.busy() || last"
+            [attr.aria-label]="'Move ' + lane.column.name + ' right'"
+            (click)="move(lane.column.id, 1)"
+          >
+            Move right
+          </button>
+        </div>
+        @if (editing()?.id === lane.column.id) {
+          <app-column-name-form
+            [inputId]="'rename-column-' + lane.column.id"
+            action="Save name"
+            [initialName]="lane.column.name"
+            [save]="rename"
+            [disabled]="mutations.busy()"
+            (closed)="editing.set(null)"
+          />
+        }
+        @if (confirming()?.id === lane.column.id) {
+          <section class="confirmation" [attr.aria-labelledby]="'delete-column-' + lane.column.id">
+            <h3 [id]="'delete-column-' + lane.column.id">Delete “{{ lane.column.name }}”?</h3>
+            <p>If the column contains tasks, the server will refuse deletion until it is empty.</p>
+            <p class="errors" role="alert">{{ deleteError() }}</p>
+            <div class="actions">
+              <button type="button" [disabled]="mutations.busy()" (click)="deleteColumn()">
+                Delete column
+              </button>
+              <button type="button" [disabled]="mutations.busy()" (click)="confirming.set(null)">
+                Cancel
+              </button>
+            </div>
+          </section>
+        }
+        <ng-container
+          [ngTemplateOutlet]="taskContent()"
+          [ngTemplateOutletContext]="{ $implicit: lane }"
+        />
+      </section>
+    }
+  </div>
+}

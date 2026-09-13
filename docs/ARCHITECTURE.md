@@ -272,7 +272,7 @@ Refresh success replaces memory state; structured `401 SESSION_INVALID` clears i
 
 ### Authentication UI and routing (MS4.9)
 
-The auth feature owns `/login` and `/register`, with lazy standalone pages and useful page titles. Root routing composes these routes, protects the componentless `/` application entry with a functional authenticated guard, and retains the final wildcard Not Found route. Authenticated users visiting either anonymous-only auth page are redirected to `/`. No dashboard, business home page, or Board/Task UI exists yet; the authenticated root intentionally leaves the shell outlet empty.
+The auth feature owns `/login` and `/register`, with lazy standalone pages and useful page titles. Root routing composes these routes and retains the final wildcard Not Found route. Authenticated users visiting either anonymous-only auth page are redirected to `/`. MS5.5 replaces the previously empty authenticated root with a declarative redirect to the guarded `/boards` business landing; see the Board frontend section below.
 
 Core functional guards depend only on the readonly `AuthStateReader` token (`status` and `isAuthenticated`). Root configuration binds it to `AuthSessionService` with `useExisting`, independently of the HTTP bridge. The routing contract exposes neither tokens nor mutation operations, and core does not import feature implementation. The existing application initializer completes CSRF → refresh before normal initial navigation. Guards never bootstrap, refresh, fetch a user, or make network requests; unexpected `initializing` state cancels navigation deterministically. Redirects return `UrlTree` values rather than navigating imperatively. Guards are navigation UX only: Spring Security remains authoritative, and future ownership rules must be enforced by the backend.
 
@@ -315,9 +315,517 @@ Evidence boundaries remain explicit:
 
 The original roadmap's concrete private-resource ownership intent is retained with a refined sequence: `AuthenticatedUser` provides the completed UUID identity foundation, but no Board/Task resource exists yet. Ownership enforcement and cross-user access tests are required alongside the first real private Board/Task resources in MS5. No fake resource, placeholder ownership policy, or MS5 implementation was introduced to close authentication.
 
+## Core TaskFlow domain (MS5.1)
+
+MS5.1 established the approved domain model for implementation in MS5.2–MS5.4 without introducing production features. The MS5.2 and MS5.3 sections below record the implemented Board and Column backends; Task remains conceptual. The existing feature-oriented architecture, authentication, persistence foundation, and RFC 9457 ProblemDetail contract remain authoritative.
+
+### Relationships and identifiers
+
+The core relationship is User 1 → N Board, Board 1 → N Column, and Column 1 → N Task. User already exists from MS4. Each child has exactly one parent; a parent may have zero or more children. Board is the ownership root for these private resources. Column ownership derives from its Board; Task ownership derives through Task → Column → Board → User. Columns themselves represent workflow state, so there is no separate status enum.
+
+All three resources inherit UUID `id`, `createdAt`, and `updatedAt` from the existing `BaseEntity` convention. Foreign keys use UUID. No numeric public IDs, sequential identifiers, slugs, or composite primary keys are introduced. Audit timestamps remain `Instant` in UTC, following the existing PostgreSQL `timestamptz` convention.
+
+Do not duplicate user ownership on Column or Task unless a later implementation review identifies and documents a concrete persistence requirement. Task has neither a persisted `boardId` nor a persisted `userId`; its Column relation determines its Board, owner, and workflow state.
+
+### Initial fields and structural constraints
+
+Every resource includes the inherited UUID and audit fields described above. The following table lists its additional fields and approved constraints. The character limits are practical initial bounds to keep future API validation and PostgreSQL schema definitions aligned; no arbitrary regex or additional business validation is introduced.
+
+| Resource | Field | Domain rule |
+| --- | --- | --- |
+| Board | owner/User relation | Required; exactly one owning User, referenced by UUID. |
+| Board | name | Required, non-blank, maximum 120 characters. |
+| Column | Board relation | Required; exactly one Board, referenced by UUID. |
+| Column | name | Required, non-blank, maximum 120 characters. |
+| Column | position | Required integer, at least zero, ordered within its Board. |
+| Task | Column relation | Required; exactly one Column, referenced by UUID. |
+| Task | title | Required, non-blank, maximum 200 characters. |
+| Task | description | Optional/nullable, maximum 4000 characters when present. |
+| Task | priority | Required; `LOW`, `MEDIUM`, or `HIGH`, default `MEDIUM`. |
+| Task | dueDate | Optional/nullable `LocalDate`. |
+| Task | position | Required integer, at least zero, ordered within its Column. |
+
+Board has no description, color, icon, template, visibility, sharing, archive state, or collaborators in the initial model.
+
+Priority is a domain decision only; no enum is implemented in MS5.1. MS5.10 owns richer priority API/UI, filtering, and sorting behavior. A due date denotes a calendar date rather than a scheduled instant: `2026-09-30` means due on that date, without timezone conversion semantics. It is distinct from technical `Instant` audit timestamps. MS5.11 owns detailed due-date behavior and UI.
+
+### Conceptual ER diagram
+
+The relation fields below describe conceptual UUID references, not final SQL names or JPA mappings. USER shows only the existing identity needed for this relationship; its authentication fields remain documented in MS4.
+
+```mermaid
+erDiagram
+    USER ||--o{ BOARD : owns
+    BOARD ||--o{ COLUMN : contains
+    COLUMN ||--o{ TASK : contains
+
+    USER {
+        UUID id PK
+    }
+    BOARD {
+        UUID id PK
+        UUID ownerId FK
+        string name "required; max 120"
+        Instant createdAt "UTC"
+        Instant updatedAt "UTC"
+    }
+    COLUMN {
+        UUID id PK
+        UUID boardId FK
+        string name "required; max 120"
+        integer position "zero-based"
+        Instant createdAt "UTC"
+        Instant updatedAt "UTC"
+    }
+    TASK {
+        UUID id PK
+        UUID columnId FK
+        string title "required; max 200"
+        string description "optional; max 4000"
+        priority priority "LOW MEDIUM HIGH; default MEDIUM"
+        LocalDate dueDate "optional"
+        integer position "zero-based"
+        Instant createdAt "UTC"
+        Instant updatedAt "UTC"
+    }
+```
+
+### Private-resource ownership and lookup direction
+
+Every Board operation must scope access using the UUID supplied by `AuthenticatedUser`, including listing only that user's Boards and assigning that user as owner on creation. A user must never access another user's Board. Column and Task operations enforce ownership through the same Board chain, including the parent resource when creating a child and both source and destination when moving a Task. Backend enforcement is authoritative.
+
+For authenticated requests, a Board, Column, or Task that does not exist and one owned by another user must produce the same resource-not-found behavior: `404 Not Found` with the same safe resource-specific ProblemDetail code and detail. Responses must not disclose another user's resource existence. Existing authentication and CSRF behavior remains unchanged.
+
+Prefer ownership-aware repository lookups conceptually shaped like `findByIdAndOwnerId(...)`, or nested queries that scope Column/Task through Board to the authenticated owner. Avoid `findById(id)` followed by a separate owner comparison when a scoped query can express ownership safely. Exact repository signatures and cross-user access tests belong to MS5.2–MS5.4; MS5.1 adds no ownership code.
+
+### Ordering and lifecycle
+
+Column positions are integers within a Board; Task positions are integers within a Column. Positions are conceptually zero-based and contiguous (`0, 1, 2, ...`) after completed mutations. Later ordering/reordering operations must execute transactionally, preserving this invariant in every affected collection, including after deletion or a Task move. No floating-point positions, fractional indexing, LexoRank, or general ordering framework is introduced. Concrete concurrency and persistence mechanics are deferred to implementation; MS5.9 owns frontend drag and drop.
+
+| Resource | Initial lifecycle |
+| --- | --- |
+| Board | Create, read, rename/update, delete. |
+| Column | Create, read through Board, rename, reorder, delete if empty. |
+| Task | Create, read, update, delete, reorder within Column, move between Columns in the same owned Board. |
+
+A Task move requires source and destination Columns to belong to the same owned Board. Moving Tasks across Boards is outside the initial scope, even if both Boards have the same owner.
+
+### Deletion and persistence lifecycle
+
+| Resource | Approved deletion policy |
+| --- | --- |
+| Board | Explicit deletion removes its Columns and Tasks. The future frontend must require explicit destructive confirmation. |
+| Column | Delete only when empty. Reject deletion of a non-empty Column with stable conflict code `COLUMN_NOT_EMPTY` and HTTP `409 Conflict` through the existing ProblemDetail contract. |
+| Task | May be deleted directly, subject to ownership. |
+
+Deleting a Column must not silently destroy user tasks. The empty-Column rule governs direct Column deletion at the application layer; explicit Board deletion intentionally removes its descendants.
+
+The expected ownership lifecycle is User deletion → Board → Column → Task, and Board deletion → Column → Task. This records lifecycle intent without introducing a User deletion API. MS5.2–MS5.4 must translate it into concrete migrations and entity mappings, carefully coordinating database foreign-key/delete behavior, JPA cascades, and the application-level empty-Column rule. Do not rely solely on ORM cascade assumptions. Flyway remains the only schema-authoring mechanism and its schema constraints remain authoritative; no migrations are added or changed in MS5.1.
+
+### API and frontend route direction
+
+The intended API uses plural resources under `/api`, existing DTO boundaries, and the established HTTP/ProblemDetail conventions. These are future endpoint directions, not implemented controllers or finalized request/response contracts.
+
+| Method | Path | Intent |
+| --- | --- | --- |
+| GET | `/api/boards` | List the authenticated user's Boards. |
+| POST | `/api/boards` | Create a Board owned by the authenticated user. |
+| GET | `/api/boards/{boardId}` | Read an owned Board. |
+| PATCH | `/api/boards/{boardId}` | Rename/update an owned Board. |
+| DELETE | `/api/boards/{boardId}` | Delete an owned Board and its descendants. |
+| POST | `/api/boards/{boardId}/columns` | Create a Column in an owned Board. |
+| PATCH | `/api/columns/{columnId}` | Update an owned Column. |
+| DELETE | `/api/columns/{columnId}` | Delete an owned, empty Column. |
+| POST | `/api/columns/{columnId}/tasks` | Create a Task in an owned Column. |
+| GET | `/api/tasks/{taskId}` | Read an owned Task. |
+| PUT | `/api/tasks/{taskId}` | Replace owned Task content (finalized in MS5.4; see below). |
+| DELETE | `/api/tasks/{taskId}` | Delete an owned Task. |
+
+Exact reorder/move endpoint contracts are deferred to the relevant backend and drag-and-drop steps. Do not introduce RPC-style endpoints such as `/createBoard`.
+
+MS5.1 planned `/boards` and `/boards/:boardId` without adding Angular implementation. MS5.5 implements `/boards` and the root redirect; `/boards/:boardId` is implemented in MS5.6 below.
+
+## Board backend (MS5.2)
+
+MS5.2 implements only the Board backend under `com.taskflow.board`: `api` owns the controller and focused request/response DTOs, `application` owns `BoardService` and the safe `Board` result, `domain.BoardName` owns name normalization/invariants, and `persistence` owns `BoardEntity` and `BoardRepository`. No generic CRUD abstraction, mapper framework, or new dependency is introduced. A newly created Board is empty; Columns arrive in MS5.3. No Column/Task persistence, default Columns, or frontend implementation exists in this step.
+
+### Persistence and ownership
+
+`BoardEntity` maps to `boards` and extends `BaseEntity` for the UUID primary key and `Instant` UTC audit fields. Its only additional fields are required `ownerId` (UUID, not updatable after creation, no setter) and required `name` (maximum 120). It stores the stable owner UUID directly, without a `@ManyToOne` relation or dependency on `UserEntity`.
+
+Flyway `V4__create_boards.sql` defines `id UUID PRIMARY KEY`, `owner_id UUID NOT NULL`, `name VARCHAR(120) NOT NULL`, and non-null `created_at` / `updated_at` as `TIMESTAMP WITH TIME ZONE`. `fk_boards_owner` references `users(id) ON DELETE CASCADE`; `idx_boards_owner_id` supports owner-scoped listing. `ck_boards_name_not_blank` rejects names made entirely of PostgreSQL POSIX whitespace. The application enforces normalized names; the database check is an additional blank-name guard, not a replacement for that policy. There are no database UUID or timestamp defaults. V1–V3 remain unchanged. V4 establishes only User → Board deletion; future Column/Task migrations will implement the remaining approved lifecycle.
+
+Every `BoardService` operation obtains the current owner UUID through `AuthenticatedUserProvider`. Creation assigns that UUID; callers supply only the name and cannot transfer ownership. Listing uses `findAllByOwnerIdOrderByCreatedAtDescIdDesc`, giving deterministic newest-created-first ordering with descending UUID as the tie-breaker. Individual reads and renames resolve through `findByIdAndOwnerId`; MS5.3 changes deletion to the owner-scoped `findByIdAndOwnerIdForUpdate` lock described below. No unscoped read followed by an owner comparison is used.
+
+Missing and cross-user Boards share HTTP `404`, code `BOARD_NOT_FOUND`, title `Board not found`, and detail `The requested board was not found.` The response follows the existing RFC 9457 contract without exposing owner information or adding IDs to the detail. `ApiException` now supports an explicit safe title while its existing constructor retains the previous default title and behavior for unrelated errors.
+
+### Name policy, transactions, and API
+
+`BoardName` uses Java `String.strip()` to remove leading/trailing Java whitespace, preserving case and interior whitespace. Create/rename request constructors normalize before Jakarta `@NotBlank` and `@Size(max = 120)` validation, so the bound applies to the normalized value. The entity applies the same normalization and rejects null, blank, or overlong values on creation and rename, including direct application calls. Length follows Java String/Bean Validation semantics (UTF-16 code units), which also fits PostgreSQL's 120-character bound. No lowercasing, interior-space collapsing, slug generation, or naming regex is applied.
+
+`listBoards()` and `getBoard()` use read-only transactions. `createBoard()`, `renameBoard()`, and `deleteBoard()` use write transactions. Creation and rename call `saveAndFlush` before mapping the application result so generated UUID/audit fields, including an updated audit timestamp on rename, are available in the response. Transaction completion precedes controller success; persistence/commit failures retain safe server-error handling.
+
+| Endpoint | Implemented contract |
+| --- | --- |
+| `GET /api/boards` | `200 OK`, JSON array containing only the authenticated user's Boards in the default order; `[]` when empty. No pagination or selectable sorting. |
+| `POST /api/boards` | Accept `{ "name": "..." }`; return `201 Created`, `Location: /api/boards/{boardId}`, and the created Board. |
+| `GET /api/boards/{boardId}` | Return the owned Board with `200 OK`, or the shared `404 BOARD_NOT_FOUND` contract. |
+| `PATCH /api/boards/{boardId}` | Accept required `name` only; return the renamed Board with `200 OK`, or the shared `404 BOARD_NOT_FOUND` contract. No general merge-patch mechanism. |
+| `DELETE /api/boards/{boardId}` | Delete after scoped lookup; return `204 No Content` with no body, or the shared `404 BOARD_NOT_FOUND` contract. |
+
+Every Board response contains exactly `id`, `name`, `createdAt`, and `updatedAt`; the application result and response DTO never expose owner/authentication data, persistence entities, or future children. Both request DTOs reject unknown JSON fields, including owner, ID, and audit metadata, through the existing safe `400 MALFORMED_REQUEST` contract. Missing/null/blank or overlong normalized names return `400 VALIDATION_FAILED` with field violations. Malformed UUIDs and unreadable JSON retain `400 MALFORMED_REQUEST`.
+
+The existing `/api/**` Bearer authentication and CSRF architecture is unchanged: unauthenticated list access returns `401 AUTHENTICATION_REQUIRED`, and POST/PATCH/DELETE without valid CSRF return `403 ACCESS_DENIED`. No Board-specific permit rules, roles, method-security annotations, or JWT handling are added.
+
+### Verification boundary
+
+Final MS5.2 verification: `cd backend && ./mvnw test` passed all 130 backend tests (45 Board tests), with zero failures, errors, or skipped tests. The successful run used approved execution outside the sandbox after Mockito agent attachment failed in a sandboxed run. Existing Mockito/JDK dynamic-agent warnings remain tooling warnings; no dependency or JVM configuration was changed.
+
+Focused entity and service tests cover normalized names and boundaries, retained ownership, safe mapping after flush, owner-scoped queries, and missing/cross-user failures without unauthorized writes. MVC tests exercise real signed Bearer tokens, security filters, identity resolution, Board service, controller, and ProblemDetail translation with repository mocks. They verify CRUD statuses, Location/body contracts, validation, rejected client metadata, CSRF, and User B receiving the same public 404 for User A's Board as for a missing Board (apart from the request-specific `instance` path).
+
+The shared database-free test fixture supplies a Board repository mock. Board MVC tests explicitly enable transaction advice in test-only configuration, using the existing mock transaction manager to verify read-only/write intent and failure-before-success behavior. These tests do not execute PostgreSQL queries, prove row-level security (TaskFlow does not use PostgreSQL RLS), validate actual JPA auditing/locking, or prove real commits/cascades. No usable local database configuration was found: datasource environment variables were unset and the Docker Compose file remains empty. V4/entity alignment was reviewed statically; actual PostgreSQL migration execution and persistence round trips remain future integration verification. No H2, Testcontainers, or production test-profile workaround is added.
+
+## Column backend (MS5.3)
+
+The implemented feature lives under `com.taskflow.column`: `api.ColumnController` and focused `api.dto` contracts, `application.ColumnService` and the safe `Column` result, `domain.ColumnName`, and `persistence.ColumnEntity` / `ColumnRepository`. There are no new dependencies, generic ordering abstractions, Task implementations, or frontend changes.
+
+### Persistence and ownership
+
+`ColumnEntity` extends `BaseEntity` and stores only its Board relation, name, and integer position. The unidirectional child-to-parent relation is `@ManyToOne(fetch = LAZY, optional = false)`, with `board_id` non-null and not updatable. There is no Board replacement method, no `BoardEntity.columns` collection, no duplicated `ownerId`, and no relation to User. Ownership derives exclusively through Column → Board → authenticated User. Every service operation obtains the owner UUID from `AuthenticatedUserProvider`.
+
+`ColumnName` independently applies `String.strip()`, preserving case and interior whitespace. Null, blank, or normalized names longer than 120 UTF-16 code units are rejected. Request DTOs normalize before Bean Validation; entities enforce the policy for direct application calls too. Position assignment rejects negative values.
+
+`V5__create_columns.sql` creates `columns` with UUID primary key, required UUID `board_id`, `name VARCHAR(120)`, required `position INTEGER`, and required `TIMESTAMP WITH TIME ZONE` audit fields. The FK references `boards(id) ON DELETE CASCADE`. Checks require non-negative positions and supplement application name validation with the same POSIX non-blank guard as V4. `idx_columns_board_position_id` supports deterministic ordered reads. `uq_columns_board_position` enforces `UNIQUE (board_id, position) DEFERRABLE INITIALLY DEFERRED`: intermediate duplicate positions during multi-row updates are allowed, but the final transaction state must be unique. UUIDs and timestamps have no database defaults. V1–V4 are unchanged.
+
+### Ordering, transactions, and concurrency protocol
+
+Each Board's positions remain zero-based and contiguous, `0..N-1`, after successful create, delete, or reorder. Create counts under the parent lock and appends at N. List first resolves the owned Board, then reads by position ascending with UUID ascending as a deterministic tie-breaker.
+
+`BoardRepository.findByIdAndOwnerIdForUpdate` uses an explicit owner-scoped JPQL query with `@Lock(PESSIMISTIC_WRITE)`. Column create, delete, reorder, and Board deletion acquire this same parent Board lock inside their write transactions. Board deletion is the only existing Board service behavior changed.
+
+Direct Column mutations first discover the parent UUID using an owner-scoped scalar query. They then lock that owned Board and perform a fresh owner-scoped Column entity lookup. No Column entity is loaded into the persistence context before the lock, avoiding stale positions after a concurrent reorder or delete. If the parent or Column disappeared while waiting, direct endpoints still return `COLUMN_NOT_FOUND`. Rename also follows this protocol so a stale entity update cannot overwrite a concurrent position change or a reorder overwrite a concurrent name change.
+
+Delete schedules the entity deletion and invokes one focused bulk compaction query for positions greater than the deleted position. `flushAutomatically` flushes the deletion first; the query decrements later positions and explicitly sets `updatedAt` from the shared UTC Clock because bulk DML bypasses JPA auditing. `clearAutomatically` discards stale managed state afterwards; it does not release the transaction's database lock. No per-shifted-row lookup or generic ordering framework is used.
+
+Reorder validates the entire submitted membership before changing any entity, assigns positions in submitted order, flushes once, and maps the canonical ordered result. Create and rename map after `saveAndFlush` to include generated identity/audit values. List is read-only transactional; every mutation is write transactional. Transaction completion precedes controller success, including deferred uniqueness validation at commit.
+
+### API and error contracts
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/boards/{boardId}/columns` | Resolve Board ownership first; return `200` with ordered array or `[]`. |
+| `POST /api/boards/{boardId}/columns` | Accept name only; append and return `201` with created Column. No Location header because there is no direct Column GET. |
+| `PATCH /api/columns/{columnId}` | Accept name only; return `200` with renamed Column, retaining Board and position. |
+| `DELETE /api/columns/{columnId}` | Delete and compact in one transaction; return `204` with no body. |
+| `PUT /api/boards/{boardId}/columns/order` | Accept `{ "columnIds": ["uuid", "uuid"] }` as the complete ordered representation; return `200` with the canonical ordered Column array. |
+
+Responses contain exactly `id`, `name`, `position`, `createdAt`, and `updatedAt`. Requests reject unknown fields, including ownership, parent, position, ID, and audit metadata. Reorder requires a non-null list of non-null UUIDs; business membership validation remains in the service. Invalid names or structural nulls return `400 VALIDATION_FAILED`; malformed JSON/UUIDs and unknown fields return `400 MALFORMED_REQUEST`.
+
+For an owned Board, reorder must contain every current Column exactly once, with no duplicates, omissions, additions, or foreign Columns. Empty order is valid only for an empty Board. Repeating the same order is idempotent. Invalid membership returns `409 COLUMN_ORDER_CONFLICT`, title `Column order conflict`, detail `The submitted column order does not match the board's current columns.` No supplied UUID's existence or ownership is disclosed.
+
+Missing and cross-user parent Boards share the existing `404 BOARD_NOT_FOUND` contract. Missing and cross-user Columns share `404 COLUMN_NOT_FOUND`, title `Column not found`, detail `The requested column was not found.` The existing ProblemDetail infrastructure is reused; unexpected persistence failures remain safe `500 INTERNAL_ERROR`. All endpoints retain MS4 Bearer authentication and unsafe-method CSRF protection unchanged.
+
+Task persistence does not exist in MS5.3, so all existing Columns are structurally empty and may be deleted. The approved `409 COLUMN_NOT_EMPTY` rule remains mandatory and becomes enforceable in MS5.4 when Task persistence exists. No placeholder task-count check is introduced. Explicit Board deletion removes Columns through the V5 FK cascade.
+
+### Verification boundary
+
+Final MS5.3 verification: `cd backend && ./mvnw test` passed all 214 backend tests (84 added), with zero failures, errors, or skipped tests. The sandboxed run compiled but failed on Mockito agent attachment; the approved run outside the sandbox passed. Existing Mockito/JDK dynamic-agent and class-sharing warnings remain tooling warnings; no build configuration changed.
+
+The shared database-free fixture now mocks `ColumnRepository`. Entity/service tests cover name and position invariants, immutable parent identity, lock-before-read/write ordering, parent/child disappearance, exact reorder membership, canonical/idempotent order, and safe ownership failures. Static repository contracts cover the parent lock metadata and bulk compaction's predicate, timestamp, flush, and clearing behavior. MVC tests use real Bearer tokens, security filters, service transaction advice, controllers, and error translation with repository/transaction-manager mocks. They cover all endpoint statuses, safe response fields, validation, CSRF, cross-user equivalence, transaction intent, and persistence/commit failure propagation.
+
+These checks do not execute PostgreSQL. Actual V5 execution, entity/query round trips, audit behavior, non-blank/position/deferred uniqueness constraints, FK cascades, bulk compaction results, and simultaneous transaction locking remain integration verification boundaries. Mockito tests verify protocol and metadata, not real database concurrency. No H2, Testcontainers, dependency changes, or conditional production test wiring are introduced.
+
+## Task backend (MS5.4)
+
+MS5.4 implements the Task backend under `com.taskflow.task`: `api.TaskController` and focused `api.dto` requests/responses, `application.TaskService` and safe `Task` results, `domain.TaskTitle`, `TaskDescription`, and `TaskPriority`, and `persistence.TaskEntity` / `TaskRepository`. No frontend, dependency, security configuration, or later product feature changes are included.
+
+### Persistence, ownership, and content policies
+
+`TaskEntity` extends `BaseEntity` and stores only Column, title, nullable description, required priority, nullable dueDate, and non-negative position. The unidirectional `@ManyToOne(fetch = LAZY, optional = false)` relation uses required `column_id`; it can change through placement. There is no reverse Task collection on Column, duplicated Board/owner state, User relation, status, or version field. Ownership and workflow state derive through Task → Column → Board → authenticated User. All use cases obtain the current UUID from `AuthenticatedUserProvider` and use scoped repository queries.
+
+`V6__create_tasks.sql` creates `tasks` with UUID primary key, required UUID `column_id`, `title VARCHAR(200) NOT NULL`, nullable `description VARCHAR(4000)`, textual `priority VARCHAR(6) NOT NULL`, nullable `due_date DATE`, required integer position, and required timestamptz audit fields. Checks enforce non-negative positions, allowed priority names, and a PostgreSQL POSIX non-blank title guard. `UNIQUE (column_id, position) DEFERRABLE INITIALLY DEFERRED` permits temporary duplicates during transactional resequencing while requiring unique final positions. The `(column_id, position, id)` index supports ordered reads. The FK to `columns(id) ON DELETE CASCADE` completes explicit Board → Column → Task deletion. UUIDs and timestamps have no database defaults. V1–V5 are unchanged.
+
+`TaskTitle` strips leading/trailing Java whitespace, preserves case and interior whitespace, and rejects null, blank, or normalized values longer than 200 UTF-16 code units. `TaskDescription` strips edges, maps null/blank to null, preserves case, interior spacing and newlines, and limits normalized values to 4000 UTF-16 code units. DTO constructors normalize before Jakarta validation; entities enforce the same invariants for direct application calls. No Markdown processing is performed.
+
+`TaskPriority` contains LOW, MEDIUM, HIGH and persists with `EnumType.STRING`; omitted/null priority on creation defaults to MEDIUM. Full update requires an explicit valid priority. JSON uses the exact enum names and rejects numeric ordinals. `LocalDate dueDate` persists as nullable DATE without timezone conversion, overdue computation, or reminders. MS5.10 extends priority **product behavior**; MS5.11 extends due-date **product behavior**. Their basic CRUD persistence/API semantics are implemented here.
+
+### API and errors
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/columns/{columnId}/tasks` | Resolve owned Column; return `200` ordered Task array or `[]`. Order is position ascending, then UUID ascending. |
+| `POST /api/columns/{columnId}/tasks` | Accept title, optional description/priority/dueDate; append at N under the Board lock. Return `201`, `Location: /api/tasks/{taskId}`, and Task body. |
+| `GET /api/tasks/{taskId}` | Owner-scoped lookup; return `200` and Task body. |
+| `PUT /api/tasks/{taskId}` | Replace complete mutable content: required title/priority, nullable description/dueDate. Return `200` and Task body. |
+| `DELETE /api/tasks/{taskId}` | Delete and compact source positions to 0..N-1; return `204` with no body. |
+| `PUT /api/tasks/{taskId}/placement` | Accept required columnId and non-negative integer position; reorder/move within the same owned Board, returning `200` and moved Task body. |
+
+MS5.4 refines the conceptual MS5.1 PATCH direction to **full PUT content replacement**. Null (including omitted nullable content fields) clears description/dueDate; this avoids patch-presence infrastructure needed to distinguish omission from explicit null in PATCH. Content update cannot change Column or position. Placement exclusively owns those fields. Create/update reject parent, position, ownership, identity, audit, and other unknown fields; placement accepts only columnId/position.
+
+Task responses contain exactly id, columnId, title, description, priority, dueDate, position, createdAt, updatedAt. They expose no owner, Board, User, persistence entity, or Hibernate state. Invalid normalized content or structurally missing required fields returns `400 VALIDATION_FAILED`; malformed JSON, UUID, priority, date, and unknown fields return the established `400 MALFORMED_REQUEST`. Existing authentication and unsafe-method CSRF protections remain unchanged; unexpected repository/commit failures remain safe `500 INTERNAL_ERROR`.
+
+Missing and cross-user Tasks share `404 TASK_NOT_FOUND`, title `Task not found`, detail `The requested task was not found.` Missing/cross-user parent Columns retain `404 COLUMN_NOT_FOUND`. A placement target must resolve by target Column UUID **and source Board UUID and authenticated owner**; nonexistent, other-Board (even owned), and other-user targets all yield the same safe `COLUMN_NOT_FOUND`.
+
+Placement removes the Task from its source collection before inserting at the submitted target index. Valid indices are 0 through the resulting target collection size inclusive. For the same Column, [A, B, C] with A placed at 2 becomes [B, C, A]. Cross-Column movement compacts the source and inserts/resequences the destination. An unchanged current placement is valid. An out-of-range index returns `409 TASK_PLACEMENT_CONFLICT`, title `Task placement conflict`, detail `The requested task position is not valid for the target column.` Structural negative API positions fail validation. No collection count is disclosed.
+
+### Shared mutation lock and Column boundary
+
+Create, full content update, delete, and placement each run in one write transaction using the existing owner-scoped Board `PESSIMISTIC_WRITE` lookup. Each first discovers the owned Board identity with a scalar query, locks it, then re-fetches/revalidates the Column or Task within that Board. No Task entity is managed before locking. Content updates also lock so a stale entity cannot overwrite a concurrent Column/position change. Board deletion and Column structural mutations already participate in this same protocol; there are no independent Column row locks.
+
+Under the lock, create loads current ordered Tasks and appends at N. Delete and placement explicitly resequence affected managed collections in memory and flush. Same-Column placement loads one collection; cross-Column placement handles both collections in one transaction. Content updates save/flush content fields only. Mapping follows flush, and transaction completion precedes controller success, including deferred constraint checks at commit. List/get are read-only transactions.
+
+Direct Column deletion now enforces `409 COLUMN_NOT_EMPTY`, title `Column not empty`, detail `The column must be empty before it can be deleted.` After the existing Board lock and Column revalidation, `ColumnService` calls the narrow Column-owned `ColumnTaskPresence.hasTasks(columnId)` application contract. Task's `TaskColumnPresence` implements it with `TaskRepository.existsByColumn_Id`, so Column does not depend on Task persistence internals. A non-empty Column is neither deleted nor compacted, and no Task IDs/counts are exposed. Empty Column deletion retains the existing compaction behavior. The shared Board lock coordinates this presence check with Task creation/movement; explicit Board deletion still cascades through the database.
+
+### Verification boundary
+
+Final MS5.4 verification: `cd backend && ./mvnw test` passed all 342 backend tests (128 added), with zero failures, errors, or skipped tests. The sandboxed run compiled but hit the existing Mockito agent-attachment restriction; approved execution outside the sandbox passed. Existing Mockito/JDK dynamic-agent and class-sharing warnings remain tooling warnings. `git diff --check` passed.
+
+The database-free fixture now mocks TaskRepository. Added policy/entity, service, static persistence-contract, and MVC/security tests cover normalization boundaries, basic priority/date CRUD, safe DTOs, ordered mutations, lock-before-refetch protocol, same-Board targeting, cross-user/missing equivalence for all six Task endpoints, Column non-empty enforcement, transaction intent, and persistence/commit failure propagation. MVC tests use real signed Bearer tokens, security filters, services and transaction advice, with repository/transaction-manager mocks.
+
+Actual PostgreSQL V6 execution, JPA/query round trips, auditing, FK cascade behavior, deferred uniqueness, rollback of persisted resequencing, and simultaneous transaction locking remain deferred integration verification. Static mapping/SQL checks and Mockito protocol tests do not prove PostgreSQL execution or concurrency. No H2, Testcontainers, new dependencies, or production wiring workarounds are introduced.
+
+## Board list frontend (MS5.5)
+
+The feature under `frontend/src/app/features/boards/` owns the Board contracts, thin `BoardApi`, page-scoped `BoardListState`, Board list page, reusable feature-local Board name form, styles, tests, and routes. Board-specific code stays outside core, shared, and App. The minimal known-code ProblemDetail matcher now lives in `core/http/http-problem.ts`; auth keeps its existing helper import through a re-export. Only known status/code combinations map to fixed safe messages; arbitrary server details and violations are never rendered.
+
+`/boards` is the first authenticated business landing, guarded by `authenticatedGuard`, lazily loading the list with title **Boards | TaskFlow**. Root uses Angular's declarative redirect to `/boards`; anonymous root or Board-list access reaches `/login?returnUrl=%2Fboards`. Login/register, auth-only redirects, wildcard Not Found, and the existing shell landmarks/user controls remain intact. The brand remains static, avoiding an authenticated destination on anonymous pages. There is no full navigation bar; MS5.6 adds Board-name workspace links.
+
+`BoardApi` uses HttpClient and injected API_BASE_URL for GET/POST `/api/boards`, PATCH/DELETE `/api/boards/{id}`. Create and rename send only `name`. Board responses contain only string `id`, `name`, `createdAt`, and `updatedAt`; DELETE accepts bodyless 204. Existing global Bearer, refresh recovery, and XSRF infrastructure remains responsible for HTTP security. Board data has no browser persistence, manual authentication requests, or date/UUID parsing.
+
+The page initiates one list load per activation. State exposes readonly signals for Boards, loading, load error, and stale-resource notice. Loading takes precedence over error/content; successful empty lists show first-use guidance and the visible create action. Failed loads show a safe error and Retry, retaining the last confirmed list in memory but hiding it until a successful retry. Server list order remains authoritative, with no frontend sorting.
+
+Create/rename share a small Signal Form using required, maxLength 120, and blank-only validation. Submission trims outer whitespace while preserving case and interior whitespace. Signal Forms submission state prevents duplicates and disables submit/cancel during a request. Server failure retains the user's input with fixed safe feedback; success closes the form, so reopening create starts empty. Only one rename editor is open at a time, initialized from the current name; other Boards remain viewable and can be deleted independently.
+
+Successful create prepends the complete server-returned Board. Successful rename replaces precisely that Board with its full response in the same position. Explicit inline delete confirmation names the Board, explains permanent deletion of the board and its contents, and offers **Delete board** and **Cancel**. A scoped pending flag prevents duplicate deletion; only confirmed 204 removes the Board locally. These normal mutations do not issue a follow-up GET.
+
+Both rename and delete `404 BOARD_NOT_FOUND` show **This board is no longer available.**, close the affected controls, and reload the authoritative list without implying successful deletion. Failed reconciliation uses the normal load-error/Retry surface. Load sequencing ignores superseded responses; a mutation completing during a GET starts a newer reconciliation GET so an older snapshot cannot overwrite its confirmed update. Existing list controls stay mounted but hidden during loading/errors to preserve an unrelated pending rename's submission lifecycle; controls for resources absent after a successful reload are cleared.
+
+The UI uses semantic headings and list items, labelled inputs with associated visible validation, real text buttons, accessible loading/error announcements, and keyboard-accessible inline confirmation. New name forms focus their labelled input after rendering; existing focus styles are retained. Feature-local SCSS supplies restrained cards, action hierarchy, destructive styling, and responsive layout without a UI library or dependency changes.
+
+Final MS5.5 verification: `cd frontend && npm run test:ci` passed all **151 frontend tests** across 13 files (63 new Board API/state/component tests and four additional routing cases; the existing auth suite remains green). `npm run build` succeeded without warnings, and `git diff --check` passed. API tests use Angular HttpClient testing; rendered component and routing tests use mocked server responses. A live backend/browser end-to-end run was not performed. Board workspace `/boards/:boardId`, Column/Task frontend and Kanban were deferred at this MS5.5 checkpoint; MS5.6 below implements read-only access. Drag/drop remains deferred. No backend changes are part of this step.
+
+## Board workspace frontend (MS5.6)
+
+The read-only workspace lives under `features/boards/board-workspace/`, with a standalone page, local HTML/SCSS, page-scoped signal state, and focused tests. The feature-owned `/boards/:boardId` route uses authenticatedGuard, lazily loads BoardWorkspace, and sets title **Board | TaskFlow**. It activates immediately without a resolver or business-data guard. Board-list names are now real RouterLinks, separate from the unchanged create/rename/delete controls.
+
+The page observes ActivatedRoute.paramMap. Distinct boardId values feed switchMap, cancelling the previous pipeline on route changes; Retry reloads the current Board. Page destruction unsubscribes. A readonly discriminated signal exposes loading, ready, not-found, or error; only ready carries the Board and ordered WorkspaceColumn entries containing separate Column and Task DTOs. Loading and failures clear prior content, so neither another Board nor a partial result appears authoritative.
+
+BoardApi adds getBoard using GET `/api/boards/{boardId}` and the existing Board model. Read-only boundaries live in `features/columns/` (Column model and listColumns) and `features/tasks/` (Task model and listTasks). Their response contracts match the backend, including the Task priority literal union and nullable description/dueDate. Global authentication, refresh, and XSRF infrastructure remain authoritative; there is no workspace persistence or manual auth request.
+
+Loading proceeds Board → Columns → parallel Tasks per Column. forkJoin preserves original Column response order regardless of Task completion order; Task arrays retain server order without sorting or recalculating positions. Zero Columns complete successfully without Task requests. The 1 Board + 1 Column-list + N Task-list read pattern is accepted for current scope; no aggregate endpoint or backend changes are introduced.
+
+Loading announces **Loading board…**. Board or Column-list `404 BOARD_NOT_FOUND` maps through the existing safe HTTP Problem helper to **Board not found** and **This board is no longer available.**, with a normal Back to boards link and no automatic redirect. Task-list `COLUMN_NOT_FOUND` is a reloadable whole-workspace failure, as are unexpected/network/server errors: **We couldn't load this board.** and Retry. Retry reruns Board → Columns → Tasks; there is no partial ready board, automatic retry loop, or backend-detail disclosure.
+
+Ready content has the Board name as h1, labelled semantic Column sections with h2 headings, and task lists in DOM/server order. Task cards intentionally show titles only. Empty Boards show **This board has no columns yet.**; empty Columns show **No tasks yet.** Desktop/tablet lanes have stable widths within a keyboard-focusable horizontal scrolling region; narrow screens stack lanes vertically using local CSS. Long names wrap, native links/buttons and existing focus styles remain, and loading/error messages are announced. No new navbar or design system is introduced.
+
+Column mutations remain MS5.7, Task CRUD MS5.8, drag/drop MS5.9, priority presentation MS5.10, and due-date presentation MS5.11. No mutation controls, placement behavior, CDK, dependencies, or backend changes are included.
+
+Final MS5.6 verification: all **173 frontend tests** across 17 files passed (22 net additional tests), including existing auth and MS5.5 Board CRUD coverage. Focused HTTP/state/component/router tests cover read endpoints, pipeline sequencing, empty states, parallel completion ordering, safe failures, full Retry, route reuse and cancellation at every loading stage, and page teardown. The production build succeeded without warnings; git diff --check passed. Routing and rendering were verified with Angular test harnesses and mocked HTTP, not a live backend/browser end-to-end session.
+
+## Column UI (MS5.7)
+
+The Column feature now owns ColumnManagement, ColumnControls, and a separate ColumnNameForm Signal Form. BoardWorkspace still owns Board/Column/Task loading and projects its unchanged read-only Task template into the Column lanes. Column DTOs remain exact backend contracts; page editing flags and Task arrays are separate. ColumnApi adds typed create (POST Board columns), rename (PATCH Column), delete (DELETE Column), and reorder (PUT Board columns/order) operations without transport-level business error handling or manual authentication headers.
+
+ColumnNameForm validates required, non-blank names of at most 120 characters. Submission trims only outer whitespace, preserving case and interior spaces. Create and rename focus the labelled input, prevent duplicate pending submissions, retain text on safe failures, and close on success. Add column is available on an empty Board without creating default lanes. Confirmed create appends the canonical returned Column with an empty Task array; confirmed rename replaces only Column metadata in place, retaining its Task array. Neither normally reloads the workspace.
+
+Delete opens an inline named confirmation before any request, with Delete column and Cancel buttons. Local Tasks never disable the delete action: the backend remains authoritative. A 409 COLUMN_NOT_EMPTY retains the entire workspace and announces **This column must be empty before it can be deleted.** Only confirmed 204 removes the target and compacts survivor Column positions to their array indexes, retaining Task arrays without reloading them.
+
+Each lane has real Move left / Move right buttons, named for its Column; native disabled states enforce first/last boundaries. Reorder sends the complete final columnIds list. The displayed order remains unchanged until success, when canonical returned Column metadata/order is combined with existing Task arrays by Column id. Missing, unknown, or duplicate response membership triggers the existing full workspace loader instead of constructing inconsistent lanes. COLUMN_ORDER_CONFLICT announces **Columns changed on the server. Reloading the board.** during reconciliation and reloads without retrying the stale order request. These keyboard controls remain useful when MS5.9 later adds drag/drop over the same persistence contract.
+
+Column writes are serialized within the current workspace, using one page-scoped pending operation; this prevents overlapping append/delete/reorder responses from invalidating one another. Column action controls are temporarily disabled during a write, while navigation and the rest of the application remain available. Generic mutation failures leave the valid workspace visible with operation-specific accessible feedback. COLUMN_NOT_FOUND invokes the existing Board → Columns → parallel Tasks loader; BOARD_NOT_FOUND switches to the established safe not-found state. A reconciliation that discovers a missing Board uses that same state.
+
+Every load/route change and page destruction advances a workspace generation. Each mutation captures that generation before sending and checks it before applying either success or failure. Old results cannot modify a newer route or reload, clear a newer pending operation, or expose stale errors in the current controls. The loader retains MS5.6 switchMap cancellation; no second loading pipeline or global mutation infrastructure is introduced. Pending writes may finish on the server after navigation, but their stale client results are ignored.
+
+The existing wide-screen horizontal lanes and narrow-screen vertical stack remain; subordinate action controls wrap. Inputs have labels, confirmations use keyboard-operable native buttons, mutation errors use alert/live regions, and global focus styles remain. Task cards still display titles only: no TaskApi mutations, Task forms, priority/due-date expansion, pointer reordering, drag attributes, CDK, dependencies, or backend changes. Task CRUD remains MS5.8 and drag/drop remains MS5.9.
+
+Final MS5.7 verification: all **226 frontend tests** across 20 files passed (53 additional tests). Coverage includes exact mutation HTTP contracts, Column Signal Form validation/submission, canonical state changes, Task-array preservation, confirmation/non-empty feedback, complete-order pessimistic persistence, malformed membership reconciliation, and late success/error responses for all four operations. Existing auth, MS5.5 Board CRUD, and MS5.6 workspace loading/cancellation tests remain green. The production build succeeded without warnings and git diff --check passed. Verification used Angular component/router tests and mocked HTTP; no live backend/browser end-to-end run was performed.
+
+## Task CRUD UI (MS5.8)
+
+The Task feature owns TaskManagement, per-lane TaskList controls, a reusable TaskForm Signal Form, an inline TaskDetails panel, local styles, and tests. BoardWorkspace remains the canonical composition owner of Board, Columns, and Task arrays. TaskApi now supports getTask, createTask, updateTask, and deleteTask alongside listTasks. The typed create/update requests contain only title, nullable description, priority (optional only in the create transport contract), and nullable dueDate. Update uses full-content PUT. There is no frontend placement method.
+
+Each lane, including an empty one, offers Add task. One create form and one selected Task detail surface are allowed per workspace. Task cards remain restrained title summaries with real buttons to open details. Details derive the selected Task by ID from current workspace state, show description as escaped plain text with line breaks, priority as plain text, and the date string when present. Opening details issues no extra GET. The direct-read API is available but unused by this flow. Edit initializes the shared form from current canonical content; success immediately updates the selected details. Reloads close detail/edit/create surfaces, avoiding detached stale data; deleting a Column also clears any create selection for that lane.
+
+TaskForm uses labelled title, description textarea, native priority select, and optional date input. Create visibly defaults to MEDIUM. Title is required, non-blank, and limited to 200 characters; description is optional with a 4000-character limit. Submission trims title edges while preserving case/interior spaces, and trims description edges while preserving internal whitespace/line breaks; empty or blank description becomes null. Priority accepts LOW/MEDIUM/HIGH. Due dates remain YYYY-MM-DD strings, with empty input becoming null and no Date/timezone conversion. Edit submits all mutable content, allowing description and dueDate to be cleared. Pending submissions prevent duplicates and disable Cancel; generic failures retain the form input.
+
+Normal successful create appends the canonical Task only to its target Column. A mismatched returned columnId, non-append position, or duplicate ID triggers the existing full workspace loader. Update replaces exactly the matching Task in place with canonical metadata; unexpected identity, columnId, or position causes reconciliation rather than a silent move. Neither normal create nor update refetches Tasks. Delete requires an inline confirmation naming the Task and explaining permanent deletion. Only confirmed 204 removes the target and compacts surviving positions in that Column to array indexes; other lanes retain their Task arrays.
+
+The minimal core HTTP Problem helper extracts validation field names only from 400 VALIDATION_FAILED responses. Task-owned mapping supplies fixed safe messages for title, description, priority, and dueDate. Form fields expose linked live feedback and aria-invalid; unknown/malformed violations receive safe general form feedback. Arbitrary backend detail, messages, unknown field names, and raw JSON are not rendered. MALFORMED_REQUEST and generic failures use operation-specific safe messages without replacing the valid workspace. TASK_NOT_FOUND announces **This task is no longer available.**, invalidates the selected surface, and reloads Board → Columns → parallel Tasks. COLUMN_NOT_FOUND also reconciles through that existing loader.
+
+The MS5.7 pending-write slot now lives in page-scoped BoardWorkspaceState and is shared by ColumnManagement and TaskManagement. One Column or Task write may run per active workspace generation; both features disable their mutation controls while either is pending, while application navigation stays available. This prevents Task creation/edit/deletion racing a Column deletion or reorder without a queue or general lock manager. Each write captures the existing generation and checks it before applying success or failure. Route changes, reloads, and page destruction invalidate late results; identity-based release prevents an old completion from clearing a newer pending write. Requests may complete on the server after navigation, but stale client results are ignored.
+
+Controls use native buttons, associated labels, meaningful headings, linked validation, and alert/live feedback. Forms focus the title with the existing Angular-native pattern; inline details avoid dialog/focus-trap complexity. Existing horizontal lanes, mobile vertical stacking, wrapping controls, and visible focus styles remain. Column deletion still requires backend approval and retains COLUMN_NOT_EMPTY feedback; users can now explicitly delete Tasks first. There is no forced/cascading UI deletion.
+
+Task movement, placement controls, drag/drop, and CDK remain MS5.9. Priority data editing is included, while badges/colors/filtering/sorting remain MS5.10. Due-date data editing is included, while overdue/relative/timezone/product semantics remain MS5.11. No backend, auth infrastructure, or dependency changes are part of MS5.8.
+
+Final MS5.8 verification: all **318 frontend tests** across 24 files passed (92 additional tests). Added coverage verifies CRUD transport bodies, form limits/normalization/defaults, safe known/unknown validation field handling, inline details, explicit deletion, canonical append/update/delete compaction, unexpected response reconciliation, shared Column/Task write exclusion, and late success/error results after route changes, reloads, and destruction. Existing auth, Board CRUD, workspace loading/cancellation, and Column CRUD/reorder suites remain green. The production build succeeded without warnings and git diff --check passed. Production source review found no new persistence, manual auth/XSRF headers, placement calls, drag/drop, dependencies, or backend changes. Verification used Angular tests and mocked HTTP; no live backend/browser end-to-end session was performed.
+
+## Task drag and drop (MS5.9)
+
+The frontend adds exactly pinned `@angular/cdk@22.1.6` for drag/drop, compatible with the existing Angular 22.1 release line. Angular core/CLI and unrelated dependency versions remain unchanged; no Material or wrapper library is added. TaskList renders one typed CdkDropList per Column, including empty Columns with a dashed, minimum-height drop area. A CdkDropListGroup in the ready Board workspace connects only that Board's lists. Task cards use CdkDrag, stable Task ID tracking, and a small non-button CdkDragHandle grip separate from the real View task button. Columns are not draggable; their Move left/right controls remain available.
+
+TaskApi.placeTask sends only `{ columnId, position }` to `PUT /api/tasks/{taskId}/placement` and receives the canonical moved Task. Full PUT content updates remain separate. The final CDK drop index uses the existing backend remove-then-insert semantics without adjustment. An exact same-container/same-index drop does nothing, including leaving existing feedback untouched. A small pure Task placement planner validates coordinates and current workspace membership, clones only affected Task arrays, moves the Task, and resequences affected positions to contiguous 0..N-1. API DTOs never carry drag metadata. CDK cannot mutate canonical arrays; BoardWorkspaceState remains their sole state owner.
+
+Task movement is deliberately optimistic: TaskManagement captures the generation and affected immutable lane snapshot, takes the existing shared write token, and immediately publishes the planned state before starting HTTP. Same-Column reorder resequences one collection; cross-Column movement resequences both. Task content and timestamps remain unchanged. Normal success validates response ID, target Column, and position, then replaces only the moved Task with the canonical response while retaining local order and every other Task's content. Normal success does not reload the workspace.
+
+Generic/network/server failures restore the exact affected lane snapshot, keep the ready workspace visible, and announce **We couldn't move the task. Please try again.** A 409 TASK_PLACEMENT_CONFLICT restores the snapshot, announces **Tasks changed on the server. Reloading the board.**, and reloads Board → Columns → Tasks without resending the stale command. TASK_NOT_FOUND restores the snapshot, closes stale details/edit state, announces **This task is no longer available.**, and fully reloads. COLUMN_NOT_FOUND similarly restores and reloads with safe stale-content feedback, without ownership information. Inconsistent successful response identity/placement (including an absent response) also rolls back and fully reconciles. A reconciliation BOARD_NOT_FOUND uses the existing workspace not-found state.
+
+Placement uses the same page-scoped pending write mechanism as Column and Task CRUD: CDK lists/drags and all Task/Column mutation submissions are disabled while a write is pending, with handler-level exclusion as well. No second drag lock, queue, or concurrent placement is introduced. The existing generation checks protect success, rollback, feedback, reconciliation, and destruction; route changes and reloads invalidate earlier placement outcomes. Finishing an old request cannot release a newer generation's write token. The existing reactive loader still cancels obsolete workspace reads. A drop carrying obsolete lane-array references is rejected before HTTP.
+
+Selected Task details remain derived by ID from the canonical workspace. The detail component now has one stable workspace-level host below the lanes, keyed by Task ID, so movement across lanes does not recreate it or discard an unsent edit draft. Details reflect optimistic placement, canonical success, and rollback; open create/edit forms alone do not prohibit dragging. Their submissions participate in the shared pending state.
+
+Feature-local styling provides a grip, preview shadow, dashed insertion placeholder, and restrained CDK transitions with reduced-motion support. DOM Task ordering follows canonical workspace arrays; normal button semantics, focus styles, and details/edit/delete keyboard access remain. Pointer drag/drop does **not** provide a complete keyboard Task placement workflow; that limitation remains explicit. No backend files change. Real-browser pointer end-to-end verification is deferred to a later acceptance/deployment boundary; unit/component tests exercise typed drop events and actual application bindings without adding a browser automation framework. Priority presentation, due-date UX, search/filter/sort, and all MS5.10+ work remain out of scope.
+
+Final MS5.9 verification: **369 frontend tests** across 25 files passed (**51 added**), including placement transport, pure reorder/move planning, optimistic timing, exact rollback, safe conflict/not-found and inconsistent-success reconciliation, shared write exclusion, route/reload/destruction races, CDK structure, empty targets, and selected details/draft coherence. Existing auth, Board CRUD, workspace loading/cancellation, Column CRUD/reorder, and Task CRUD/details/validation suites remain green. The production build passed without warnings (the sandboxed invocation aborted without diagnostics; the approved unsandboxed rerun succeeded). `npm ls @angular/cdk` confirms **22.1.6**. Dependency review found only CDK additions and required dev-to-runtime metadata changes for existing parse5/entities versions. `git diff --check` passed. Production source review found no added storage or manual auth/XSRF handling; placement references remain in the Task feature.
+
+## Priority product UI (MS5.10)
+
+Static inspection confirms the existing MS5.4 foundation is sufficient: TaskPriority has exactly LOW, MEDIUM, HIGH; TaskEntity uses EnumType.STRING; V6 defines non-null textual priority with the same allowed-value constraint. TaskResponse includes priority, create accepts an optional priority and defaults missing/null values to MEDIUM in the entity, and update requires priority. Existing Task CRUD already creates, reads, and updates priority. MS5.10 adds no migration, endpoint, query parameter, backend change, or dependency; V1–V6 and CDK 22.1.6 remain unchanged.
+
+The Task feature owns one human-label mapping (Low, Medium, High) and a tiny reusable TaskPriorityIndicator for cards and details. Text remains visible regardless of color, with a screen-reader Priority prefix and restrained contrasting styles. The existing form reuses these labels while retaining uppercase enum option/transport values and the visible Medium create default. Native labeled Priority filter and Task order controls sit separately from structural mutations and wrap on narrow screens.
+
+TaskPriorityView is provided by the Board page, outside canonical BoardWorkspaceState. Its defaults are ALL priorities and MANUAL order. The only filters are ALL/HIGH/MEDIUM/LOW; the only orders are MANUAL/PRIORITY_HIGH_TO_LOW/PRIORITY_LOW_TO_HIGH. No settings are persisted in storage or URL parameters. Distinct Board route IDs reset both controls before loading the new workspace; same-Board retries/reconciliation preserve settings and reapply the projection to refreshed canonical data.
+
+The small pure projectTasksByPriority function filters each Column independently into a new render array, then sorts that copy when requested using explicit ranks HIGH=3, MEDIUM=2, LOW=1 and ascending canonical Task.position for equal priorities. Equal positions retain original array order. Manual mode preserves exact canonical array order. Task.position is the persisted manual Kanban order; Priority order is a temporary UI projection. Filtering/sorting never mutates canonical arrays, Task objects, columnId, or position and makes no HTTP calls. Changing priority does not change placement; changing placement does not change priority. Clearing the controls restores manual ordering immediately without a reload.
+
+All Columns remain visible. Actual empty collections say **No tasks yet.**; nonempty collections hidden by the filter say **No tasks match this priority.** Selected details remain derived by ID from canonical state even if their card is hidden, and changing view controls preserves forms. Successful content edits recompute the projection: a HIGH-to-LOW update disappears under HIGH filtering while details show canonical Low. Created Tasks always enter canonical state and appear only if matching the filter, in the chosen presentation order; nonmatching success is not an error and does not reset controls. Deletion still removes only a confirmed canonical Task.
+
+Task dragging is enabled only for ALL + MANUAL with no existing shared pending write. Both CdkDrag/CdkDropList disabled bindings and the TaskManagement drop handler enforce this condition. Projected indexes cannot safely represent canonical placement indexes, so projected views announce **Task movement is available in manual order with all priorities visible.** as status guidance, associated with the controls. Drop-list data remains canonical; the projection never calls placement. Existing Column Move left/right and Task create/edit/delete operations remain available under projection, subject to the existing shared write coordination. Existing MS5.9 optimistic placement, rollback, and generation safety remain unchanged in canonical view.
+
+MS5.11 still owns due-date product behavior; MS5.12 owns Search; MS5.13 will generalize filters; MS5.14 will generalize sorting. No combined-filter, general-sort, or keyboard drag framework is introduced. Real-browser pointer verification remains the previously deferred MS5.9 acceptance boundary.
+
+Final MS5.10 verification: **396 frontend tests** across 27 files passed (**27 added**). Coverage includes immutable pure projections, explicit ranking/stable ties, all human-readable indicators, native control defaults, filtered empty lanes, canonical-order restoration without HTTP, defensive projected-drop exclusion, hidden selected details and drafts, filtered create/edit/delete behavior, route reset, same-Board reload preservation, and shared write coordination. Existing auth, Board CRUD, workspace loading/cancellation, Column CRUD/reorder, Task CRUD/details/validation, and MS5.9 drag/drop regressions remain green. The production build passed without warnings and `git diff --check` passed. Changed-source inspection found no storage or manual auth/XSRF handling, no position mutations caused by priority, and no new placement calls. Backend and dependency diffs are empty; the backend suite was not rerun because its production code is unchanged.
+
+## Due-date product UI (MS5.11)
+
+Static inspection reuses the existing MS5.4/MS5.8 foundation: TaskEntity has nullable LocalDate dueDate, V6 stores nullable DATE, and create/update/TaskResponse carry LocalDate directly. Updating content supports both setting and clearing the date. There is no timestamp conversion. No migration, endpoint, backend query parameter, persisted overdue property, backend change, or dependency is required; V1–V6 remain unchanged. Native date inputs and their create/edit/clear contracts remain intact.
+
+A dueDate is a calendar date transported as YYYY-MM-DD or null, retained as string | null in canonical frontend Task DTOs. It is not midnight UTC or another instant and is never converted between timezones. Technical createdAt/updatedAt Instants are unrelated. For UI classification, today means the browser's current local civil date, constructed from local year/month/day components rather than toISOString. No user timezone preference is added. Normalized date strings compare directly: null → NO_DUE_DATE; before today → OVERDUE; equal today → DUE_TODAY; after today → UPCOMING. A Task remains due today throughout that local calendar day. There is no completion property: overdue is strictly dueDate < today regardless of Column, with no inference from Done/Completed/Finished names.
+
+Task-owned helpers parse and validate explicit date components, including leap days. formatDueDate uses native Intl.DateTimeFormat with browser locale by default and an optional deterministic test locale. An explicitly constructed UTC date is used only as a formatting carrier with timeZone UTC, preserving the stored year/month/day instead of parsing an ISO string and formatting it in local time. No date library or month-name table is introduced.
+
+A page-provided TaskLocalDay signal schedules the next local calendar midnight using native timing and recalculates the next deadline after each refresh, allowing local day lengths to vary. Focus and visibility events also refresh/reschedule after clock changes, sleep, or browser backgrounding. The timer and listeners are removed on destruction. Both card/details classification and the active Due-date projection react to this signal without HTTP or canonical Task mutations. Suspended tabs catch up when their timer runs or the page regains visibility/focus.
+
+TaskDueIndicator is shared by cards and details. Dated cards say Overdue, Due today, or Due followed by a localized date in a semantic time element carrying the unchanged calendar date. Overdue and due-today use distinct restrained styling with explicit text, never color alone. Null dates omit card metadata; details say No due date. Priority indicators remain intact. The native labeled Due date select joins the existing responsive controls with All due dates, Overdue, Due today, Upcoming, and No due date options.
+
+The concrete second filter dimension justifies renaming TaskPriorityView/TaskPriorityControls to TaskView/TaskViewControls. One page-scoped owner holds Priority filter, Due-date filter, and the existing Task order. Until MS5.13, selecting any non-ALL Priority filter resets Due date to ALL, and selecting any non-ALL Due-date filter resets Priority to ALL; selecting ALL does not clear the other dimension. There is no combined filtering, dynamic registry, or query DSL. Existing Priority sorting may coexist with Due-date filtering and retains canonical-position ties; no Due-date sort or date ranges are added.
+
+Each Column projects from its canonical collection into new arrays; no Task position, columnId, dueDate, content, or canonical array order is changed by view controls or the clock. Actual empty lanes say **No tasks yet.**; nonempty filtered lanes say **No tasks match the current filter.** All Columns remain visible. Hidden selected details and unsent forms remain canonical-ID based. Canonical create/edit responses automatically recompute the projection, including overdue-to-future edits, setting/clearing a date, and matching/nonmatching creates, without resetting filters or making extra GET/placement calls.
+
+Drag availability now requires Priority ALL + Due date ALL + MANUAL order + no existing shared pending write. CDK disabled bindings and the TaskManagement drop guard both enforce this. Filter/sort projection shows **Task movement is available in manual order with all filters cleared.**; a pending network write alone does not show this guidance. Canonical MS5.9 placement semantics, rollback, and race protection remain unchanged. Board route changes reset all view controls; same-Board reload/reconciliation preserves them and reapplies projections to refreshed data.
+
+MS5.12 Search, MS5.13 combined Filters, and MS5.14 general Sorting (including due-date sorting) remain deferred. No completion model, timezone preference, relative-day categories, date range controls, or backend filtering is introduced.
+
+Final MS5.11 verification: **450 frontend tests** across 30 files passed (**54 added**). Deterministic coverage includes date-only classification/month-year-leap boundaries, local-vs-UTC today, controlled localized formatting, indicators, midnight/focus/visibility refresh and cleanup, immutable due projections, exclusive filter dimensions, Priority-sort coexistence, projected-drop guards, filtered-empty lanes, date create/set/clear edits under filters, hidden details/drafts, midnight projection/detail recomputation, and route/reload semantics. All existing auth, Board, Column, Task CRUD/details/forms, Priority, and canonical drag/drop regressions remain green. The production build passed without warnings and `git diff --check` passed. Backend, migration, API, canonical Task model, native date form, and dependency diffs are empty; no backend suite rerun was needed. Source review found no added storage, manual auth/XSRF handling, due-driven position mutation, or placement call from date filtering.
+
+## Task Search (MS5.12)
+
+`GET /api/boards/{boardId}/tasks/search?q=...` returns the existing safe `TaskResponse[]`. `TaskService.searchTasks` runs in a read-only transaction, obtains the UUID through `AuthenticatedUserProvider`, and establishes Board ownership before validating or searching. Missing and cross-user Boards both return the existing safe `404 BOARD_NOT_FOUND`, including for blank queries. The repository query independently constrains both Board id and owner id through Task → Column → Board. Authentication remains required; this safe GET needs no CSRF token. Existing malformed UUID and unexpected-error handling returns safe `MALFORMED_REQUEST` and `INTERNAL_ERROR` responses.
+
+Search trims query edges, preserves case and interior whitespace, returns `[]` without a Task query for blank input, and rejects normalized queries longer than 200 characters with `400 INVALID_SEARCH_QUERY`. Parameterized JPQL matches only title or nullable description using `lower(...) LIKE lower(:pattern) ESCAPE '!'`. The application escapes `!`, `%`, and `_` before surrounding the pattern with substring wildcards; backslash is literal because `!` is the explicit escape character. Null descriptions do not match. Results order by Column.position, Task.position, then Task.id, all ascending. No relevance ranking, tokenization, schema migration, index, extension, or search engine is added. Leading-wildcard scans are a conscious small-workload trade-off; MS6.8 should revisit query plans and indexing using measurements.
+
+The page-scoped `TaskView` owns a focused `TaskSearch` instance, connected by BoardWorkspace to its existing workspace lifecycle. Search holds raw input, normalized query, idle/loading/ready/error status, and successful result IDs only. Search response objects never replace canonical workspace Tasks. Each lane projects canonical Tasks through Search membership, then the existing Priority order; clearing Search immediately restores canonical membership without a workspace GET. Search and non-ALL Priority/Due filters are mutually exclusive: nonblank input clears both filters immediately, and selecting either business filter clears Search. The existing three Task-order modes are unchanged and may coexist with Search.
+
+Input changes use a 300 ms RxJS timer within switchMap; normalized equality suppresses duplicate input requests. A new query immediately cancels the preceding debounce/request. Blank input cancels immediately without HTTP. Retry and successful Task create/edit/delete refreshes run immediately, bypassing debounce. Previous successful membership stays visible during debounce/loading or transport failure; before the first result, canonical Tasks remain visible. Searching is announced as status, failures as a safe alert with Retry search, and successful zero matches explicitly say **No tasks match your search.** at workspace and lane level. Search never substitutes a workspace loading/error screen for a generic transport failure. Overlong input gets safe inline guidance. Native labelled Search, Clear, and Retry controls use existing wrapping feature-local styles.
+
+Unknown result IDs trigger one complete workspace reconciliation while preserving the query, followed by one Search rerun after readiness. A second inconsistent result produces a retryable Search error, preventing automatic reload loops; explicit Retry, changed query, or a later successful Task write starts a new bounded attempt. `BOARD_NOT_FOUND` from Search instead invalidates the workspace through its existing not-found path. Board navigation clears Search; same-Board reload preserves it. Workspace generation and request revision checks reject stale success/error responses even before lifecycle effects cancel their subscriptions; page destruction unsubscribes through `takeUntilDestroyed`.
+
+Canonical CRUD updates happen before refreshing Search membership. A matching create appears after refresh; a nonmatching create remains canonical but hidden. Title or description edits can remove membership after refresh while details continue to derive current canonical content. Confirmed deletion removes the canonical Task and compacts positions as before, then refreshes membership. No normal Search refresh reloads the Board. Active Search also makes TaskView.manual false, disabling CDK bindings and the existing defensive drop handler; temporary pending writes alone do not produce projection guidance. Search never changes Task content, placement, or canonical array ordering. No URL or browser persistence is added.
+
+Verification uses database-free service/query-contract tests and authenticated MVC tests, plus deterministic frontend fake-timer/HTTP/component tests. These prove application scoping, bound query structure, escape policy, public contracts, cancellation, projection, mutation coherence, and route/reload handling; they do **not** prove PostgreSQL LIKE execution or query plans. Live PostgreSQL search semantics remain the MS6.4 integration boundary, with performance review deferred to MS6.8. General combined Filters (MS5.13), general Sorting (MS5.14), and dashboard statistics (MS5.15) have not started in this change.
+
+Final MS5.12 verification: **351 backend tests** passed (**9 added**) and **478 frontend tests** across 31 files passed (**28 added**). Existing auth, Board/Column CRUD, workspace cancellation, Task CRUD, Priority/Due views, and placement regressions remain green. The production frontend build passed without warnings; the sandboxed invocation aborted without diagnostics and the approved rerun succeeded. Backend tests also required the approved execution context for Mockito JVM attachment. `git diff --check` passed. Dependency and migration diffs are empty; V1–V6 remain unchanged, with no V7. No live PostgreSQL or real-browser end-to-end Search session was performed.
+
+## Combined Task filters (MS5.13)
+
+Column is workflow status: Task → Column → Board remains the model, with no Task.status enum or assumptions about Column names. TaskView adds an ALL-or-Column-UUID selection. The native Column select derives labels and option order directly from canonical workspace Columns, including arbitrary user-created names; a zero-Column Board has only All columns. Every lane stays visible to preserve workflow context, even when another Column is selected. Invalid or removed selections normalize to ALL against a ready canonical snapshot; temporary loading does not discard a valid selection.
+
+Search, Column, Priority, and Due date now combine with logical AND. This supersedes the temporary MS5.11/MS5.12 exclusivity rules: selecting Search or a local filter no longer resets any other dimension. TaskSearch retains its existing backend-backed transport, debounce/cancellation, prior-membership loading/error behavior, and bounded unknown-ID reconciliation. Its read-only membership signal feeds the pure Task-owned projectTasks function. The explicit pipeline is canonical Tasks → Search membership → Column → existing Priority predicate → existing Due-date predicate → existing Task order. No client-side text matching, HTTP inside projection, canonical array mutation, content changes, or position changes occur. Local filter changes never issue Search HTTP requests.
+
+TaskView remains the page-scoped presentation owner, with TaskSearch composed separately. Clear filters cancels Search and resets Search/Column/Priority/Due; it deliberately preserves Task order. The button is disabled when no dimension is active. A readable status counts active dimensions (Search counts once; order is excluded). Search, Column, Priority, Due date, and Task order have visible labels and native controls; Clear filters is a keyboard-operable button, and existing wrapping feature-local styles accommodate narrow layouts.
+
+Canonical empty lanes say **No tasks yet.** Nonempty lanes with no projected Tasks say **No tasks match the current filters.**, with **No tasks match your search.** retained for Search-only misses. Empty Search-result status uses the same distinction at workspace level; lanes otherwise provide the combined no-match feedback without another global summary. Search debounce/loading/error does not claim a new empty result: prior membership continues through the local filters, and Search status/error/retry remains independent of Board loading. Existing local-day changes automatically recompute the combined Due predicate without HTTP.
+
+Task dragging and the defensive drop handler require Search inactive, Column/Priority/Due ALL, MANUAL order, and no pending write. Existing generic movement guidance remains; a transient write alone does not show projection guidance. Clear filters re-enables dragging only if Task order is also MANUAL. No filtered placement semantics or new sorting mode is added.
+
+Column creation/renaming/reordering updates options from canonical metadata and order; deletion of the selected Column resets only that dimension, while unrelated deletion retains it. These changes make no filter-specific HTTP requests. Canonical Task create/edit/delete recomputes local projection and retains all filters; active Search still refreshes after successful Task writes as in MS5.12. Nonmatching Tasks remain canonical but hidden. Selected details and unsent edits remain tied to canonical Task ID even when filters hide the card. Same-Board reload (including bounded unknown Search-result reconciliation) preserves Search, Priority, Due, order, and Column if it still exists; Search reruns once after readiness. Board navigation resets all dimensions and order to the canonical manual view.
+
+The backend Search endpoint/query is unchanged, as are all backend files, migrations, dependencies, auth infrastructure, and Task transport models. Filters remain page-scoped without URL or browser persistence. MS5.14 general Sorting and MS5.15 dashboard statistics have not started.
+
+Final MS5.13 verification: **526 frontend tests** across 33 files passed (**48 added**: 20 pure projection cases and 28 workspace cases). Existing auth, Board/Column CRUD, Task CRUD, Search debounce/cancellation/reconciliation, Priority/Due views, canonical placement, and workspace route regressions remain green. The production build passed without warnings after the sandboxed build aborted without diagnostics and the approved rerun succeeded. `git diff --check` passed. Backend and dependency diffs are empty; the backend suite was not rerun, with the last verified baseline remaining 351 tests from MS5.12. Verification used deterministic unit/component/HTTP tests; no live backend or real-browser responsive/end-to-end session was performed.
+
 ## Repository boundaries
 
 - `docs/` records architecture decisions and project direction.
 - `.github/workflows/` is reserved for continuous integration and delivery automation.
 - `scripts/` holds repeatable development and operational automation.
 - `.agents/` holds repository context and guidance for AI-assisted work.
+
+## General Task sorting (MS5.14)
+
+MS5.14 extends the existing client-side presentation projection. `TaskView` owns page-scoped order; `task-projection.ts` applies Search membership → Column → Priority → Due-date filters → `sortTasks` from `task-order.ts`. Each Task list supplies only its own Column's canonical Tasks. Sorting never flattens the Board, redistributes Tasks, changes Column order/options, or mutates canonical arrays, Task objects, `columnId`, or persisted `Task.position`. The sorter returns a new array retaining canonical object identities. Changing order makes zero HTTP requests, including Search refreshes.
+
+The labelled native Task order select supports exactly:
+
+- `MANUAL`: Manual order.
+- `PRIORITY_HIGH_TO_LOW`: Priority: High to Low.
+- `PRIORITY_LOW_TO_HIGH`: Priority: Low to High.
+- `DUE_DATE_ASC`: Due date: Soonest first.
+- `DUE_DATE_DESC`: Due date: Latest first.
+- `CREATED_NEWEST`: Created: Newest first.
+- `CREATED_OLDEST`: Created: Oldest first.
+- `UPDATED_NEWEST`: Updated: Newest first.
+- `UPDATED_OLDEST`: Updated: Oldest first.
+
+Manual order explicitly compares persisted position ascending, then ID ascending as a defensive fallback. Priority retains HIGH/MEDIUM/LOW and LOW/MEDIUM/HIGH semantics. Due dates compare normalized `YYYY-MM-DD` strings as calendar dates without timezone conversion; null due dates always come last in both directions. Created/Updated compare server `createdAt`/`updatedAt` ISO instants using native parsing, with an epoch fallback for malformed values. Every primary tie, including two null due dates, uses the same position-then-ID comparator. IDs are only the final deterministic fallback and are not displayed as sort data.
+
+Filters remain independent from sorting and determine membership first. Priority filter plus Priority sort and Due filter plus Due sort are valid combinations. Clear filters preserves the selected order. Same-Board Retry, Search reconciliation, and stale-write reload retain presentation state and reproject canonical responses; navigation to another Board resets Manual. No URL or browser storage persistence is introduced.
+
+Canonical create/update responses immediately participate in the selected projection, including a later server `updatedAt` moving an edited Task under Updated newest. No client timestamps, placement request, or sort-induced reload is involved. Confirmed deletion recomputes the projection; existing canonical position compaction remains independent. Returning to Manual restores persisted manual order. Details remain selected by canonical ID, and tracked Task identities preserve unsent create/edit drafts when order changes.
+
+Every nonmanual mode disables CDK Task dragging and is rejected by the existing defensive drop guard. Movement still requires Manual, cleared Search/all filters, and no pending write. The existing generic movement guidance, canonical drop data, Column movement, native keyboard-accessible select, and wrapping responsive controls remain intact. There is no mapping from projected indexes to persisted positions.
+
+No backend sorting API, query parameter, repository method, migration, DTO field, or dependency is added. Alphabetical, status/Column, and special overdue-first sorts are outside scope. MS5.15 Dashboard statistics and MS5.16 functional acceptance remain not started.
+
+Final MS5.14 verification: **561 frontend tests across 34 files passed (35 added)**, including all existing regressions. New pure/component/HTTP cases cover nine modes, position/ID ties, null-last dates, instant offsets, canonical Manual round trips, combined Search/filters with zero-request order changes, canonical create/edit/delete reprojection (explicitly Updated newest after edit), drafts/details, all-mode CDK disabling, a new-mode defensive drop callback, Clear filters, same-Board reload, and Board navigation. The production build passed without warnings on the approved rerun after the sandboxed build aborted with exit 134 and no diagnostics. `git diff --check` passed. Backend and dependency diffs are empty; the backend suite was not rerun (last verified baseline: 351 tests). No live backend or real-browser responsive/end-to-end session was performed.
+
+## Board dashboard statistics (MS5.15)
+
+The approved metrics are `totalTasks`, `overdueTasks`, `priorityDistribution`, and `statusDistribution`. Completed/open dashboard metrics were reviewed but intentionally omitted because TaskFlow currently has no explicit completion semantic. Column is the Task workflow state; its user-defined name and position convey no completion meaning. Neither a Column called Done/Completed nor the rightmost Column implies completion. If completed/open metrics are later required, an explicit workflow completion semantic must first be introduced, for example a deliberate completion category/property associated with Column/workflow state. MS5.15 adds no such property, Task status enum, completion flag, or timestamp.
+
+`GET /api/boards/{boardId}/statistics?asOf=YYYY-MM-DD` is an authenticated, safe GET with a required calendar date. The Board-owned `com.taskflow.board.statistics` boundary contains a thin controller, focused read-only transactional application service, and response record with nested priority/status records. The controller binds UUID and LocalDate structurally. An endpoint-local date editor enforces exactly four-digit year, two-digit month/day, and strict calendar validity: Spring's default ISO date binding also accepts offsets, which this contract excludes. Missing/malformed dates and malformed UUIDs return safe `400 MALFORMED_REQUEST`; no date range is imposed. Anonymous requests return `401 AUTHENTICATION_REQUIRED`; unexpected failures return safe `500 INTERNAL_ERROR`.
+
+The service uses `AuthenticatedUserProvider` and establishes ownership through `BoardRepository.findByIdAndOwnerId` before aggregation. Missing and cross-user Boards produce the same `404 BOARD_NOT_FOUND`. All Task aggregates independently constrain Board ID and authenticated owner ID through Task → Column → Board. The ordered Column lookup also includes owner scope. No owner/user identifiers or entities appear in the response.
+
+Metric contract:
+
+- `totalTasks`: database count of every Task on the owned Board, independent of Search, filters, sorting, and visible lanes.
+- `overdueTasks`: count of non-null `dueDate` values strictly earlier than `asOf`. Due on `asOf`, future due dates, and null dates do not count. There is no completion exclusion or inference.
+- `priorityDistribution`: fixed `{low, medium, high}` numeric count shape, with absent categories filled with zero.
+- `statusDistribution`: `{columnId, name, position, taskCount}` for every current Column, including zero-task Columns, ordered by Column position ascending then ID ascending. Names remain user-defined workflow labels.
+
+Aggregation uses three explicit database queries: combined COUNT and coalesced SUM/CASE for total/overdue, priority GROUP BY, and Column-ID GROUP BY. The service merges grouped Column counts into the canonical ordered Column list. It loads no Task entities for counting and performs no count-per-Column queries; query count stays constant as Columns increase. An empty Board returns 200 with zero totals, zero priorities, and an empty status list. A Board with empty Columns retains every Column with count zero. No migration, persisted statistics, dependency, global dashboard, or trend/history model is added.
+
+The Board feature owns typed `BoardStatistics`/priority/status contracts and `BoardStatisticsApi`, using HttpParams for `asOf` and the existing HTTP security infrastructure. `BoardStatisticsState` is page-scoped server-derived state, separate from canonical Task arrays and view projections. It loads only after the canonical workspace is ready. It reuses `TaskLocalDay.today` and the MS5.11 browser-local calendar helper; the server never chooses the public endpoint's reference day with `LocalDate.now()`. Local midnight, focus, and visibility refresh the existing day source; a changed civil day refreshes only statistics, without reloading Board, Columns, or Tasks.
+
+A generation-guarded `mutationConfirmed` invalidation signal advances only after successful Task create/update/delete/placement or Column create/rename/delete/reorder. Optimistic placement updates and rollbacks do not invalidate. The statistics effect coalesces synchronous changes into one request. Same-Board reconciliation refreshes after canonical readiness. Search, Column/Priority/Due filters, and Task order changes issue no statistics requests. Requests are unsubscribed on context changes; Board/day/generation/revision/retry context guards also reject late responses before cancellation runs, and hide results from obsolete contexts immediately.
+
+A compact dashboard sits below the Board view controls and above Kanban lanes. It presents Total tasks, Overdue, High/Medium/Low using existing human priority labels, and every server-ordered Column count. Text explains that statistics cover the full canonical Board. Semantic headings and definition lists expose all counts without reliance on color; loading uses a status announcement, failures use an alert and real Retry button. The error is “We couldn't load board statistics.” and does not remove the workspace. `BOARD_NOT_FOUND` reuses the workspace's not-found transition. Native CSS grid wraps/stacks the top region and wraps long Column names; no permanent sidebar or chart dependency narrows the Kanban. Zero metrics remain visible.
+
+Verification includes database-free service/scoping/zero-fill tests, static query contracts, authenticated MVC binding/security/exact-response/read-only-transaction tests, and frontend API/state/component/mutation HTTP tests. The strict overdue predicate and bound aggregation structure are checked honestly without claiming PostgreSQL execution. Actual PostgreSQL aggregate execution remains MS6.4 integration-test work. Real-browser responsive and end-to-end acceptance is not claimed here; MS5.16 has not started.
+
+Final MS5.15 verification: **377 backend tests passed (26 added)** and **585 frontend tests across 37 files passed (24 added)**. The backend suite passed using the approved execution method after sandbox Mockito attachment failed. The production build passed without warnings on the approved rerun after the sandboxed build aborted with exit 134 and no diagnostics. `git diff --check` passed. Dependency manifests, lockfile, and migrations are unchanged. MS5.15 is complete; MS5.16 and MacroStep 6 have not started.
+
+## Functional acceptance and MacroStep 5 close-out (MS5.16)
+
+MS5.16 adds one routed frontend acceptance test in `frontend/src/app/taskflow-acceptance.spec.ts`, using the real App shell, production application providers/initializer, Router/routes, auth session/interceptor, feature components, Signal Forms, API services, view state, local-day source, and statistics. Only the HTTP transport is replaced by `HttpTestingController` (with a deterministic API base); fake time fixes the browser-local day and Search debounce. Anonymous bootstrap exercises CSRF then a `SESSION_INVALID` refresh response. Registration intentionally authenticates and routes to Boards, so the scenario uses the real shell logout before exercising Login with the registered credentials; it never sets auth state manually or decodes tokens.
+
+The flow verifies registration → login → empty Board list → create/open Acceptance Board → create Backlog and In Progress → create a HIGH-priority, date-only Task → view details → edit title and Priority to MEDIUM → optimistically move to In Progress → combined filters and debounced matching/nonmatching Search → confirmed Task deletion → logout → protected-route redirect with safe returnUrl. Forms, buttons, RouterLinks, and native selects drive the flow. Movement emits the established typed CDK drop event through its real template binding. Exact HTTP methods, URLs, mutable request bodies, and bearer attachment are checked. Canonical data survives view changes; details need no extra read; successful writes refresh statistics, while Search/filter/order changes neither reload the workspace nor refresh statistics. Dashboard counts remain canonical even when the Task is hidden, and return to zero after deletion.
+
+Close-out review found no ownership/security gap or outstanding feature-flow defect. Board remains the immutable ownership root; Column derives ownership through Board, and Task through Column → Board, without duplicate owner/Board fields. Board-only Column operations follow an owned-Board check/lock; direct Column/Task lookups remain owner-scoped. Search and statistics explicitly constrain both Board and owner. Existing backend auth, Board, Column, Task CRUD/placement/Search, statistics, and logout suites cover the server-side flow, including non-enumerating missing/cross-user responses. `BOARD_NOT_FOUND`, `COLUMN_NOT_FOUND`, `TASK_NOT_FOUND`, `COLUMN_NOT_EMPTY`, `COLUMN_ORDER_CONFLICT`, `TASK_PLACEMENT_CONFLICT`, `VALIDATION_FAILED`, `MALFORMED_REQUEST`, `INVALID_SEARCH_QUERY`, `SESSION_INVALID`, and existing authentication/authorization codes remain unchanged and client-safe. Source review found no browser token persistence or raw server-detail rendering; Authorization and XSRF remain in the established auth/Angular infrastructure.
+
+Column and Task positions remain canonical manual ordering. Task content and placement remain separate. Search/filter/sort remain presentation projections, with dragging disabled for projected/nonmanual views. Priority remains LOW/MEDIUM/HIGH; dueDate remains LocalDate/PostgreSQL DATE and a browser-local civil date in the UI. Column is workflow state; no completed/open inference exists. No production code, dependency, migration, or browser-automation infrastructure changed in MS5.16.
+
+Final gates: **377 backend tests passed with zero failures/errors/skips**, **586 frontend tests across 38 files passed (one acceptance test added)**, and the production frontend build passed **without warnings**. Backend execution used the approved method after sandbox Mockito attachment failed; the build used the approved rerun after the sandboxed exit-134 abort without diagnostics. Diff/whitespace checks passed. This verifies application flow, routing, UI/state composition, emitted HTTP contracts, the full automated suites, and static architecture/security invariants. It does not prove live PostgreSQL/Flyway behavior (MS6.4), browser pointer geometry, real network/browser cookie integration, or deployment. The HTTP test does not simulate Set-Cookie behavior or manually manipulate cookies; this is functional acceptance, not full production/browser E2E. Broader frontend quality remains MS6.5 and deployed smoke testing remains later work.
+
+**MS5.1–MS5.16 and MacroStep 5 are complete.** The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within these explicitly recorded verification boundaries. MacroStep 6 — Software quality is next; MS6.1 has not started.

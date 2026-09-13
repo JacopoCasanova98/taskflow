@@ -1,0 +1,62 @@
+<section aria-labelledby="board-statistics-heading">
+  <h2 id="board-statistics-heading">Board statistics</h2>
+  <p class="scope">All tasks on this board, regardless of search, filters, or order.</p>
+  @let state = statistics.state();
+  @switch (state.status) {
+    @case ('loading') {
+      <p role="status">Loading board statistics…</p>
+    }
+    @case ('error') {
+      <p role="alert">We couldn't load board statistics.</p>
+      <button type="button" (click)="statistics.retry()">Retry</button>
+    }
+    @case ('ready') {
+      <div class="statistics-grid">
+        <div>
+          <h3>Task counts</h3>
+          <dl>
+            <div>
+              <dt>Total tasks</dt>
+              <dd>{{ state.data.totalTasks }}</dd>
+            </div>
+            <div>
+              <dt>Overdue</dt>
+              <dd>{{ state.data.overdueTasks }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div>
+          <h3>Priority distribution</h3>
+          <dl>
+            <div>
+              <dt>{{ priorityLabels.HIGH }}</dt>
+              <dd>{{ state.data.priorityDistribution.high }}</dd>
+            </div>
+            <div>
+              <dt>{{ priorityLabels.MEDIUM }}</dt>
+              <dd>{{ state.data.priorityDistribution.medium }}</dd>
+            </div>
+            <div>
+              <dt>{{ priorityLabels.LOW }}</dt>
+              <dd>{{ state.data.priorityDistribution.low }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div>
+          <h3>Status distribution</h3>
+          <dl>
+            @for (column of state.data.statusDistribution; track column.columnId) {
+              <div>
+                <dt>{{ column.name }}</dt>
+                <dd>{{ column.taskCount }}</dd>
+              </div>
+            }
+          </dl>
+          @if (state.data.statusDistribution.length === 0) {
+            <p>No columns yet.</p>
+          }
+        </div>
+      </div>
+    }
+  }
+</section>

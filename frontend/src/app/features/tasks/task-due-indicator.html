@@ -1,0 +1,18 @@
+@if (dueDate(); as date) {
+  <span class="due" [class.overdue]="state() === 'OVERDUE'" [class.today]="state() === 'DUE_TODAY'">
+    @switch (state()) {
+      @case ('OVERDUE') {
+        Overdue ·
+      }
+      @case ('DUE_TODAY') {
+        Due today ·
+      }
+      @default {
+        Due
+      }
+    }
+    <time [attr.datetime]="date">{{ formatted() }}</time>
+  </span>
+} @else if (showEmpty()) {
+  <span>No due date</span>
+}

@@ -1,0 +1,101 @@
+<section aria-labelledby="boards-title">
+  <div class="page-heading">
+    <div>
+      <h1 id="boards-title">Boards</h1>
+      <p>A place to organize your work.</p>
+    </div>
+    @if (!creating()) {
+      <button class="primary" type="button" (click)="creating.set(true)">Create board</button>
+    }
+  </div>
+  @if (creating()) {
+    <section class="panel" aria-labelledby="create-title">
+      <h2 id="create-title">Create board</h2>
+      <app-board-name-form
+        inputId="create-name"
+        action="Create board"
+        [save]="create"
+        (closed)="creating.set(false)"
+      />
+    </section>
+  }
+  <p role="status">{{ state.notice() }}</p>
+  @if (state.loading()) {
+    <p role="status">Loading boards…</p>
+  } @else if (state.loadError()) {
+    <div class="panel">
+      <p role="alert">{{ state.loadError() }}</p>
+      <button type="button" (click)="state.load()">Retry</button>
+    </div>
+  } @else if (state.boards().length === 0) {
+    <div class="panel empty">
+      <h2>No boards yet.</h2>
+      <p>Create your first board to start organizing tasks.</p>
+    </div>
+  }
+  @if (state.boards().length > 0) {
+    <ul class="boards" [hidden]="state.loading() || state.loadError() !== null">
+      @for (board of state.boards(); track board.id) {
+        <li class="panel" [attr.aria-labelledby]="'board-' + board.id">
+          <div class="board-heading">
+            <h2 [id]="'board-' + board.id">
+              <a [routerLink]="['/boards', board.id]">{{ board.name }}</a>
+            </h2>
+            <div class="actions">
+              <button
+                type="button"
+                [disabled]="editing() !== null || confirming()?.id === board.id"
+                [attr.aria-label]="'Rename ' + board.name"
+                (click)="editing.set(board)"
+              >
+                Rename
+              </button>
+              <button
+                class="danger"
+                type="button"
+                [disabled]="deleting() || editing()?.id === board.id"
+                [attr.aria-label]="'Delete ' + board.name"
+                (click)="confirmDelete(board)"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+          @if (editing()?.id === board.id) {
+            <app-board-name-form
+              [inputId]="'rename-' + board.id"
+              action="Save name"
+              [initialName]="board.name"
+              [save]="rename"
+              (closed)="editing.set(null)"
+            />
+          }
+          @if (confirming()?.id === board.id) {
+            <section
+              class="confirmation"
+              [attr.aria-labelledby]="'delete-' + board.id"
+              [attr.aria-busy]="deleting()"
+            >
+              <h3 [id]="'delete-' + board.id">Delete “{{ board.name }}”?</h3>
+              <p>This will permanently delete the board and its contents.</p>
+              <p class="errors" role="alert">{{ deleteError() }}</p>
+              <div class="actions">
+                <button
+                  class="danger"
+                  type="button"
+                  [disabled]="deleting()"
+                  (click)="deleteBoard()"
+                >
+                  {{ deleting() ? 'Deleting…' : 'Delete board' }}
+                </button>
+                <button type="button" [disabled]="deleting()" (click)="confirming.set(null)">
+                  Cancel
+                </button>
+              </div>
+            </section>
+          }
+        </li>
+      }
+    </ul>
+  }
+</section>

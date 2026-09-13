@@ -1,0 +1,51 @@
+:host {
+  display: block;
+  margin-block: 1rem;
+}
+section {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+h2 {
+  font-size: 1.125rem;
+  margin: 0;
+}
+h3 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+.scope {
+  color: #475569;
+  margin: 0.5rem 0 1rem;
+}
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 1.5rem;
+}
+.statistics-grid > div {
+  min-width: 0;
+}
+dl {
+  margin: 0;
+}
+dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: 0.35rem;
+}
+dt {
+  overflow-wrap: anywhere;
+}
+dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}

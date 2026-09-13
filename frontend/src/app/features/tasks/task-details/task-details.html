@@ -1,0 +1,54 @@
+<section class="details" [attr.aria-labelledby]="'task-title-' + task().id">
+  <h3 [id]="'task-title-' + task().id">{{ task().title }}</h3>
+  @if (editing()) {
+    <app-task-form
+      [inputId]="'edit-task-' + task().id"
+      action="Save task"
+      [initialTask]="task()"
+      [save]="update"
+      [disabled]="management.busy()"
+      (closed)="editing.set(false)"
+    />
+  } @else {
+    @if (task().description) {
+      <p class="description">{{ task().description }}</p>
+    }
+    <p><app-task-priority-indicator [priority]="task().priority" /></p>
+    <p><app-task-due-indicator [dueDate]="task().dueDate" [showEmpty]="true" /></p>
+    @if (confirming()) {
+      <section [attr.aria-labelledby]="'delete-task-' + task().id">
+        <h4 [id]="'delete-task-' + task().id">Delete “{{ task().title }}”?</h4>
+        <p>This will permanently delete the task.</p>
+        <p class="errors" role="alert">{{ error() }}</p>
+        <div class="actions">
+          <button type="button" [disabled]="management.busy()" (click)="deleteTask()">
+            Delete task
+          </button>
+          <button
+            type="button"
+            [disabled]="management.busy()"
+            (click)="confirming.set(false); error.set('')"
+          >
+            Cancel
+          </button>
+        </div>
+      </section>
+    } @else {
+      <div class="actions">
+        <button type="button" [disabled]="management.busy()" (click)="editing.set(true)">
+          Edit
+        </button>
+        <button type="button" [disabled]="management.busy()" (click)="confirming.set(true)">
+          Delete
+        </button>
+        <button
+          type="button"
+          [disabled]="management.busy()"
+          (click)="management.selectedId.set(null)"
+        >
+          Close
+        </button>
+      </div>
+    }
+  }
+</section>

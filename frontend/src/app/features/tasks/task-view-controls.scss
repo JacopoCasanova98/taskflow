@@ -1,0 +1,40 @@
+:host {
+  display: block;
+  margin-block: 1rem;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+.controls > div {
+  min-width: 0;
+  max-width: 100%;
+}
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+select,
+input {
+  max-width: 100%;
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+}
+p {
+  margin-bottom: 0;
+}
+
+#task-search-help {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.clear-filters {
+  align-self: end;
+}
