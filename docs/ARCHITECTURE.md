@@ -1075,3 +1075,15 @@ sandbox attachment failure; the frontend build used the approved rerun after
 the known sandbox exit-134 abort. Final diff/whitespace and scope reviews passed.
 Only five new test files and these two documents changed; all work remains
 uncommitted for manual review. MS6.4 and MS6.6 have not started.
+
+## Backend integration tests (MS6.4)
+
+MS6.4 adds a focused PostgreSQL suite under `backend/src/test/java/com/taskflow/integration` using Spring Boot 3.5.16 service connections and one Spring-managed official `postgres:17-alpine` container. Boot manages Testcontainers 1.21.4; PostgreSQL JDBC 42.7.11 remains the only driver. H2, Docker Compose testing and production Testcontainers dependencies are not used.
+
+The integration profile keeps Flyway enabled and Hibernate `ddl-auto=validate`. A clean container applies V1–V6 and tests inspect migration history, pending migrations and PostgreSQL deferrable constraints. Application tables are truncated with `CASCADE` between tests while Flyway history is preserved. Commit, rollback, deferred-constraint and lock tests use real transaction boundaries.
+
+Coverage includes email/token constraints and cascades, Board/Column/Task cascades and ordering, deferred uniqueness rollback, task movement and ownership queries, PostgreSQL Search (case-insensitive title/description, literal `%`, `_`, `!`, backslash and deterministic order), real statistics with empty-column zero fill, and bounded pessimistic Board plus refresh family/token lock tests. One real MockMvc flow covers registration, CSRF, JWT security, Board/Column/Task persistence, Search, statistics, safe non-empty-column rejection and deletion. Auditing, LocalDate and textual priority round trips are checked after reload.
+
+Docker is required; an unavailable daemon produces a visible test failure, never a skipped milestone. The focused suite passed 16 tests in about 28 seconds, including container/context startup; the full backend suite passed 459 tests in about 39 seconds. MS6.3 remains database-free; MS6.5 and MS6.6 remain not started. Deployed sizing, multi-node concurrency and rollout operations remain outside MS6.4.
+
+**MS6.4 COMPLETE.** Final backend verification passed 459 tests with zero failures/errors/skips, including 16 PostgreSQL integration tests. Frontend regression passed 586 tests across 38 files and the production build passed without warnings. No migrations, frontend production code or unrelated tooling changed.

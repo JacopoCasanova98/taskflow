@@ -1,0 +1,14 @@
+spring:
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+taskflow:
+  security:
+    cookies:
+      secure: false
+    jwt:
+      # Synthetic test-only signing key; not a deployment credential.
+      secret-base64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
