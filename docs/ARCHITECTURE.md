@@ -986,3 +986,92 @@ logging-argument review and git diff whitespace checks passed. There are no
 frontend, Maven dependency, lockfile or migration changes. These remain
 database-free automated checks, not live PostgreSQL or deployed-container
 verification. Changes are left uncommitted for manual review.
+
+## Backend unit-test audit (MS6.3)
+
+MS6.3 audits existing behavior protection and closes meaningful gaps; test count
+is an outcome, not a target. The clean baseline at commit `6f8f491` contained
+**414 passing backend tests**. New tests instantiate services/domain objects
+directly using JUnit 5, AssertJ and Mockito for external collaborators. They use
+no Spring context, MockMvc, HTTP server, PostgreSQL, Flyway, repository execution
+or Testcontainers. Spring value/helper types and a mocked transaction manager do
+not start a context or establish real transaction semantics.
+
+### Existing inventory and classification
+
+| Category | Existing coverage |
+| --- | --- |
+| Pure domain | TaskPoliciesTest, UserEmailNormalizerTest; Board/Column/Task/User entity tests exercise real normalization and state behavior without JPA execution |
+| Application/service | BoardServiceTest, ColumnServiceTest, TaskServiceTest, BoardStatisticsServiceTest, CurrentUserServiceTest, RefreshSessionsTest, RefreshSessionLifecycleTest |
+| Utilities | Email trim/Locale.ROOT (including Turkish locale), Search escaping, direct error transformation, JWT claim/validation helpers, password delegation |
+| MVC/web | Authentication, current user, Board, Column, Task, statistics MVC suites; GlobalExceptionHandlerMvcTest uses standalone MockMvc |
+| Security | CredentialAuthenticationTest, PasswordEncoderTest, SpringSecurityAuthenticatedUserProviderTest and JwtFoundationTest are context-free; SecurityConfigurationTest exercises the Spring chain |
+| Persistence contracts | ColumnPersistenceContractTest, TaskPersistenceContractTest, BoardStatisticsQueryContractTest and BaseEntityTest inspect metadata/query strings or direct auditing helpers, not database behavior |
+| OpenAPI | OpenApiDocumentationTest runs generated-document/Swagger regressions with Spring and mocked persistence |
+| Logging | RequestLoggingFilterTest and MutationLogTest are direct tests; business/error/security logging assertions also live in service and MVC suites |
+| Context/smoke | BackendApplicationTests, JwtConfigurationTest and part of CookieSecurityTest exercise context/configuration behavior |
+
+Database-free does not mean unit-only: `@SpringBootTest` suites and standalone
+MockMvc tests remain web/context tests. JwtConfigurationTest and CookieSecurityTest
+use ApplicationContextRunner despite their ordinary test names. Existing service
+suites also contain a few query/annotation reflection checks; those are static
+contracts, not evidence of SQL execution or transaction correctness. Existing
+tests are retained without reclassification refactors.
+
+### Gap matrix and close-out decisions
+
+| Area | Existing protection and identified gap | MS6.3 action/result |
+| --- | --- | --- |
+| Auth | Current-user scoping, credential provider, hashing, rotation/replay and commit-failure propagation already covered; AuthenticationService orchestration primarily protected through MVC | ADD direct normalized registration/login, password preservation and credential erasure, duplicate short-circuit, nested email-constraint mapping versus unrelated integrity failure, and credential/provider failure propagation |
+| Board | CRUD, scoped ownership, missing/inaccessible resources, name policy boundaries, canonical results and failure propagation | ALREADY COVERED; no duplicate additions |
+| Column | Append, rename, first/middle/last delete compaction delegation, COLUMN_NOT_EMPTY, complete-order validation, empty/idempotent order and contiguous positions | ALREADY COVERED; real bulk compaction and locks DEFER MS6.4 |
+| Task | CRUD, nullable clearing, valid same/cross-Column positions including append/empty/same position, contiguous resequencing, same-Board ownership and revalidation | ADD invalid cross-Column positions: negative or beyond an empty target must leave both source tasks unchanged and never flush; source size must not determine target bounds |
+| Search | Trim, blank ownership check, exact/max+1 length, interior case/spacing, percent/underscore/escape/backslash handling | ALREADY COVERED; actual PostgreSQL LIKE behavior DEFER MS6.4 |
+| Statistics | Owned Board lookup, totals, LOW/MEDIUM/HIGH zero filling, empty Columns/Boards, canonical Column order without completion inference | ALREADY COVERED; aggregate execution DEFER MS6.4 |
+| Domain/utilities | Name/title/description normalization and bounds, priority defaults, locale-independent email, JWT and error helpers covered; refresh lifetime validation and rejected rotation transitions lacked direct coverage | ADD null/nonpositive/fractional lifetime rejection, valid whole seconds, expiration just before/at/after now, revoked-token history protection and null replacement without partial revocation |
+| Refresh orchestration | Existing rotation/family replay and exact-expiry rejection tests; early guards and deleted-user path mainly covered via MVC | ADD malformed/unknown refresh handling, no work for malformed logout, deleted-user prevention of rotation, repeated logout preserving original revocation time |
+| Logging | Commit, rollback, commit failure, no-transaction service events, UUID validation, MDC cleanup including downstream exceptions | ALREADY COVERED; no duplicate synchronization tests |
+| OpenAPI | Seven generated-document tests covering the 24-operation contract | ALREADY COVERED; no annotation-by-annotation unit tests |
+
+The final matrix leaves no unexplained major service-rule gap: additions protect
+the missing decisions above, while query/transaction claims remain explicitly
+outside unit scope. Straight-through adapters and constant holders do not need
+artificial tests. Mapping uses record constructors/direct DTO field copies;
+nontrivial statistics zero filling and canonical ordering already have service
+tests. No mapper class or mapper-only test was introduced.
+
+New UUID fixtures are fixed constants. Time-dependent cases use fixed Instants
+and UTC Clock, with nanosecond examples around expiration and no sleep/current
+time. RefreshSessions is mocked where orchestration is under test; random token
+generation itself is not retested. Existing normalizer tests already establish
+Unicode edge stripping and Turkish-locale independence. Email structural/length
+validation remains owned by request validation rather than the normalizer.
+
+No production defect was discovered and no production code changed. There are
+no new public test hooks, dependencies, migrations, coverage plugins, thresholds,
+JaCoCo, Sonar or mutation tooling. Coverage/quality automation remains MS6.6.
+
+### Remaining integration boundary
+
+MS6.4 remains not started. It must prove real Spring/JPA/PostgreSQL/Flyway
+composition, repository JPQL/SQL execution, Search LIKE semantics, statistics
+aggregates, auditing, constraints (including deferred uniqueness), pessimistic
+locks/concurrency, cascade deletion, real commit/rollback and HTTP backed by
+persistence. Mocked repository results and transaction-manager calls in unit or
+existing MVC tests cannot prove those properties. Full Security filter-chain
+integration is outside new MS6.3 tests; existing web/security regressions remain
+part of the full suite.
+
+**MS6.3 COMPLETE.** The focused selection
+`AuthenticationServiceTest,RefreshSessionRulesTest,RefreshSessionPropertiesTest,RefreshTokenEntityTest,TaskPlacementBoundaryTest`
+passed **29 cases**, zero failures/errors/skips, without starting a Spring
+context (about **11 seconds** Maven wall time including compilation/startup).
+The full backend suite passed **443 tests**, zero failures/errors/skips, versus
+**414** at baseline. OpenApiDocumentationTest (7), RequestLoggingFilterTest (20)
+and MutationLogTest (3) remain unchanged and passing. Frontend regression passed
+**586 tests across 38 files**; production build passed without warnings. The
+backend used the approved Mockito-compatible execution route after the baseline
+sandbox attachment failure; the frontend build used the approved rerun after
+the known sandbox exit-134 abort. Final diff/whitespace and scope reviews passed.
+Only five new test files and these two documents changed; all work remains
+uncommitted for manual review. MS6.4 and MS6.6 have not started.
