@@ -2,6 +2,9 @@ package com.taskflow.board.application;
 
 import java.util.List;
 import java.util.UUID;
+import com.taskflow.shared.logging.MutationLog;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.taskflow.board.persistence.BoardEntity;
 import com.taskflow.board.persistence.BoardRepository;
 import com.taskflow.shared.error.ApiException;
@@ -12,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BoardService {
+	private static final Logger LOG = LoggerFactory.getLogger(BoardService.class);
 
 	private final AuthenticatedUserProvider identity;
 	private final BoardRepository boards;
@@ -35,7 +39,9 @@ public class BoardService {
 	@Transactional
 	public Board createBoard(String name) {
 		var board = new BoardEntity(identity.currentUser().id(), name);
-		return toBoard(boards.saveAndFlush(board));
+		var result = toBoard(boards.saveAndFlush(board));
+		MutationLog.afterCommit(LOG, "event=board_created userId={} boardId={}", board.getOwnerId(), result.id());
+		return result;
 	}
 
 	@Transactional
@@ -43,7 +49,9 @@ public class BoardService {
 		var board = ownedBoard(boardId);
 		board.rename(name);
 		// Flush before mapping so the response includes the updated auditing timestamp.
-		return toBoard(boards.saveAndFlush(board));
+		var result = toBoard(boards.saveAndFlush(board));
+		MutationLog.afterCommit(LOG, "event=board_renamed userId={} boardId={}", board.getOwnerId(), result.id());
+		return result;
 	}
 
 	@Transactional
@@ -52,6 +60,7 @@ public class BoardService {
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND",
 						"Board not found", "The requested board was not found."));
 		boards.delete(board);
+		MutationLog.afterCommit(LOG, "event=board_deleted userId={} boardId={}", board.getOwnerId(), boardId);
 	}
 
 	private BoardEntity ownedBoard(UUID boardId) {

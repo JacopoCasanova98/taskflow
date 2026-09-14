@@ -150,6 +150,9 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(ErrorResponseException.class)
 	ProblemDetail handleFrameworkError(ErrorResponseException exception, HttpServletRequest request) {
+		if (exception.getStatusCode().is5xxServerError()) {
+			LOGGER.error("event=unhandled_exception", exception);
+		}
 		return problem(
 				exception.getStatusCode(),
 				"Request could not be completed",
@@ -165,7 +168,7 @@ public class GlobalExceptionHandler {
 			return problem(error.getStatusCode(), "Request could not be completed",
 					"The request could not be processed.", "REQUEST_FAILED", request);
 		}
-		LOGGER.error("Unhandled exception for {} {}", request.getMethod(), request.getRequestURI(), exception);
+		LOGGER.error("event=unhandled_exception", exception);
 		return problem(
 				HttpStatus.INTERNAL_SERVER_ERROR,
 				"Internal server error",

@@ -333,4 +333,20 @@ class TaskServiceTest {
 			assertThat(e.getCode()).isEqualTo(code); assertThat(e.getStatus().value()).isEqualTo(status);
 		});
 	}
+
+	@Test
+	void creationLogContainsOnlySafeIdentifiers() {
+		parent();
+		when(tasks.saveAndFlush(any())).thenAnswer(inv -> {
+			TaskEntity entity = inv.getArgument(0); metadata(entity); return entity;
+		});
+		try (var logs = new com.taskflow.shared.logging.LogCapture(TaskService.class)) {
+			var result = service.createTask(source.getId(), "PRIVATE_TASK_TITLE", "PRIVATE_DESCRIPTION", null, null);
+			assertThat(logs.events()).hasSize(1);
+			assertThat(logs.messages()).contains("event=task_created", "userId=" + OWNER,
+					"taskId=" + result.id(), "columnId=" + source.getId())
+					.doesNotContain("PRIVATE_TASK_TITLE", "PRIVATE_DESCRIPTION");
+		}
+	}
+
 }

@@ -51,3 +51,10 @@ management:
 springdoc:
   paths-to-match: /api/**
   override-with-generic-response: false
+
+logging:
+  level:
+    root: INFO
+    com.taskflow: INFO
+  pattern:
+    correlation: "[requestId=%X{requestId:-}] "

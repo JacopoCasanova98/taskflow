@@ -858,4 +858,131 @@ The existing SecurityFilterChain already permits non-API documentation endpoints
 
 Verification: **384 backend tests passed, zero failures/errors/skips (seven added)**; **586 frontend tests across 38 files passed**; frontend production build passed without warnings. Backend tests used the approved execution path after the known sandbox Mockito attachment failure; the build used the approved rerun after the known sandbox exit-134 abort. Frontend production code, dependency manifests and lockfile are unchanged. The generated document was inspected for DTO-only responses, UUID/date/priority accuracy, status/security correctness, unique operation IDs and safe errors. Generated specifications are not checked into the repository. A temporary localhost Spring Boot instance with mocked persistence also served the actual generated document over HTTP; it was stopped after review. No browser was available through the browser tool, so visual layout and an interactive Authorize click were not verified. UI availability, configuration, all five operation tags and the HTTP Bearer/JWT authorization definition are verified automatically.
 
-**MS6.1 is complete within the automated verification boundaries above.** MS6.1 introduces no runtime API semantic changes, API versioning, logging work, Testcontainers, broader test milestone or quality-toolchain dependency. MS6.2 Logging and all later MS6 work remain not started in this change.
+**MS6.1 is complete within the automated verification boundaries above.** MS6.1 introduces no runtime API semantic changes, API versioning, logging work, Testcontainers, broader test milestone or quality-toolchain dependency. MS6.2 Logging is recorded below; MS6.3 and later MS6 work remain not started.
+
+## Logging (MS6.2)
+
+TaskFlow uses Spring Boot's existing SLF4J + Logback stack, with root and
+`com.taskflow` at INFO. No dependencies, custom Logback XML, SQL logging,
+global DEBUG/TRACE, or security debug configuration are added. Boot's
+`logging.pattern.correlation` renders `[requestId=…]` (empty outside requests);
+its existing correlation-pattern support requires no tracing provider.
+
+### Levels and events
+
+- **INFO:** one API HTTP completion event and successful business mutations.
+- **WARN:** invalid login credentials and access-denied/CSRF rejections, without
+  exception detail or a stack trace.
+- **DEBUG:** routine authentication-required/invalid-bearer responses and successful
+  session refresh. Expected 400/404/409 errors use the completion event alone;
+  validation, malformed requests and ownership-safe not-found responses are not
+  application ERRORs.
+- **ERROR:** unexpected failures, owned by `GlobalExceptionHandler` with
+  `event=unhandled_exception` and the exception stack. Framework 5xx errors
+  receive the same server-side logging treatment without changing their response.
+
+Business messages use stable, parameterized `event=snake_case key={}` fields:
+`board_created`, `board_renamed`, `board_deleted`;
+`column_created`, `column_renamed`, `column_deleted`, `columns_reordered`;
+`task_created`, `task_updated`, `task_deleted`, `task_placed`.
+Only existing user/resource UUIDs, reorder count and placement position are
+captured. Placement includes the existing source and target Column IDs.
+Reads, Search and statistics have no INFO business event.
+
+Transactional domain mutations register a small `MutationLog.afterCommit`
+callback. It captures scalar identifiers before transaction completion, reads no
+entities in the callback, and emits no success on rollback or commit failure.
+Direct nontransactional calls (including isolated service tests) emit after the
+successful operation. Authentication operations log after their existing
+TransactionTemplate completes. No query, transaction, flush, DTO, status,
+persistence behavior or migration is introduced for logging.
+
+Successful registration logs `user_registered userId`; login logs
+`authentication_succeeded userId`. Invalid credentials log only
+`authentication_failed reason=invalid_credentials`, without revealing whether
+an email exists. Routine refresh logs `session_refreshed userId` at DEBUG;
+failure retains the existing SESSION_INVALID contract. Idempotent logout logs
+`session_logged_out` without looking up an identity. Security responses log
+`authentication_required code=AUTHENTICATION_REQUIRED status=401` at DEBUG or
+`access_denied code=ACCESS_DENIED status=403` at WARN.
+
+### Request correlation and completion
+
+The shared technical `RequestLoggingFilter` is a OncePerRequestFilter ordered
+immediately before Boot's default Spring Security filter. It covers the current
+synchronous MVC request through security, controllers, services, transaction
+completion and MVC exception handling.
+
+Incoming `X-Request-ID` is accepted only as a full 36-character hexadecimal UUID
+in 8-4-4-4-12 form (case insensitive). Missing, malformed, abbreviated, whitespace,
+newline or overlong values generate a random UUID; they never cause a 400 or
+change application semantics. Arbitrary caller text never enters MDC or the
+response header. The value is set in MDC key `requestId` and response header
+`X-Request-ID`, including security failures and non-API requests. A nested
+finally removes only this MDC key even if processing or completion logging throws.
+
+For `/api` and `/api/**`, the filter emits one INFO
+`event=http_request_completed method={} path={} status={} durationMs={}` while
+MDC is still available. Duration uses System.nanoTime and whole milliseconds.
+The path comes from getRequestURI, never a full URL or query string. Known API
+segments and actual UUIDs are retained; unknown/malformed paths or paths longer
+than 512 characters become `/api/[redacted]`, preventing arbitrary path content
+or log injection. New API route segments must be added to this small allowlist.
+HTTP methods are bounded uppercase tokens. Swagger assets, API docs, health,
+frontend assets and favicon receive correlation without access-log noise.
+
+Handled 4xx/5xx responses retain their actual status. An exception escaping the
+filter chain is rethrown and recorded as a failed completion with status 500;
+this is the application failure classification, not a guarantee of a
+container's eventual wire status after a committed response. The filter never
+prints a throwable. MVC advice owns one application error stack; controllers,
+services and the filter do not duplicate it. There are no asynchronous MVC
+endpoints today: worker-thread MDC propagation and async/error redispatch final
+completion handling must be designed if those execution models are introduced.
+
+ProblemDetail code/title/detail/status/violations remain unchanged and safe.
+The request ID is only a response header, not a new ProblemDetail field or
+authentication/authorization identity. A support report can supply the header
+value to correlate server events.
+
+### Data safety and evolution boundary
+
+Allowed business fields are userId, boardId, columnId and taskId UUIDs; bounded
+counts/positions, public error codes/status and, only if operationally needed,
+priority enums. Never log whole entities, DTOs or JSON payloads. Never pass
+Board/Column names, Task titles/descriptions/due dates, Search queries, email,
+passwords, JWT/access/refresh token values or hashes, JWT secrets, Authorization,
+Cookie, XSRF-TOKEN or X-XSRF-TOKEN values to a logger. No request/response bodies,
+headers or query strings are captured. Cross-user not-found errors must not
+create sensitive ownership linkages.
+
+Unexpected throwable stacks remain server-side diagnostics. Exception authors
+must also avoid embedding secrets or user content in messages/causes; passing a
+throwable is not a redaction mechanism for arbitrary third-party exception text.
+SQL/bind logging stays disabled. The source review checks actual logging
+arguments, distinguishing credential-handling code from logging code.
+
+Human-readable logs are deliberate. Structured ECS/GELF/JSON console output can
+be selected later for a concrete deployment/aggregation need. No Micrometer
+Tracing, OpenTelemetry, traceId/spanId, ELK/Loki or observability SaaS is added.
+Future distributed tracing may replace or augment this local request identifier
+when the system actually needs cross-service propagation.
+
+Focused logging tests cover UUID validation/injection, MDC lifecycle, safe
+completion fields and query/header/body omission, security filter ordering,
+correlation rendering, representative business and auth events, expected versus
+unexpected errors, and commit/rollback timing. They use scoped Logback event
+capture for levels/MDC/throwables and one Boot output capture for the correlation
+pattern, avoiding whole-line and whole-stack snapshots. These tests belong to
+MS6.2; MS6.3 Backend unit tests and later quality milestones remain not started.
+
+**MS6.2 is complete.** Final verification: **414 backend tests passed, zero
+failures/errors/skips (30 added)**, including all seven OpenAPI regression tests
+and the existing 24-operation contract; **586 frontend tests across 38 files
+passed**, and the production build passed without warnings. Backend tests used
+the approved execution route after sandbox Mockito self-attachment failed; the
+production build used the approved rerun after the sandbox exit-134 abort. Source
+logging-argument review and git diff whitespace checks passed. There are no
+frontend, Maven dependency, lockfile or migration changes. These remain
+database-free automated checks, not live PostgreSQL or deployed-container
+verification. Changes are left uncommitted for manual review.

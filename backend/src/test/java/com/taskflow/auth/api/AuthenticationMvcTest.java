@@ -349,4 +349,25 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 		assertThat(result.getResponse().getContentAsString()).doesNotContain(refresh.getValue(), PASSWORD, "passwordHash", "tokenHash");
 		assertThat(result.getRequest().getSession(false)).isNull();
 	}
+
+	@Test
+	void authenticationEventsContainSafeIdentityWithoutCredentialsOrEmail() throws Exception {
+		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user()));
+		try (var logs = new com.taskflow.shared.logging.LogCapture(com.taskflow.auth.application.AuthenticationService.class)) {
+			var success = mvc.perform(request("login", "user@example.com", PASSWORD, csrf()))
+					.andExpect(status().isOk()).andReturn();
+			mvc.perform(request("login", "missing@example.com", PASSWORD, csrf()))
+					.andExpect(status().isUnauthorized());
+			assertThat(logs.events()).hasSize(2);
+			assertThat(logs.events().get(0).getLevel()).isEqualTo(ch.qos.logback.classic.Level.INFO);
+			assertThat(logs.events().get(0).getFormattedMessage())
+					.isEqualTo("event=authentication_succeeded userId=" + USER_ID);
+			assertThat(logs.events().get(1).getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+			assertThat(logs.events().get(1).getFormattedMessage())
+					.isEqualTo("event=authentication_failed reason=invalid_credentials");
+			assertThat(logs.messages()).doesNotContain(PASSWORD, "user@example.com", "missing@example.com",
+					success.getResponse().getCookie("TASKFLOW_REFRESH").getValue());
+			assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNull());
+		}
+	}
 }

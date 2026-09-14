@@ -276,4 +276,19 @@ class ColumnServiceTest {
 			assertThat(error.getMessage()).isEqualTo(detail);
 		});
 	}
+
+	@Test
+	void creationLogContainsOnlySafeIdentifiers() {
+		lock();
+		when(columns.saveAndFlush(any())).thenAnswer(inv -> {
+			ColumnEntity entity = inv.getArgument(0); metadata(entity); return entity;
+		});
+		try (var logs = new com.taskflow.shared.logging.LogCapture(ColumnService.class)) {
+			var result = service.createColumn(BOARD, "PRIVATE_COLUMN_NAME");
+			assertThat(logs.events()).hasSize(1);
+			assertThat(logs.messages()).contains("event=column_created", "userId=" + OWNER,
+					"boardId=" + BOARD, "columnId=" + result.id()).doesNotContain("PRIVATE_COLUMN_NAME");
+		}
+	}
+
 }

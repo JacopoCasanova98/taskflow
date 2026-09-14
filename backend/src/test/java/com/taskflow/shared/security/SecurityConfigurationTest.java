@@ -26,6 +26,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -156,4 +157,29 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 		assertThat(json.get("instance").asText()).isEqualTo("/api/forbidden-test");
 		assertThat(response.getContentAsString()).doesNotContain("secret", "AccessDeniedException", "trace");
 	}
+
+	@Test
+	void correlationWrapsRealSecurityChainWithSafeLevels(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+		String id = "550e8400-e29b-41d4-a716-446655440000";
+		try (var security = new com.taskflow.shared.logging.LogCapture(SecurityProblemHandler.class);
+				var access = new com.taskflow.shared.logging.LogCapture(com.taskflow.shared.logging.RequestLoggingFilter.class)) {
+			mockMvc.perform(get("/api/boards").header("X-Request-ID", id)
+					.header("Authorization", "Bearer VERY_SECRET_TEST_TOKEN"))
+					.andExpect(status().isUnauthorized()).andExpect(header().string("X-Request-ID", id));
+			mockMvc.perform(post("/api/boards").header("X-Request-ID", id))
+					.andExpect(status().isForbidden()).andExpect(header().string("X-Request-ID", id));
+			assertThat(security.events()).extracting(ch.qos.logback.classic.spi.ILoggingEvent::getLevel)
+					.containsExactly(ch.qos.logback.classic.Level.DEBUG, ch.qos.logback.classic.Level.WARN);
+			assertThat(security.events()).allSatisfy(event -> {
+				assertThat(event.getMDCPropertyMap()).containsEntry("requestId", id);
+				assertThat(event.getThrowableProxy()).isNull();
+			});
+			assertThat(access.events()).hasSize(2);
+			assertThat(output.getOut()).contains("[requestId=" + id + "]");
+			assertThat(access.messages()).contains("status=401", "status=403").doesNotContain("VERY_SECRET_TEST_TOKEN");
+			assertThat(security.messages()).doesNotContain("VERY_SECRET_TEST_TOKEN", "Bearer");
+			assertThat(org.slf4j.MDC.get("requestId")).isNull();
+		}
+	}
+
 }

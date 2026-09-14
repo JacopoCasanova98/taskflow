@@ -1,6 +1,8 @@
 package com.taskflow.auth.application;
 
 import java.time.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import com.taskflow.auth.persistence.RefreshTokenRepository;
 import com.taskflow.shared.security.jwt.AccessTokenService;
@@ -11,6 +13,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class RefreshSessionLifecycle {
+	private static final Logger LOG = LoggerFactory.getLogger(RefreshSessionLifecycle.class);
 	private final RefreshTokenRepository sessions;
 	private final RefreshSessions tokens;
 	private final UserRepository users;
@@ -31,7 +34,7 @@ public class RefreshSessionLifecycle {
 	public Optional<AuthenticationResult> refresh(String raw) {
 		if (!wellFormed(raw)) { return Optional.empty(); }
 		// Invalid outcomes return normally so replay revocation commits before HTTP 401.
-		return transactions.execute(status -> {
+		Optional<AuthenticationResult> result = transactions.execute(status -> {
 			var found = tokens.findForConsumption(raw);
 			if (found.isEmpty()) { return Optional.empty(); }
 			var current = found.get();
@@ -49,12 +52,18 @@ public class RefreshSessionLifecycle {
 			return Optional.of(new AuthenticationResult(user.get().getId(), user.get().getEmail(),
 					accessTokens.issue(current.getUserId()), replacement));
 		});
+		result.ifPresent(session -> LOG.debug("event=session_refreshed userId={}", session.userId()));
+		return result;
 	}
 
 	public void logout(String raw) {
-		if (!wellFormed(raw)) { return; }
+		if (!wellFormed(raw)) {
+			LOG.info("event=session_logged_out");
+			return;
+		}
 		transactions.executeWithoutResult(status -> tokens.findForConsumption(raw)
 				.ifPresent(token -> token.revoke(clock.instant())));
+		LOG.info("event=session_logged_out");
 	}
 
 	private boolean wellFormed(String raw) {

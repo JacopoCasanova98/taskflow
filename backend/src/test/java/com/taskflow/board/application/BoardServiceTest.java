@@ -161,4 +161,20 @@ class BoardServiceTest {
 		ReflectionTestUtils.setField(board, "updatedAt", created);
 		return board;
 	}
+
+	@Test
+	void creationLogContainsOnlySafeIdentifiers() {
+		when(boards.saveAndFlush(any())).thenAnswer(inv -> {
+			BoardEntity entity = inv.getArgument(0);
+			ReflectionTestUtils.setField(entity, "id", ID);
+			return entity;
+		});
+		try (var logs = new com.taskflow.shared.logging.LogCapture(BoardService.class)) {
+			service.createBoard("PRIVATE_BOARD_NAME");
+			assertThat(logs.events()).hasSize(1);
+			assertThat(logs.messages()).contains("event=board_created", "userId=" + OWNER, "boardId=" + ID)
+					.doesNotContain("PRIVATE_BOARD_NAME");
+		}
+	}
+
 }

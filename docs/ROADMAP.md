@@ -38,10 +38,11 @@ Feature history: MS5.1 domain design, MS5.2 Board backend, and MS5.3 Column back
 ## MacroStep 6 — Software quality
 
 - [x] MS6.1 — OpenAPI / Swagger: complete (24 operations documented; 384 backend tests, 586 frontend tests and production build pass)
-- [ ] MS6.2 — Logging: not started
+- [x] MS6.2 — Logging: complete (request correlation and safe event policy; 414 backend tests, 586 frontend tests and production build pass)
+- [ ] MS6.3 — Backend unit tests: not started
 - [ ] Establish automated testing and quality practices
 
-MS6.1 is limited to generated application API documentation, Swagger UI and focused documentation/security regression checks. Later MS6 testing, integration, logging and quality-toolchain work has not started. See [ARCHITECTURE.md](ARCHITECTURE.md#openapi-and-swagger-ui-ms61).
+MS6.1 is limited to generated application API documentation, Swagger UI and focused documentation/security regression checks. MS6.2 adds the logging policy and request correlation; see [Logging](ARCHITECTURE.md#logging-ms62). MS6.3 and later testing, integration and quality-toolchain work have not started. See [ARCHITECTURE.md](ARCHITECTURE.md#openapi-and-swagger-ui-ms61).
 
 ## MacroStep 7 — Docker and local infrastructure
 
