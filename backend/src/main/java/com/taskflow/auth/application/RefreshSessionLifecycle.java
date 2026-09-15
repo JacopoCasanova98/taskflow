@@ -4,6 +4,7 @@ import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Optional;
+import java.util.Objects;
 import com.taskflow.auth.persistence.RefreshTokenRepository;
 import com.taskflow.shared.security.jwt.AccessTokenService;
 import com.taskflow.user.persistence.UserRepository;
@@ -34,7 +35,7 @@ public class RefreshSessionLifecycle {
 	public Optional<AuthenticationResult> refresh(String raw) {
 		if (!wellFormed(raw)) { return Optional.empty(); }
 		// Invalid outcomes return normally so replay revocation commits before HTTP 401.
-		Optional<AuthenticationResult> result = transactions.execute(status -> {
+		Optional<AuthenticationResult> result = Objects.requireNonNull(transactions.execute(status -> {
 			var found = tokens.findForConsumption(raw);
 			if (found.isEmpty()) { return Optional.empty(); }
 			var current = found.get();
@@ -51,7 +52,7 @@ public class RefreshSessionLifecycle {
 			String replacement = tokens.rotate(current, now);
 			return Optional.of(new AuthenticationResult(user.get().getId(), user.get().getEmail(),
 					accessTokens.issue(current.getUserId()), replacement));
-		});
+		}));
 		result.ifPresent(session -> LOG.debug("event=session_refreshed userId={}", session.userId()));
 		return result;
 	}

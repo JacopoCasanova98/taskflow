@@ -228,7 +228,7 @@ describe('Task Search in the Board workspace', () => {
     expect(view.filter()).toBe('HIGH');
     expect(titles()).toEqual(['Payment']);
     expect(canonical().columns[0].tasks.map((t) => t.position)).toEqual([0, 1]);
-    http.expectNone(r => r.url.endsWith('/search'));
+    http.expectNone((r) => r.url.endsWith('/search'));
   });
   it('disables CDK and rejects direct drops without any optimistic mutation or request', async () => {
     const lists = fixture.debugElement.queryAll(By.directive(CdkDropList));
@@ -385,9 +385,7 @@ describe('Task Search in the Board workspace', () => {
     http.expectOne('/api/boards/one/columns').flush([]);
     await settle();
     await search('login', []);
-    expect(element.textContent).toContain(
-      'No tasks match your search.',
-    );
+    expect(element.textContent).toContain('No tasks match your search.');
   });
   it('cancels pending Search on same-Board reload and reruns after loading', async () => {
     await type('login');

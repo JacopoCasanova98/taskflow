@@ -42,21 +42,19 @@ describe('Column management', () => {
       .flush({ id: boardId, name: boardId, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + boardId + '/columns').flush(response);
     response.forEach((column) =>
-      http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush([
-          {
-            id: 'task-' + column.id,
-            columnId: column.id,
-            title: 'Read only',
-            description: null,
-            priority: 'LOW',
-            dueDate: null,
-            position: 0,
-            createdAt: '',
-            updatedAt: '',
-          },
-        ]),
+      http.expectOne('/api/columns/' + column.id + '/tasks').flush([
+        {
+          id: 'task-' + column.id,
+          columnId: column.id,
+          title: 'Read only',
+          description: null,
+          priority: 'LOW',
+          dueDate: null,
+          position: 0,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ]),
     );
   }
   function ready() {

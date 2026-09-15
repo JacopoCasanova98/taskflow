@@ -42,9 +42,10 @@ Feature history: MS5.1 domain design, MS5.2 Board backend, and MS5.3 Column back
 - [x] MS6.3 — Backend unit tests: complete (coverage audit; 29 focused unit cases, 443 backend tests, 586 frontend tests and production build pass)
 - [x] MS6.4 — Backend integration tests: complete (16 PostgreSQL integration tests; 459 backend tests, 586 frontend tests and production build pass)
 - [x] MS6.5 — Frontend test audit: complete (589 frontend tests across 38 files and production build pass)
-- [ ] MS6.6 — Code quality automation (not started)
+- [x] MS6.6 — Code quality automation: complete (local gate; 462 backend tests, 589 frontend tests, formatting/lint/static analysis/coverage checks and production build pass)
+- [ ] MS6.7 — Security quality review (not started)
 
-MS6.1 is limited to generated application API documentation, Swagger UI and focused documentation/security regression checks. MS6.2 adds the logging policy and request correlation; see [Logging](ARCHITECTURE.md#logging-ms62). MS6.3 audits unit coverage and closes meaningful gaps; see [Backend unit-test audit](ARCHITECTURE.md#backend-unit-test-audit-ms63). MS6.4 establishes real PostgreSQL/Flyway integration coverage; see [Backend integration tests](ARCHITECTURE.md#backend-integration-tests-ms64). MS6.5 audits existing frontend behavioral coverage and closes focused lifecycle gaps; see [Frontend test audit](ARCHITECTURE.md#frontend-test-audit-ms65). MS6.6 quality automation remains not started.
+MS6.1 is limited to generated application API documentation, Swagger UI and focused documentation/security regression checks. MS6.2 adds the logging policy and request correlation; see [Logging](ARCHITECTURE.md#logging-ms62). MS6.3 audits unit coverage and closes meaningful gaps; see [Backend unit-test audit](ARCHITECTURE.md#backend-unit-test-audit-ms63). MS6.4 establishes real PostgreSQL/Flyway integration coverage; see [Backend integration tests](ARCHITECTURE.md#backend-integration-tests-ms64). MS6.5 audits existing frontend behavioral coverage and closes focused lifecycle gaps; see [Frontend test audit](ARCHITECTURE.md#frontend-test-audit-ms65). MS6.6 establishes the [local quality gate](ARCHITECTURE.md#local-code-quality-automation-ms66). MS6.7 security review and MS6.8 performance review remain not started.
 
 ## MacroStep 7 — Docker and local infrastructure
 

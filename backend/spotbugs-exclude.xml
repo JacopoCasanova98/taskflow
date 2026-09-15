@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+	<!-- Spring owns these shared collaborators. Copying them would break DI/proxy semantics. -->
+	<Match>
+		<Class name="com.taskflow.auth.api.AuthenticationController"/>
+		<Field name="cookies"/>
+		<Bug pattern="EI_EXPOSE_REP2"/>
+	</Match>
+	<Match>
+		<Class name="com.taskflow.board.api.BoardController"/>
+		<Field name="boards"/>
+		<Bug pattern="EI_EXPOSE_REP2"/>
+	</Match>
+	<Match>
+		<Class name="com.taskflow.column.api.ColumnController"/>
+		<Field name="columns"/>
+		<Bug pattern="EI_EXPOSE_REP2"/>
+	</Match>
+	<Match>
+		<Class name="com.taskflow.task.api.TaskController"/>
+		<Field name="tasks"/>
+		<Bug pattern="EI_EXPOSE_REP2"/>
+	</Match>
+	<Match>
+		<Class name="com.taskflow.shared.security.SecurityProblemHandler"/>
+		<Field name="objectMapper"/>
+		<Bug pattern="EI_EXPOSE_REP2"/>
+	</Match>
+	<!-- JPA entities must remain proxyable. Constructors validate domain inputs; no
+	     finalizers or acquired resources exist, and subclasses are trusted Hibernate proxies. -->
+	<Match>
+		<Or>
+			<Class name="com.taskflow.auth.persistence.RefreshTokenEntity"/>
+			<Class name="com.taskflow.board.persistence.BoardEntity"/>
+			<Class name="com.taskflow.column.persistence.ColumnEntity"/>
+			<Class name="com.taskflow.task.persistence.TaskEntity"/>
+		</Or>
+		<Method name="&lt;init&gt;"/>
+		<Bug pattern="CT_CONSTRUCTOR_THROW"/>
+	</Match>
+	<!-- The value is either a full 36-character hexadecimal UUID regex match or a
+	     generated UUID. CR/LF and all other header characters are rejected before setHeader. -->
+	<Match>
+		<Class name="com.taskflow.shared.logging.RequestLoggingFilter"/>
+		<Method name="doFilterInternal"/>
+		<Bug pattern="HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"/>
+	</Match>
+</FindBugsFilter>

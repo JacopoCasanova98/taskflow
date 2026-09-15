@@ -1,5 +1,7 @@
 package com.taskflow.auth.application;
 
+import java.util.Objects;
+
 import com.taskflow.auth.security.TaskFlowUserPrincipal;
 import com.taskflow.shared.error.ApiException;
 import com.taskflow.shared.security.jwt.AccessTokenService;
@@ -44,12 +46,12 @@ public class AuthenticationService {
 		if (users.existsByEmail(normalized)) { throw duplicateEmail(); }
 		String hash = passwords.encode(password);
 		try {
-			var result = transactions.execute(status -> {
+			var result = Objects.requireNonNull(transactions.execute(status -> {
 				UserEntity user = users.saveAndFlush(new UserEntity(normalized, hash));
 				var access = tokens.issue(user.getId());
 				String refresh = refreshSessions.issue(user.getId(), null);
 				return new AuthenticationResult(user.getId(), user.getEmail(), access, refresh);
-			});
+			}));
 			LOG.info("event=user_registered userId={}", result.userId());
 			return result;
 		} catch (DataIntegrityViolationException exception) {
@@ -76,8 +78,8 @@ public class AuthenticationService {
 		}
 		principal.eraseCredentials();
 		var access = tokens.issue(principal.getUserId());
-		var result = transactions.execute(status -> new AuthenticationResult(principal.getUserId(), principal.getUsername(),
-				access, refreshSessions.issue(principal.getUserId(), presentedRefreshToken)));
+		var result = Objects.requireNonNull(transactions.execute(status -> new AuthenticationResult(principal.getUserId(), principal.getUsername(),
+				access, refreshSessions.issue(principal.getUserId(), presentedRefreshToken))));
 		LOG.info("event=authentication_succeeded userId={}", result.userId());
 		return result;
 	}

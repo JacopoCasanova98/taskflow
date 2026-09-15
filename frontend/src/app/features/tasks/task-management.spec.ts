@@ -178,14 +178,12 @@ describe('Task management', () => {
     'reconciles inconsistent create %s',
     async (kind) => {
       const result = start('create');
-      http
-        .expectOne(url('create'))
-        .flush({
-          ...tasks('b')[0],
-          id: kind === 'duplicate' ? 'a0' : 'new',
-          columnId: kind === 'column' ? 'a' : 'b',
-          position: kind === 'position' ? 0 : 3,
-        });
+      http.expectOne(url('create')).flush({
+        ...tasks('b')[0],
+        id: kind === 'duplicate' ? 'a0' : 'new',
+        columnId: kind === 'column' ? 'a' : 'b',
+        position: kind === 'position' ? 0 : 3,
+      });
       await result;
       expect(state.workspace().status).toBe('loading');
       load();
@@ -193,14 +191,12 @@ describe('Task management', () => {
   );
   it.each(['column', 'position', 'id'])('reconciles inconsistent update %s', async (kind) => {
     const result = start('update');
-    http
-      .expectOne(url('update'))
-      .flush({
-        ...tasks('b')[1],
-        id: kind === 'id' ? 'other' : 'b1',
-        columnId: kind === 'column' ? 'a' : 'b',
-        position: kind === 'position' ? 0 : 1,
-      });
+    http.expectOne(url('update')).flush({
+      ...tasks('b')[1],
+      id: kind === 'id' ? 'other' : 'b1',
+      columnId: kind === 'column' ? 'a' : 'b',
+      position: kind === 'position' ? 0 : 1,
+    });
     await result;
     expect(state.workspace().status).toBe('loading');
     load();

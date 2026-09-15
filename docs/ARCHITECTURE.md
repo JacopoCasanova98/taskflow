@@ -1097,3 +1097,151 @@ The final suite passes **589 tests across 38 files**; the production build passe
 Real-browser pointer geometry, cookie behavior across a browser, CSS pixel responsiveness, and screen-reader interaction remain outside this milestone. No coverage threshold is defined; quality automation remains MS6.6.
 
 **MS6.5 COMPLETE.**
+
+## Local code quality automation (MS6.6)
+
+The repository gate is `./scripts/quality.sh`. It resolves the repository relative
+to its own location, runs `backend/./mvnw verify`, then `frontend/npm run quality`,
+and stops at the first failure. It works from any current directory with Bash on
+macOS/Linux. Install frontend dependencies with `npm ci` beforehand. Java 21,
+the frontend's supported Node runtime, and a running Docker daemon are prerequisites.
+The script neither installs dependencies nor starts Docker; PostgreSQL integration
+tests are mandatory and are not silently skipped when Docker is unavailable.
+
+### Tool selection and scope
+
+| Tool | Selected version | Responsibility |
+| --- | --- | --- |
+| Prettier (existing) | 3.9.6 resolved; existing declaration retained | Frontend formatting |
+| angular-eslint | 22.5.0 | Angular TypeScript/template recommended lint |
+| ESLint / @eslint/js | 10.10.0 / 10.0.1 resolved | Recommended JavaScript defect rules |
+| typescript-eslint | 8.69.0 | Recommended TypeScript lint |
+| @vitest/coverage-v8 | 4.1.11 | Coverage with the existing Vitest 4.1.11 |
+| SpotBugs Maven plugin | 4.10.4.1 | Production bytecode analysis, Max effort, Medium threshold |
+| JaCoCo Maven plugin | 0.8.15 | Full backend test coverage report and regression check |
+
+Versions were checked against the [angular-eslint releases](https://github.com/angular-eslint/angular-eslint/releases),
+[SpotBugs plugin documentation](https://spotbugs.github.io/spotbugs-maven-plugin/plugin-info.html),
+and [JaCoCo releases](https://www.jacoco.org/jacoco/trunk/doc/changes.html).
+Existing Angular, CDK, TypeScript, Vitest, Prettier, Spring Boot, Spring Security,
+Testcontainers, PostgreSQL driver, and springdoc versions are unchanged.
+
+Frontend `quality` runs `format:check`, `lint`, `test:coverage`, and `build` in that
+order. Tests run once within this aggregate. `test:ci` retains its original
+non-coverage command. Formatting covers all `src/**/*.ts`, HTML and SCSS, root
+JSON configuration/manifests, `eslint.config.js`, and `.prettierrc`; explicit globs
+avoid generated artifacts. `format` is the separate opt-in write command.
+The initial Prettier check found 11 files: five specs, index.html, main.ts,
+styles.scss, angular.json, and two tsconfig files. Their formatting changes are
+mechanical (angular.json also receives tooling configuration).
+
+The official angular-eslint schematic supplied the CLI lint target and flat
+configuration. Only ESLint, TypeScript and Angular recommended presets plus the
+existing `app` selector convention are enabled. Its optional stylistic and template
+accessibility presets were removed to keep this first gate focused. Type-aware
+Project Service/strictTypeChecked rules are deferred: the normal baseline found
+only two issues, so additional runtime and policy surface are not justified yet.
+One unused test variable/import was removed. `safe-return-url.ts` has a single-line
+`no-control-regex` exception because rejecting control characters is intentional.
+No project-wide lint suppression or automatic fix runs in the gate.
+
+### Coverage regression floors
+
+Thresholds were selected only after threshold-free measurement, rounding down
+approximately five percentage points below each baseline.
+
+| Production metric | Measured baseline | Enforced minimum |
+| --- | --- | --- |
+| Frontend statements | 98.35% (1255/1276) | 93% |
+| Frontend branches | 96.84% (768/793) | 91% |
+| Frontend functions | 98.82% (335/339) | 93% |
+| Frontend lines | 100% (983/983) | 95% |
+| Backend lines | 96.33% (840/872) | 91% |
+| Backend branches | 89.38% (202/226) | 84% |
+
+Angular's supported `coverageThresholds` enforce aggregate application coverage.
+The scope is all `src/app/**/*.ts`, excluding specs; this includes services,
+components, auth/security helpers, routes, configuration, state and utilities.
+The browser entrypoint and environment constants outside `app` are bootstrap
+wiring, not this behavioral coverage scope. HTML/CSS layout is not represented
+by TypeScript coverage. JaCoCo covers all compiled production classes without
+package exclusions; its own generated-bytecode filtering applies. The full suite,
+including real PostgreSQL tests, contributes to the report.
+
+JaCoCo prepares the agent before tests and reports/checks at verify. Surefire uses
+late substitution for both existing `argLine` options and `jacocoArgLine`, plus
+the Boot-managed Mockito agent explicitly at JVM startup. This avoids dynamic
+self-attachment and preserves both agents. Coverage data is overwritten each run
+instead of accumulating stale executions. Reports are under
+`backend/target/site/jacoco/` (HTML/XML/CSV), `backend/target/spotbugsXml.xml`, and
+`frontend/coverage/taskflow/` (HTML/LCOV/JSON summary plus console text summary).
+Existing `target/` and `coverage/` ignores already cover all generated output.
+
+These percentages are regression floors, not targets for artificial tests.
+A future behavior change can justify a reviewed threshold adjustment. Coverage
+does not prove correctness, accessibility, browser behavior, or security.
+
+### Findings and deliberate deferrals
+
+SpotBugs initially reported 21 findings with no exclusions. DTO list exposure
+was fixed with defensive copies in BoardStatisticsResponse and ReorderColumnsRequest;
+the latter preserves null collections/elements for Bean Validation. Three focused
+regressions cover list ownership and null validation. Identity extraction now
+guards a null subject explicitly instead of catching NullPointerException.
+Transaction callbacks assert their non-null result contract, and ApiException
+is final (there are no subclasses). These are small quality fixes, not API redesigns.
+
+`backend/spotbugs-exclude.xml` documents exact detector/class/field or method
+exceptions: five Spring-injected shared collaborators cannot be defensively copied;
+four proxyable JPA entity constructors intentionally validate inputs and own no
+finalizable resources; RequestLoggingFilter only echoes fully regex-validated UUIDs.
+No package-wide exclusion exists, and none of these exclusions affect coverage.
+
+Maven dependency analyzer 3.11.0 was evaluated in non-failing mode. Its bytecode
+view reports starter-provided transitive libraries as used/undeclared, and Spring
+starters, runtime drivers, Flyway modules and reflective providers as unused.
+Making this a failing gate would require extensive declaration/suppression policy,
+so it remains an explicit audit command without an ignore list:
+
+```sh
+cd backend
+./mvnw test-compile org.apache.maven.plugins:maven-dependency-plugin:3.11.0:analyze-only -DfailOnWarning=false
+./mvnw dependency:tree
+```
+
+Java formatting is deferred: 77 of 82 production Java files use the established
+tab-based style; adopting a standard Java formatter would cause broad unrelated
+indentation/wrapping/import churn. Spotless, Checkstyle and PMD are not added.
+Frontend dependency integrity is checked with `npm ls`; no vulnerability scanner
+is bound to the local gate. FindSecBugs, npm audit/CVE policy, OWASP Dependency-Check,
+and systematic security review remain MS6.7. Performance review remains MS6.8.
+No CI workflow is introduced; later MS10 CI can invoke this same local command.
+
+### Verification
+
+The initial clean `feature/software-quality` baseline was 459 backend tests
+(including 16 PostgreSQL integration tests), 589 frontend tests across 38 files,
+and a warning-free production build. MS6.1–MS6.5 were committed before this work.
+
+Individual formatting, lint, coverage, ordinary `test:ci`, build, backend verify,
+dependency-tree and npm dependency checks passed. Final verification has **462
+backend tests, zero failures/errors/skips**, including the same 16 PostgreSQL tests,
+and **589 frontend tests across 38 files**. SpotBugs has zero remaining findings
+under the documented filter. Backend final coverage is **96.35% lines (845/877)**
+and **89.57% branches (206/230)**; frontend coverage retains the measured baseline.
+The frontend production build passes without warnings.
+
+The complete root gate passed in **172.52 seconds** on the development machine
+(cached tooling, Docker running). A before/after SHA-256 fingerprint of tracked and
+untracked non-ignored repository files was identical. Repeatability verification
+uses a second complete invocation from outside the repository, comparing the same
+file fingerprint and coverage counters; the gate's commands are checks and never
+run formatter writes. Timing varies with Docker startup and machine load.
+
+No existing resolved frontend package version changed; all additions are dev-only.
+The npm tree has one compatible ESLint major and matching Vitest/coverage-v8
+versions. Backend runtime/test dependency declarations and versions are unchanged.
+No migration, CI workflow, generated report, vulnerability scan or performance
+work is included. Changes remain uncommitted for manual review.
+
+**MS6.6 COMPLETE.**
