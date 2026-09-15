@@ -326,6 +326,12 @@ describe('Task Search in the Board workspace', () => {
     fixture.destroy();
     expect(old.cancelled).toBe(true);
   });
+  it('cancels a pending debounce on destruction without issuing Search HTTP', async () => {
+    await type('login');
+    fixture.destroy();
+    await vi.advanceTimersByTimeAsync(300);
+    http.expectNone((r) => r.url.endsWith('/search'));
+  });
   it('preserves Search on same-Board reload and runs it exactly once after ready', async () => {
     await search('login', [tasks[0]]);
     fixture.componentInstance.state.retry();

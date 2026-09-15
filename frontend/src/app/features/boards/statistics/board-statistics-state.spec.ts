@@ -134,4 +134,10 @@ describe('Board statistics state with real workspace and HTTP', () => {
     TestBed.tick();
     request().flush(zero);
   });
+  it('cancels a pending statistics request when the owning injector is destroyed', () => {
+    ready();
+    const pending = request();
+    TestBed.resetTestingModule();
+    expect(pending.cancelled).toBe(true);
+  });
 });

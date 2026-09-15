@@ -1087,3 +1087,13 @@ Coverage includes email/token constraints and cascades, Board/Column/Task cascad
 Docker is required; an unavailable daemon produces a visible test failure, never a skipped milestone. The focused suite passed 16 tests in about 28 seconds, including container/context startup; the full backend suite passed 459 tests in about 39 seconds. MS6.3 remains database-free; MS6.5 and MS6.6 remain not started. Deployed sizing, multi-node concurrency and rollout operations remain outside MS6.4.
 
 **MS6.4 COMPLETE.** Final backend verification passed 459 tests with zero failures/errors/skips, including 16 PostgreSQL integration tests. Frontend regression passed 586 tests across 38 files and the production build passed without warnings. No migrations, frontend production code or unrelated tooling changed.
+
+## Frontend test audit (MS6.5)
+
+MS6.5 audited the existing frontend suite by behavioral area before adding tests. Core HTTP/auth infrastructure, auth forms, guards, Board and workspace state, Column and Task management, Search, combined filters, sorting, due/local-day behavior, statistics, semantic components, and the routed acceptance flow were already strongly covered. The audit added only three focused lifecycle regressions: authenticated credentials remain memory-only, pending Search debounce work is cancelled on destruction, and pending statistics requests are cancelled with the owning injector. No production frontend code, backend code, dependencies, or coverage tooling changed.
+
+The final suite passes **589 tests across 38 files**; the production build passes without warnings. Error-flow coverage includes safe handling for 401/session invalidation, validation, stale 404s, 409 conflicts, and generic transport failures; raw server detail is not rendered. Representative route, reload, Search, statistics, mutation, refresh-concurrency, and destruction races are covered. Native labels, roles, button semantics, and text alternatives are asserted where owned by components.
+
+Real-browser pointer geometry, cookie behavior across a browser, CSS pixel responsiveness, and screen-reader interaction remain outside this milestone. No coverage threshold is defined; quality automation remains MS6.6.
+
+**MS6.5 COMPLETE.**
