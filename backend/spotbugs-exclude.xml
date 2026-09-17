@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
+	<!-- FindSecBugs 1.14.0: all afterCommit call sites pass constant event templates
+	     and UUID/int identifiers only, never request text. UUID/int rendering cannot
+	     contain CR/LF. MutationLogTest and service logging tests enforce this policy. -->
+	<Match>
+		<Class name="com.taskflow.shared.logging.MutationLog"/>
+		<Method name="afterCommit"/>
+		<Bug pattern="CRLF_INJECTION_LOGS"/>
+	</Match>
 	<!-- Spring owns these shared collaborators. Copying them would break DI/proxy semantics. -->
 	<Match>
 		<Class name="com.taskflow.auth.api.AuthenticationController"/>

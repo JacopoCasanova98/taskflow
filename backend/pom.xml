@@ -18,9 +18,27 @@
 		<!-- Not managed by Spring Boot 3.5. -->
 		<bouncycastle.version>1.85.2</bouncycastle.version>
 		<springdoc.version>2.8.17</springdoc.version>
+		<!-- MS6.7: compatible fixes for the audited CVEs; remove when Boot manages
+		     these or newer versions. Advisory mapping is in ARCHITECTURE.md. -->
+		<tomcat.version>10.1.60</tomcat.version>
+		<postgresql.version>42.7.13</postgresql.version>
+		<jackson-bom.version>2.21.6</jackson-bom.version>
+		<commons-lang3.version>3.18.0</commons-lang3.version>
+		<log4j2.version>2.25.5</log4j2.version>
+		<swagger-ui.version>5.32.15</swagger-ui.version>
 		<argLine/>
 		<jacocoArgLine/>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- springdoc 2.8.17 bundles an older DOMPurify through Swagger UI. -->
+			<dependency>
+				<groupId>org.webjars</groupId>
+				<artifactId>swagger-ui</artifactId>
+				<version>${swagger-ui.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springdoc</groupId>
@@ -152,6 +170,13 @@
 				<configuration>
 					<effort>Max</effort>
 					<threshold>Medium</threshold>
+					<plugins>
+						<plugin>
+							<groupId>com.h3xstream.findsecbugs</groupId>
+							<artifactId>findsecbugs-plugin</artifactId>
+							<version>1.14.0</version>
+						</plugin>
+					</plugins>
 					<excludeFilterFile>${project.basedir}/spotbugs-exclude.xml</excludeFilterFile>
 				</configuration>
 				<executions>
@@ -160,6 +185,21 @@
 						<goals><goal>check</goal></goals>
 					</execution>
 				</executions>
+			</plugin>
+			<!-- Explicit invocation only: remote vulnerability feeds are not part of verify. -->
+			<plugin>
+				<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>13.0.0</version>
+				<configuration>
+					<failBuildOnCVSS>7.0</failBuildOnCVSS>
+					<formats><format>HTML</format><format>JSON</format></formats>
+					<skipTestScope>true</skipTestScope>
+					<suppressionFiles>
+						<suppressionFile>${project.basedir}/dependency-check-suppressions.xml</suppressionFile>
+					</suppressionFiles>
+					<failBuildOnUnusedSuppressionRule>true</failBuildOnUnusedSuppressionRule>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

@@ -117,6 +117,31 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 	}
 
 	@Test
+	void infrastructureEndpointsAreNotExposed() throws Exception {
+		for (String path : new String[] {"/actuator/env", "/actuator/beans", "/actuator/metrics",
+				"/actuator/configprops", "/actuator/heapdump", "/h2-console", "/debug"}) {
+			mockMvc.perform(get(path)).andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+		}
+		mockMvc.perform(get("/actuator/health"))
+				.andExpect(jsonPath("$.components").doesNotExist())
+				.andExpect(jsonPath("$.details").doesNotExist());
+	}
+
+	@Test
+	void securityHeadersRemainEnabledAndCorsDoesNotTrustArbitraryOrigins() throws Exception {
+		mockMvc.perform(get("/api/auth/csrf").secure(true).header("Origin", "https://untrusted.example"))
+				.andExpect(status().isNoContent())
+				.andExpect(header().string("X-Content-Type-Options", "nosniff"))
+				.andExpect(header().string("X-Frame-Options", "DENY"))
+				.andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
+				.andExpect(header().string("Strict-Transport-Security", "max-age=31536000 ; includeSubDomains"))
+				.andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+		mockMvc.perform(get("/api/auth/csrf"))
+				.andExpect(header().doesNotExist("Strict-Transport-Security"));
+	}
+
+	@Test
 	void doesNotProvideGeneratedLoginLogoutOrUsers() throws Exception {
 		mockMvc.perform(get("/login")).andExpect(status().isNotFound());
 		mockMvc.perform(post("/logout").with(csrf())).andExpect(status().isNotFound());

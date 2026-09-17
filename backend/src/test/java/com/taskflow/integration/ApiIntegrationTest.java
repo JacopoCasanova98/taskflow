@@ -19,6 +19,53 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class ApiIntegrationTest extends PostgresIntegrationSupport {
 	@Autowired MockMvc mvc;
 	@Autowired ObjectMapper mapper;
+	@Autowired com.taskflow.shared.security.jwt.AccessTokenService accessTokens;
+
+	@Test
+	void crossUserOperationsMatchMissingResourcesAndCannotChangePersistedWorkspace() throws Exception {
+		var owner = user("owner@example.test").getId();
+		actAs(owner);
+		var board = boardService.createBoard("Private board");
+		var column = columnService.createColumn(board.id(), "Private column");
+		var task = taskService.createTask(column.id(), "Private task", null, null, null);
+		clearIdentity();
+		String bearer = accessTokens.issue(user("other@example.test").getId()).value();
+		var csrf = mvc.perform(get("/api/auth/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN");
+		assertThat(csrf).isNotNull();
+		for (boolean existing : new boolean[] {true, false}) {
+			String boardId = (existing ? board.id() : UUID.randomUUID()).toString();
+			String columnId = (existing ? column.id() : UUID.randomUUID()).toString();
+			String taskId = (existing ? task.id() : UUID.randomUUID()).toString();
+			assertPrivate404(secured(get("/api/boards/" + boardId), bearer, csrf), "BOARD_NOT_FOUND");
+			assertPrivate404(json(secured(patch("/api/boards/" + boardId), bearer, csrf), Map.of("name", "Changed")), "BOARD_NOT_FOUND");
+			assertPrivate404(secured(delete("/api/boards/" + boardId), bearer, csrf), "BOARD_NOT_FOUND");
+			assertPrivate404(secured(get("/api/boards/" + boardId + "/columns"), bearer, csrf), "BOARD_NOT_FOUND");
+			assertPrivate404(json(secured(post("/api/boards/" + boardId + "/columns"), bearer, csrf), Map.of("name", "New")), "BOARD_NOT_FOUND");
+			assertPrivate404(json(secured(put("/api/boards/" + boardId + "/columns/order"), bearer, csrf), Map.of("columnIds", java.util.List.of(columnId))), "BOARD_NOT_FOUND");
+			assertPrivate404(json(secured(patch("/api/columns/" + columnId), bearer, csrf), Map.of("name", "Changed")), "COLUMN_NOT_FOUND");
+			assertPrivate404(secured(delete("/api/columns/" + columnId), bearer, csrf), "COLUMN_NOT_FOUND");
+			assertPrivate404(secured(get("/api/columns/" + columnId + "/tasks"), bearer, csrf), "COLUMN_NOT_FOUND");
+			assertPrivate404(json(secured(post("/api/columns/" + columnId + "/tasks"), bearer, csrf), Map.of("title", "New")), "COLUMN_NOT_FOUND");
+			assertPrivate404(secured(get("/api/tasks/" + taskId), bearer, csrf), "TASK_NOT_FOUND");
+			assertPrivate404(json(secured(put("/api/tasks/" + taskId), bearer, csrf), Map.of("title", "Changed", "priority", "HIGH")), "TASK_NOT_FOUND");
+			assertPrivate404(secured(delete("/api/tasks/" + taskId), bearer, csrf), "TASK_NOT_FOUND");
+			assertPrivate404(json(secured(put("/api/tasks/" + taskId + "/placement"), bearer, csrf), Map.of("columnId", columnId, "position", 0)), "TASK_NOT_FOUND");
+			assertPrivate404(secured(get("/api/boards/" + boardId + "/tasks/search").param("q", "Private"), bearer, csrf), "BOARD_NOT_FOUND");
+			assertPrivate404(secured(get("/api/boards/" + boardId + "/statistics").param("asOf", "2026-09-16"), bearer, csrf), "BOARD_NOT_FOUND");
+		}
+		actAs(owner);
+		assertThat(boardService.getBoard(board.id())).isEqualTo(board);
+		assertThat(columnService.listColumns(board.id())).containsExactly(column);
+		assertThat(taskService.getTask(task.id())).isEqualTo(task);
+	}
+
+	private void assertPrivate404(MockHttpServletRequestBuilder request, String code) throws Exception {
+		var body = mapper.readTree(mvc.perform(request).andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value(code)).andReturn().getResponse().getContentAsString());
+		assertThat(body.size()).isEqualTo(6);
+		String resource = code.substring(0, code.indexOf('_')).toLowerCase(java.util.Locale.ROOT);
+		assertThat(body.get("detail").asText()).isEqualTo("The requested " + resource + " was not found.");
+	}
 
 	@Test
 	void registrationAndSecuredWorkspaceFlowCommitsRealRowsAndKeepsFailedMutationSafe() throws Exception {

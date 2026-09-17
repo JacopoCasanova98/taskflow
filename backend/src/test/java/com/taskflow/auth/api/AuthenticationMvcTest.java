@@ -167,6 +167,17 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 	}
 
 	@Test
+	void loginAcceptsExistingPasswordBelowRegistrationMinimumButRejectsOversizedInput() throws Exception {
+		var existing = new UserEntity("user@example.com", encoder.encode("legacy"));
+		ReflectionTestUtils.setField(existing, "id", USER_ID);
+		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(existing));
+		mvc.perform(request("login", "user@example.com", "legacy", csrf()))
+				.andExpect(status().isOk());
+		mvc.perform(request("login", "user@example.com", "x".repeat(129), csrf()))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+	}
+
+	@Test
 	void loginReplacesPresentedRefreshSessionAndAcceptsMinimumRegistrationPassword() throws Exception {
 		mvc.perform(request("register", "user@example.com", "x".repeat(15), csrf())).andExpect(status().isCreated());
 		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user()));

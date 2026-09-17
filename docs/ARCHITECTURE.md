@@ -1245,3 +1245,84 @@ No migration, CI workflow, generated report, vulnerability scan or performance
 work is included. Changes remain uncommitted for manual review.
 
 **MS6.6 COMPLETE.**
+
+### Security quality review (MS6.7)
+
+MS6.7 reviewed production source, configuration, dependency trees, focused MVC
+and PostgreSQL integration regressions, FindSecBugs/SpotBugs, OWASP
+Dependency-Check 13.0.0, Gitleaks 8.30.1, and `npm audit --audit-level=high`.
+Scanner output remains under ignored `backend/target`; the concise human
+decision register is in `docs/SECURITY-DEPENDENCIES.md`.
+
+FindSecBugs is integrated into the existing SpotBugs execution. The initial
+finding was `CRLF_INJECTION_LOGS` at `MutationLog.afterCommit`; callers pass
+constant event templates and UUID/integer values only, with logging tests
+enforcing that boundary. The final exact class/method/detector exclusion leaves
+zero SpotBugs/FindSecBugs findings; no package-wide exclusion is used.
+
+Dependency-Check keeps `failBuildOnCVSS=7.0` and
+`failBuildOnUnusedSuppressionRule=true`. Same-stack compatible updates are
+Tomcat 10.1.60, PostgreSQL JDBC 42.7.13, Jackson BOM 2.21.6, Commons Lang
+3.18.0, Log4j 2.25.5, and Swagger UI 5.32.15. Spring Boot remains 3.5.16;
+Spring Framework/Security remain on the Boot 3.5 line. The remaining Spring
+advisories are individually recorded with expiry, CVE, and an explicit
+resolved-jar selector because their vulnerable APIs are absent: no WebFlux,
+RSocket, WebAuthn, LDAP, reactive XML/SSE/WebSocket, user-controlled SpEL or
+template/view rendering, unsafe data binding paths, native/user-controlled
+ordering, or untrusted download filenames. Suppressions are not a claim that
+the libraries are patched and must be reviewed before introducing those
+features. All remaining MEDIUM/LOW findings were reviewed in the register.
+
+The security tests retain the infrastructure exposure checks
+(`/actuator/health` only, with no detailed components), HTTPS security headers
+and untrusted-Origin CORS checks, real cross-user Board/Column/Task IDOR
+coverage including reorder, placement, Search and statistics, unchanged-owner
+state assertions, and the authentication boundary regression: historical
+passwords shorter than the 15-character registration minimum still log in,
+while login input over 128 characters is rejected. Test-only JWT material and
+insecure-cookie settings now live only in
+`backend/src/test/resources/application-test.yml`, so they are not packaged
+in the production JAR.
+
+The reviewed controls remain: Argon2id (19 MiB, two iterations, parallelism
+one); approximately 15-minute HS256 access JWTs with issuer/audience/expiry/
+UUID-subject validation and memory-only frontend storage; and opaque,
+high-entropy refresh tokens with hash-only persistence, HttpOnly cookies,
+rotation, family replay handling, locking, expiry, revocation and logout.
+CSRF remains required for unsafe requests, including Bearer mutations.
+Validation and mass-assignment boundaries are explicit; JPQL uses bound
+parameters and Search is ownership-scoped, with no SQL injection path found.
+Angular renders API text through safe bindings, no open redirect is introduced,
+errors/logs avoid secrets, credentials and stack traces, and Swagger remains
+public intentionally for portfolio API discoverability rather than as an
+authorization bypass. Gitleaks' narrow allowlist covers only the exact
+synthetic Base64 JWT fixture in test-resource paths (including the historical
+former path); it is not a JWT or repository-wide secret allowlist.
+
+#### Residual-risk register
+
+| Risk | Severity | Current decision/mitigation | Blocking | Future owner |
+| --- | --- | --- | --- | --- |
+| Registration email enumeration via 409 `EMAIL_ALREADY_REGISTERED` | Medium | Accepted current product behavior; review before public production exposure | No | Product/security |
+| No application login rate limiter | High | No unsuitable in-memory limiter; require deployment/edge brute-force and credential-stuffing policy before public exposure | Yes for public exposure | Deployment/security |
+| Access JWT revocation window | Medium | Accepted architecture: short lifetime plus refresh revocation; issued JWT may remain valid for about 15 minutes | No | Auth/deployment |
+| Single HMAC JWT secret rotation | Medium | External secret is required; key-ring/rotation design deferred | No | Deployment/security |
+| HTTPS and Secure cookies | High | Production assumes HTTPS and production Secure-cookie configuration | Yes for production | Deployment |
+| CSP and hosting security headers | Medium | Final CSP belongs to the known frontend hosting topology | No | Frontend/deployment |
+| Cloud secret management | High | Configuration is externalized now; AWS Secrets Manager/SSM integration belongs to AWS deployment | Yes for AWS production | Infrastructure |
+
+Search/SQL injection, XSS, open redirect, CORS, error exposure, logging
+exposure, and authorization/IDOR were reviewed as non-findings within the
+current architecture. Dynamic security boundaries remain deployment-owned:
+HTTPS termination, Secure cookies, edge rate limiting, CSP/hosting headers,
+cloud secret rotation, and public Swagger exposure policy.
+
+Final verification (2026-09-17): Gitleaks v8.30.1 full-history scan passed
+(54 commits), and its working-tree scan passed; no real secrets were found.
+Dependency-Check 13.0.0 passed with zero unresolved findings and successful
+unused-suppression validation. npm audit reported zero vulnerabilities.
+The complete `scripts/security-audit.sh` passed with exit 0. The already-passing
+final quality gate verified 466 backend tests (zero failures/errors/skips),
+589 frontend tests, JaCoCo, SpotBugs/FindSecBugs, formatting, lint and the
+production build. Close-out changed documentation only, so that quality gate
+was not repeated. **MS6.7 COMPLETE.** MS6.8 remains not started.
