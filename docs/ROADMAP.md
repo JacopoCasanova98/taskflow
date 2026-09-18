@@ -60,7 +60,7 @@ MacroStep 6 Definition of Done:
 ## MacroStep 7 — Docker and local infrastructure
 
 - [x] MS7.1 — Backend Dockerfile
-- [ ] MS7.2 — Frontend Dockerfile
+- [x] MS7.2 — Frontend Dockerfile
 - [ ] MS7.3 — PostgreSQL container
 - [ ] MS7.4 — Docker Compose
 - [ ] MS7.5 — Local developer experience
@@ -69,7 +69,10 @@ MacroStep 6 Definition of Done:
 MS7.1 passed two local image builds (second build cached), disposable PostgreSQL
 startup/Flyway verification, HTTP 200/UP health and non-root/JRE-only runtime
 checks. See [Backend container](ARCHITECTURE.md#backend-container-ms71).
-**MacroStep 7 remains incomplete.** MS7.2–MS7.6 have not started; the disposable
+MS7.2 passed production/cached image builds, non-root read-only Nginx runtime,
+SPA/static/cache/header checks, same-origin API and cookie/XSRF round trips, and
+backend replacement through Docker DNS. See [Frontend container](ARCHITECTURE.md#frontend-container-ms72).
+**MacroStep 7 remains incomplete.** MS7.3–MS7.6 have not started; the disposable
 database was verification infrastructure only, not an MS7.3 implementation.
 
 ## MacroStep 8 — Infrastructure as Code

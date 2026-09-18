@@ -1538,3 +1538,109 @@ baseline (472 backend tests including 22 PostgreSQL integration cases, 593
 frontend tests) was not rerun because application/POM/configuration stayed
 unchanged. Container build/run/health/content/security-boundary checks and
 `git diff --check` passed. **MS7.1 COMPLETE**; MacroStep 7 remains incomplete.
+
+### Frontend container (MS7.2)
+
+`docker build -t taskflow-frontend:ms7.2 ./frontend` builds independently from the
+frontend context. The named build stage uses the verified official
+`node:22.23.2-alpine3.24` tag (bundled npm 10.9.8); the runtime uses verified
+official `nginx:1.30.5-alpine3.24`. Versioned tags are explicit choices, not
+immutable digest locks. Only compiled browser output and Nginx configuration
+cross the stage boundary. No package versions or lockfile entries changed.
+
+Package descriptors are copied before `npm ci`, with a locked BuildKit cache at
+`/root/.npm`; source/build inputs follow in separate layers. `npm run build`
+uses the existing default production configuration and budgets, with
+`outputHashing: all`. The actual browser output is `dist/taskflow/browser`,
+checked during the image build and copied into `/usr/share/nginx/html` after
+removing the default Nginx site. No SSR/server output is used. The observed
+production initial bundle is 278.95 kB; runtime assets are hashed JS/CSS without
+development source maps. Tests/lint/coverage remain owned by the MS6 quality gate.
+`.dockerignore` excludes local dependencies, dist, coverage, Angular cache,
+Git/IDE/OS metadata, logs and environment files.
+
+Both Angular environments retain `apiBaseUrl: '/api'`. Browser requests remain
+same-origin: frontend Nginx proxies `/api` and `/api/...` to `backend:8080` while
+preserving the entire request URI, including `/api` and any query string.
+`backend` is a Docker-network name/alias that MS7.4 must provide, never a browser
+hostname. The resolver at `127.0.0.11` is Docker's embedded DNS, not the backend;
+`valid=30s`, the variable upstream and `proxy_pass $backend$request_uri` permit
+new connections to resolve a replacement backend without reloading Nginx.
+Temporary 502 responses are possible while the backend starts or a cached old
+address expires; this is not a zero-downtime deployment strategy.
+
+API matching precedes static-file regexes and SPA fallback. Unknown API paths
+retain backend behavior: anonymous requests return 401 AUTHENTICATION_REQUIRED;
+authenticated missing routes return 404 RESOURCE_NOT_FOUND ProblemDetail.
+Neither response becomes Angular HTML, including an API path ending in `.js`.
+Other client routes use `try_files $uri $uri/ /index.html`. Recognized static
+extensions use an actual file or 404, so missing JS/CSS/source maps never become
+HTML. Dot-file access is denied (`/.env` returns 403).
+
+Host, X-Real-IP, X-Forwarded-For and X-Forwarded-Proto are forwarded. Cookie,
+Set-Cookie and X-XSRF-TOKEN pass transparently; there are no cookie path/domain
+rewrites, CORS additions or Angular API-host substitutions. API cache policy
+remains upstream-owned. HTML, SPA fallback and non-hashed resources receive
+`no-cache, must-revalidate`. The current root-level Angular JS/CSS filenames
+with an eight-character content hash receive
+`public, max-age=31536000, immutable`; this header is not added to missing files.
+Unversioned assets such as favicon.ico retain revalidation.
+
+The hosting baseline is `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`
+and `Referrer-Policy: strict-origin-when-cross-origin`, including error responses.
+Nginx emits one consistent copy on proxied responses. `server_tokens off`
+removes the Nginx version from HTTP responses (small disclosure reduction, not
+an authorization boundary). CSP remains deferred to a deliberate hosting and
+Angular/CDK compatibility review; TLS/deployment headers remain topology-owned.
+
+The official entrypoint/CMD and SIGQUIT behavior are preserved. Both master and
+workers run as `nginx`, verified UID/GID 101, listening on unprivileged port 8080.
+PID and request/proxy/temp paths live in `/tmp`; root-owned assets/configuration
+are not writable by that user. The runtime was verified with `--read-only
+--tmpfs /tmp`. The official `10-listen-on-ipv6-by-default.sh` emits an informational
+message that it cannot modify default.conf, then safely continues; IPv4/IPv6
+listeners are already specified in the supplied config. No entrypoint workaround
+or root master is required. Inherited image metadata still lists port 80, but
+the configured listeners use 8080; no host port is baked into the image.
+No OS package or Dockerfile HEALTHCHECK was added. Host HTTP checks verify MS7.2;
+orchestration healthchecks and service wiring belong to MS7.4.
+
+Verification on 2026-09-18 used local linux/amd64. The initial source build passed,
+and the second unchanged build reused npm, Angular build and runtime/config COPY
+layers (`CACHED`). No Dockerfile or Angular budget warnings were emitted; npm's
+new-version notice did not change tooling. Final `docker image inspect .Size`
+was 26,241,971 bytes (about 26.24 MB), an observation rather than a size threshold.
+Image config/history contained only the expected runtime metadata and copy/setup
+steps, without application secrets, local env configuration or builder caches.
+
+An isolated temporary network connected disposable PostgreSQL, the existing
+`taskflow-backend:ms7.1` image with alias `backend`, and the frontend. Credentials
+were synthetic, only the frontend published a random loopback host port, and
+both application containers used read-only filesystems with tmpfs `/tmp`.
+Through that frontend port, `/`, `/boards` and `/boards/<uuid>` returned 200 and
+the same Angular index; real hashed JS/CSS returned correct MIME/cache/security
+headers; missing JS/map files returned 404; index/SPA pages were not immutable.
+CSRF bootstrap returned 204 with XSRF-TOKEN; registration returned 201 with an
+HttpOnly refresh cookie; refresh returned 200 using the returned cookies and
+X-XSRF-TOKEN. Verification did not print credential/token/cookie values.
+API precedence, all three security headers and version-free `Server: nginx`
+were asserted on static and proxy responses.
+
+A replacement backend was allocated a different IP (172.18.0.3 → 172.18.0.5 in
+this run), the original was removed, and the API recovered to 204 through the
+unchanged frontend without restart/reload. Startup/replacement probes generated
+expected transient connection-refused 502 logs before readiness. `nginx -t`
+passed; process inspection confirmed the non-root master/workers. Runtime checks
+found no Node/npm/npx/Angular CLI/tsc, node_modules, npm cache, build/source/test/
+coverage directories or source maps; index.html was not writable. All temporary
+containers and the network were removed and cleanup was independently checked.
+
+The only verification correction was in the temporary smoke script: anonymous
+API misses require 401, not 404; authenticated 404 cases were then checked too.
+No existing Docker/Nginx implementation needed a change during close-out.
+Application source, backend, Angular configuration, dependencies and lockfile
+remain unchanged, so the established 593 frontend tests/full quality gate were
+not rerun. Two image builds, the full HTTP/auth smoke, DNS replacement, runtime
+content/metadata checks and `git diff --check` passed. **MS7.2 COMPLETE**.
+MS7.3–MS7.6 and MS8 remain unstarted; no Compose, database deployment configuration,
+developer automation or CI is introduced by this milestone.
