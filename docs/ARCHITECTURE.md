@@ -1644,3 +1644,87 @@ not rerun. Two image builds, the full HTTP/auth smoke, DNS replacement, runtime
 content/metadata checks and `git diff --check` passed. **MS7.2 COMPLETE**.
 MS7.3–MS7.6 and MS8 remain unstarted; no Compose, database deployment configuration,
 developer automation or CI is introduced by this milestone.
+
+### PostgreSQL container contract (MS7.3)
+
+Use the official `postgres:17-alpine` image directly, without a custom Dockerfile
+or database configuration layer. The registry pull and local runtime verification
+on 2026-09-18 observed PostgreSQL **17.11**, linux/amd64. The tag fixes the major
+family, not an immutable digest; PostgreSQL 17 patch/base-image updates can arrive
+over time. Release/cloud image immutability remains a later decision.
+
+The local contract is `POSTGRES_DB=taskflow`, `POSTGRES_USER=taskflow` and an
+externally supplied `POSTGRES_PASSWORD`. The official initialization creates
+that role as a superuser: this is the current local-development convention, not
+a production least-privilege role design. These variables initialize an empty
+data directory; changing them does not reset an existing database or rotate its
+password. Credentials are never baked into an image or committed in env files.
+Backend wiring remains external:
+
+```text
+TASKFLOW_DB_URL=jdbc:postgresql://postgres:5432/taskflow
+TASKFLOW_DB_USERNAME=taskflow
+TASKFLOW_DB_PASSWORD=<externally supplied password>
+```
+
+`postgres` is the network alias/service-name contract for MS7.4, not a new Spring
+default. PostgreSQL remains the sole supported database (runtime JDBC 42.7.13
+and existing PostgreSQL integration tests). Flyway alone owns application schema
+creation/evolution through V1–V6; Hibernate stays `ddl-auto: validate`. No SQL is
+mounted into `/docker-entrypoint-initdb.d` and no docker application profile is
+needed. No PostgreSQL host port publication is required for backend connectivity.
+
+For this PostgreSQL 17 image, both image metadata and `SHOW data_directory`
+confirm `/var/lib/postgresql/data`. Mount a Docker-managed named volume there;
+do not substitute a data path from a different PostgreSQL major version.
+The official entrypoint initialized the volume without host chmod changes;
+the server ran as OS user `postgres`, UID/GID 70, and owned PGDATA with mode 0700.
+The database has its normal writable runtime filesystem; persistent data goes
+to the volume. UTF8 encoding and UTC timezone were observed. Default durability
+remained enabled: fsync, synchronous_commit and full_page_writes were all `on`.
+No tuning, additional extensions (including pg_trgm), or custom postgresql.conf
+is introduced. A named volume is persistence, not a backup. A deliberate local
+reset would remove the container and then its volume; the supported developer
+workflow is deferred to MS7.5, with no reset/backup automation added here.
+
+The readiness contract is PostgreSQL-native:
+
+```sh
+pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
+
+The TCP loopback probe avoids mistaking the image's socket-only initialization
+server for the final ready server. It was exercised as a Docker healthcheck:
+container A initially returned exit 2 (no response), then exit 0 and `healthy`;
+B also became healthy. Running is not readiness. `pg_isready` checks server
+availability, not successful password authentication or applied migrations;
+the backend/API verification establishes those additional contracts. MS7.4 will
+encode health-based startup ordering rather than merely container start order.
+
+Verification created the temporary named volume `taskflow-ms73-postgres-data`
+on an isolated network, with no database port binding. Backend image
+`taskflow-backend:ms7.1` was reused, with only a random loopback host port for API
+checks. Passwords and a valid 32-byte decoded JWT key were generated dynamically
+and not printed. On fresh PostgreSQL A, initialization completed, Flyway applied
+all six migrations to an empty schema, Hibernate validated and backend health
+returned 200/UP. A real user and identifiable Board were created through APIs.
+The first backend and PostgreSQL A were stopped and removed, retaining the volume.
+
+PostgreSQL B was a new container mounting the same named volume. Its entrypoint
+reported "Skipping initialization". All six successful Flyway history rows,
+including checksums and installation timestamps, matched before/after replacement
+and after the second backend start. The fresh backend validated six migrations,
+reported "No migration necessary", initialized Hibernate and returned 200/UP.
+Login with the persisted account and fetching the same Board ID/name both passed.
+The initial Alpine initdb locale warning was non-fatal; UTF8 initialization and
+both application starts succeeded without configuration changes.
+
+Image metadata/history and runtime logs were reviewed; no custom secret-bearing
+layers or credential files were created, and generated verification secrets were
+absent from logs. All temporary containers, network and the verification volume
+were removed after the persistence proof; independent Docker listings confirmed
+cleanup. Only architecture/roadmap documentation changed. Container readiness,
+Flyway/API integration, remove/recreate persistence and `git diff --check` passed;
+the unchanged 472/593 application-test baseline and network security audit were
+not rerun. **MS7.3 COMPLETE**. Compose encoding belongs to MS7.4; MS7.4–MS7.6 and
+MS8 remain unstarted.

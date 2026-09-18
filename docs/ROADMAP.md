@@ -61,7 +61,7 @@ MacroStep 6 Definition of Done:
 
 - [x] MS7.1 — Backend Dockerfile
 - [x] MS7.2 — Frontend Dockerfile
-- [ ] MS7.3 — PostgreSQL container
+- [x] MS7.3 — PostgreSQL container
 - [ ] MS7.4 — Docker Compose
 - [ ] MS7.5 — Local developer experience
 - [ ] MS7.6 — Container verification
@@ -72,8 +72,12 @@ checks. See [Backend container](ARCHITECTURE.md#backend-container-ms71).
 MS7.2 passed production/cached image builds, non-root read-only Nginx runtime,
 SPA/static/cache/header checks, same-origin API and cookie/XSRF round trips, and
 backend replacement through Docker DNS. See [Frontend container](ARCHITECTURE.md#frontend-container-ms72).
-**MacroStep 7 remains incomplete.** MS7.3–MS7.6 have not started; the disposable
-database was verification infrastructure only, not an MS7.3 implementation.
+MS7.3 verified the official PostgreSQL 17 image, environment-based credentials,
+native readiness and named-volume persistence across container removal/recreation,
+including Flyway history and real TaskFlow user/Board data. The durable artifact
+is the [PostgreSQL container contract](ARCHITECTURE.md#postgresql-container-contract-ms73);
+no custom database image or Compose file is needed in this milestone.
+**MacroStep 7 remains incomplete.** MS7.4–MS7.6 have not started.
 
 ## MacroStep 8 — Infrastructure as Code
 
