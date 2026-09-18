@@ -11,7 +11,6 @@ import { API_BASE_URL } from '../../core/config/api-base-url';
 import { BoardWorkspace } from '../boards/board-workspace/board-workspace';
 import { Task } from './task.models';
 import { TaskDropListData } from './task-placement';
-import { TaskView } from './task-view';
 
 const tasks: Task[] = (['LOW', 'HIGH', 'MEDIUM', 'HIGH'] as const).map((priority, position) => ({
   id: 'ABCD'[position],
@@ -45,7 +44,6 @@ describe('Due dates in the Board workspace', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
-  let view: TaskView;
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 12, 23, 59, 59));
@@ -75,7 +73,6 @@ describe('Due dates in the Board workspace', () => {
     fixture = TestBed.createComponent(BoardWorkspace);
     http = TestBed.inject(HttpTestingController);
     element = fixture.nativeElement;
-    view = fixture.debugElement.injector.get(TaskView);
     await load();
   });
   afterEach(() => {
@@ -91,10 +88,7 @@ describe('Due dates in the Board workspace', () => {
   async function load(id = 'one', response = [...tasks, low]) {
     http.expectOne('/api/boards/' + id).flush({ id, name: id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(columns);
-    for (const column of columns)
-      http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush(response.filter((task) => task.columnId === column.id));
+    http.expectOne('/api/boards/' + id + '/tasks').flush(response);
     await settle();
   }
   function canonical() {

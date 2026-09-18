@@ -52,7 +52,9 @@ describe('Board workspace page', () => {
     expect(element.querySelector('h1')?.textContent).toBe(board.name);
     expect(element.textContent).toContain('This board has no columns yet.');
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/boards');
-    expect(element.querySelector('app-column-controls button')?.textContent?.trim()).toBe('Add column');
+    expect(element.querySelector('app-column-controls button')?.textContent?.trim()).toBe(
+      'Add column',
+    );
   });
   it('renders semantic lanes and Task summaries in server order with empty-column guidance', async () => {
     http.expectOne('/api/boards/one').flush(board);
@@ -60,29 +62,27 @@ describe('Board workspace page', () => {
       { id: 'z', name: 'Planning', position: 0 },
       { id: 'a', name: 'Doing', position: 1 },
     ]);
-    http.expectOne('/api/columns/a/tasks').flush([]);
-    http.expectOne('/api/columns/z/tasks').flush([
+    http.expectOne('/api/boards/one/tasks').flush([
       {
         id: 'z',
+        columnId: 'z',
         title: 'Second alphabetically',
         position: 0,
         priority: 'HIGH',
         dueDate: '2026-09-12',
         description: 'Hidden description',
       },
-      { id: 'a', title: 'First alphabetically', position: 1 },
+      { id: 'a', columnId: 'z', title: 'First alphabetically', position: 1 },
     ]);
     await fixture.whenStable();
-    expect(Array.from(element.querySelectorAll('app-column-controls h2'), (h) => h.textContent)).toEqual([
-      'Planning',
-      'Doing',
-    ]);
     expect(
-      Array.from(element.querySelectorAll('li .task-title'), (button) => button.textContent?.trim()),
-    ).toEqual([
-      'Second alphabetically',
-      'First alphabetically',
-    ]);
+      Array.from(element.querySelectorAll('app-column-controls h2'), (h) => h.textContent),
+    ).toEqual(['Planning', 'Doing']);
+    expect(
+      Array.from(element.querySelectorAll('li .task-title'), (button) =>
+        button.textContent?.trim(),
+      ),
+    ).toEqual(['Second alphabetically', 'First alphabetically']);
     expect(element.querySelectorAll('app-column-controls section[aria-labelledby]').length).toBe(2);
     expect(element.textContent).toContain('No tasks yet.');
     for (const hidden of ['HIGH', '2026-09-12', 'Hidden description'])

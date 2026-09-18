@@ -98,4 +98,31 @@ class GlobalExceptionHandlerTest {
 		request.setRequestURI("/api/tasks/42");
 		return request;
 	}
+
+	@Test
+	void unexpectedErrorHasOneCorrelatedServerStackAndSafePublicContract() {
+		try (var logs = new com.taskflow.shared.logging.LogCapture(GlobalExceptionHandler.class)) {
+			org.slf4j.MDC.put("requestId", "550e8400-e29b-41d4-a716-446655440000");
+			var problem = exceptionHandler.handleUnexpectedException(new IllegalStateException("deterministic failure"), request());
+			assertThat(logs.events()).hasSize(1);
+			var event = logs.events().getFirst();
+			assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.ERROR);
+			assertThat(event.getFormattedMessage()).isEqualTo("event=unhandled_exception");
+			assertThat(event.getThrowableProxy().getClassName()).isEqualTo(IllegalStateException.class.getName());
+			assertThat(event.getThrowableProxy().getStackTraceElementProxyArray()).isNotEmpty();
+			assertThat(event.getMDCPropertyMap()).containsKey("requestId");
+			assertThat(problem.getStatus()).isEqualTo(500);
+			assertThat(problem.getProperties()).containsOnlyKeys("code").containsEntry("code", "INTERNAL_ERROR");
+			assertThat(problem.getDetail()).isEqualTo("An unexpected error occurred.");
+		} finally { org.slf4j.MDC.remove("requestId"); }
+	}
+
+	@Test
+	void expectedNotFoundDoesNotLogUnexpectedError() {
+		try (var logs = new com.taskflow.shared.logging.LogCapture(GlobalExceptionHandler.class)) {
+			exceptionHandler.handleApiException(new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"), request());
+			assertThat(logs.events()).isEmpty();
+		}
+	}
+
 }

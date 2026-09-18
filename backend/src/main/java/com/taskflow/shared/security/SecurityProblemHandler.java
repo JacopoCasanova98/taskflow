@@ -1,6 +1,8 @@
 package com.taskflow.shared.security;
 
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.taskflow.shared.error.ProblemDetails;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
+	private static final Logger LOG = LoggerFactory.getLogger(SecurityProblemHandler.class);
 	private final ObjectMapper objectMapper;
 
 	public SecurityProblemHandler(ObjectMapper objectMapper) {
@@ -26,6 +29,7 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException exception) throws IOException {
+		LOG.debug("event=authentication_required code=AUTHENTICATION_REQUIRED status=401");
 		response.setHeader("WWW-Authenticate", "Bearer");
 		write(request, response, HttpStatus.UNAUTHORIZED, "Authentication required",
 				"Authentication is required to access this resource.", "AUTHENTICATION_REQUIRED");
@@ -34,6 +38,7 @@ public class SecurityProblemHandler implements AuthenticationEntryPoint, AccessD
 	@Override
 	public void handle(HttpServletRequest request, HttpServletResponse response,
 			AccessDeniedException exception) throws IOException {
+		LOG.warn("event=access_denied code=ACCESS_DENIED status=403");
 		write(request, response, HttpStatus.FORBIDDEN, "Access denied",
 				"You do not have permission to access this resource.", "ACCESS_DENIED");
 	}

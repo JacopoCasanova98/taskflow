@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import com.taskflow.shared.logging.MutationLog;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.taskflow.board.persistence.BoardEntity;
 import com.taskflow.board.persistence.BoardRepository;
 import com.taskflow.column.persistence.ColumnEntity;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ColumnService {
+	private static final Logger LOG = LoggerFactory.getLogger(ColumnService.class);
 
 	private final AuthenticatedUserProvider identity;
 	private final BoardRepository boards;
@@ -41,21 +45,28 @@ public class ColumnService {
 
 	@Transactional
 	public Column createColumn(UUID boardId, String name) {
-		var board = lockBoard(boardId, identity.currentUser().id());
+		UUID owner = identity.currentUser().id();
+		var board = lockBoard(boardId, owner);
 		int position = Math.toIntExact(columns.countByBoard_Id(boardId));
-		return toColumn(columns.saveAndFlush(new ColumnEntity(board, name, position)));
+		var result = toColumn(columns.saveAndFlush(new ColumnEntity(board, name, position)));
+		MutationLog.afterCommit(LOG, "event=column_created userId={} boardId={} columnId={}", owner, boardId, result.id());
+		return result;
 	}
 
 	@Transactional
 	public Column renameColumn(UUID columnId, String name) {
-		var column = lockedColumn(columnId, identity.currentUser().id());
+		UUID owner = identity.currentUser().id();
+		var column = lockedColumn(columnId, owner);
 		column.rename(name);
-		return toColumn(columns.saveAndFlush(column));
+		var result = toColumn(columns.saveAndFlush(column));
+		MutationLog.afterCommit(LOG, "event=column_renamed userId={} columnId={}", owner, columnId);
+		return result;
 	}
 
 	@Transactional
 	public void deleteColumn(UUID columnId) {
-		var column = lockedColumn(columnId, identity.currentUser().id());
+		UUID owner = identity.currentUser().id();
+		var column = lockedColumn(columnId, owner);
 		UUID boardId = column.getBoard().getId();
 		int position = column.getPosition();
 		if (taskPresence.hasTasks(columnId)) {
@@ -64,11 +75,13 @@ public class ColumnService {
 		}
 		columns.delete(column);
 		columns.compactAfterDeletion(boardId, position, clock.instant());
+		MutationLog.afterCommit(LOG, "event=column_deleted userId={} boardId={} columnId={}", owner, boardId, columnId);
 	}
 
 	@Transactional
 	public List<Column> reorderColumns(UUID boardId, List<UUID> orderedIds) {
-		lockBoard(boardId, identity.currentUser().id());
+		UUID owner = identity.currentUser().id();
+		lockBoard(boardId, owner);
 		var current = columns.findAllByBoard_IdOrderByPositionAscIdAsc(boardId);
 		var byId = new HashMap<UUID, ColumnEntity>();
 		current.forEach(column -> byId.put(column.getId(), column));
@@ -84,7 +97,9 @@ public class ColumnService {
 		}
 		// Dirty checking updates managed entities; deferred uniqueness checks final state at commit.
 		columns.flush();
-		return ordered.stream().map(ColumnService::toColumn).toList();
+		var result = ordered.stream().map(ColumnService::toColumn).toList();
+		MutationLog.afterCommit(LOG, "event=columns_reordered userId={} boardId={} count={}", owner, boardId, result.size());
+		return result;
 	}
 
 	private BoardEntity lockBoard(UUID boardId, UUID ownerId) {

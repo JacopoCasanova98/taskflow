@@ -26,6 +26,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -116,6 +117,31 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 	}
 
 	@Test
+	void infrastructureEndpointsAreNotExposed() throws Exception {
+		for (String path : new String[] {"/actuator/env", "/actuator/beans", "/actuator/metrics",
+				"/actuator/configprops", "/actuator/heapdump", "/h2-console", "/debug"}) {
+			mockMvc.perform(get(path)).andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+		}
+		mockMvc.perform(get("/actuator/health"))
+				.andExpect(jsonPath("$.components").doesNotExist())
+				.andExpect(jsonPath("$.details").doesNotExist());
+	}
+
+	@Test
+	void securityHeadersRemainEnabledAndCorsDoesNotTrustArbitraryOrigins() throws Exception {
+		mockMvc.perform(get("/api/auth/csrf").secure(true).header("Origin", "https://untrusted.example"))
+				.andExpect(status().isNoContent())
+				.andExpect(header().string("X-Content-Type-Options", "nosniff"))
+				.andExpect(header().string("X-Frame-Options", "DENY"))
+				.andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
+				.andExpect(header().string("Strict-Transport-Security", "max-age=31536000 ; includeSubDomains"))
+				.andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+		mockMvc.perform(get("/api/auth/csrf"))
+				.andExpect(header().doesNotExist("Strict-Transport-Security"));
+	}
+
+	@Test
 	void doesNotProvideGeneratedLoginLogoutOrUsers() throws Exception {
 		mockMvc.perform(get("/login")).andExpect(status().isNotFound());
 		mockMvc.perform(post("/logout").with(csrf())).andExpect(status().isNotFound());
@@ -156,4 +182,29 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 		assertThat(json.get("instance").asText()).isEqualTo("/api/forbidden-test");
 		assertThat(response.getContentAsString()).doesNotContain("secret", "AccessDeniedException", "trace");
 	}
+
+	@Test
+	void correlationWrapsRealSecurityChainWithSafeLevels(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+		String id = "550e8400-e29b-41d4-a716-446655440000";
+		try (var security = new com.taskflow.shared.logging.LogCapture(SecurityProblemHandler.class);
+				var access = new com.taskflow.shared.logging.LogCapture(com.taskflow.shared.logging.RequestLoggingFilter.class)) {
+			mockMvc.perform(get("/api/boards").header("X-Request-ID", id)
+					.header("Authorization", "Bearer VERY_SECRET_TEST_TOKEN"))
+					.andExpect(status().isUnauthorized()).andExpect(header().string("X-Request-ID", id));
+			mockMvc.perform(post("/api/boards").header("X-Request-ID", id))
+					.andExpect(status().isForbidden()).andExpect(header().string("X-Request-ID", id));
+			assertThat(security.events()).extracting(ch.qos.logback.classic.spi.ILoggingEvent::getLevel)
+					.containsExactly(ch.qos.logback.classic.Level.DEBUG, ch.qos.logback.classic.Level.WARN);
+			assertThat(security.events()).allSatisfy(event -> {
+				assertThat(event.getMDCPropertyMap()).containsEntry("requestId", id);
+				assertThat(event.getThrowableProxy()).isNull();
+			});
+			assertThat(access.events()).hasSize(2);
+			assertThat(output.getOut()).contains("[requestId=" + id + "]");
+			assertThat(access.messages()).contains("status=401", "status=403").doesNotContain("VERY_SECRET_TEST_TOKEN");
+			assertThat(security.messages()).doesNotContain("VERY_SECRET_TEST_TOKEN", "Bearer");
+			assertThat(org.slf4j.MDC.get("requestId")).isNull();
+		}
+	}
+
 }

@@ -14,9 +14,11 @@ public class SpringSecurityAuthenticatedUserProvider implements AuthenticatedUse
 		if (authentication instanceof JwtAuthenticationToken token && token.isAuthenticated()) {
 			String subject = token.getToken().getSubject();
 			try {
-				UUID id = UUID.fromString(subject);
-				if (id.toString().equalsIgnoreCase(subject)) { return new AuthenticatedUser(id); }
-			} catch (IllegalArgumentException | NullPointerException ignored) {
+				if (subject != null) {
+					UUID id = UUID.fromString(subject);
+					if (id.toString().equalsIgnoreCase(subject)) { return new AuthenticatedUser(id); }
+				}
+			} catch (IllegalArgumentException ignored) {
 				// Decoder validation prevents this for real requests; never expose parser inputs or causes.
 			}
 		}

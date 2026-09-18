@@ -1,0 +1,22 @@
+title = "TaskFlow secret audit"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic JWT fixture: Base64 of bytes 0 through 31, only in the two test profiles (including the historical pre-MS6.7 path)."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^backend/src/(main|test)/resources/application-test\.yml$''',
+  '''^backend/src/test/resources/application-integration\.yml$''',
+]
+regexTarget = "secret"
+regexes = ['''^AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=$''']
+
+[[allowlists]]
+description = "Generated build output and installed vendor code only; .env and other ignored local source files remain scanned."
+paths = [
+  '''(^|/)backend/target(/|$)''',
+  '''(^|/)frontend/(node_modules|\.angular|dist|coverage)(/|$)''',
+]

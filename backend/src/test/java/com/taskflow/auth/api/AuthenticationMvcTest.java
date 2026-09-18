@@ -167,6 +167,17 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 	}
 
 	@Test
+	void loginAcceptsExistingPasswordBelowRegistrationMinimumButRejectsOversizedInput() throws Exception {
+		var existing = new UserEntity("user@example.com", encoder.encode("legacy"));
+		ReflectionTestUtils.setField(existing, "id", USER_ID);
+		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(existing));
+		mvc.perform(request("login", "user@example.com", "legacy", csrf()))
+				.andExpect(status().isOk());
+		mvc.perform(request("login", "user@example.com", "x".repeat(129), csrf()))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+	}
+
+	@Test
 	void loginReplacesPresentedRefreshSessionAndAcceptsMinimumRegistrationPassword() throws Exception {
 		mvc.perform(request("register", "user@example.com", "x".repeat(15), csrf())).andExpect(status().isCreated());
 		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user()));
@@ -348,5 +359,26 @@ class AuthenticationMvcTest extends DatabaseFreePersistenceTest {
 		assertThat(refresh.getMaxAge()).isEqualTo(2592000);
 		assertThat(result.getResponse().getContentAsString()).doesNotContain(refresh.getValue(), PASSWORD, "passwordHash", "tokenHash");
 		assertThat(result.getRequest().getSession(false)).isNull();
+	}
+
+	@Test
+	void authenticationEventsContainSafeIdentityWithoutCredentialsOrEmail() throws Exception {
+		when(users.findByEmail("user@example.com")).thenReturn(Optional.of(user()));
+		try (var logs = new com.taskflow.shared.logging.LogCapture(com.taskflow.auth.application.AuthenticationService.class)) {
+			var success = mvc.perform(request("login", "user@example.com", PASSWORD, csrf()))
+					.andExpect(status().isOk()).andReturn();
+			mvc.perform(request("login", "missing@example.com", PASSWORD, csrf()))
+					.andExpect(status().isUnauthorized());
+			assertThat(logs.events()).hasSize(2);
+			assertThat(logs.events().get(0).getLevel()).isEqualTo(ch.qos.logback.classic.Level.INFO);
+			assertThat(logs.events().get(0).getFormattedMessage())
+					.isEqualTo("event=authentication_succeeded userId=" + USER_ID);
+			assertThat(logs.events().get(1).getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+			assertThat(logs.events().get(1).getFormattedMessage())
+					.isEqualTo("event=authentication_failed reason=invalid_credentials");
+			assertThat(logs.messages()).doesNotContain(PASSWORD, "user@example.com", "missing@example.com",
+					success.getResponse().getCookie("TASKFLOW_REFRESH").getValue());
+			assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNull());
+		}
 	}
 }

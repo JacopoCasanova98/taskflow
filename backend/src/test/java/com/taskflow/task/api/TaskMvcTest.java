@@ -129,8 +129,7 @@ class TaskMvcTest extends DatabaseFreePersistenceTest {
 	@Test
 	void createAppendsAndRetainsDescriptionAndDate() throws Exception {
 		owned(); save();
-		var second = new TaskEntity(column, "Second", null, null, null, 1);
-		when(tasks.findAllByColumn_IdAndColumn_Board_OwnerIdOrderByPositionAscIdAsc(COLUMN, A)).thenReturn(List.of(task, second));
+		when(tasks.countByColumn_IdAndColumn_Board_OwnerId(COLUMN, A)).thenReturn(2L);
 		String supplied = mapper.writeValueAsString(Map.of("title", "New", "description", " First  line\nSecond line ",
 				"priority", "HIGH", "dueDate", "2026-12-31"));
 		mvc.perform(call("create", A).content(supplied)).andExpect(status().isCreated())

@@ -4,6 +4,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.taskflow.shared.logging.MutationLog;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.taskflow.board.persistence.BoardRepository;
 import com.taskflow.column.persistence.ColumnEntity;
 import com.taskflow.column.persistence.ColumnRepository;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TaskService {
+	private static final Logger LOG = LoggerFactory.getLogger(TaskService.class);
 	private final AuthenticatedUserProvider identity;
 	private final BoardRepository boards;
 	private final ColumnRepository columns;
@@ -29,6 +33,14 @@ public class TaskService {
 		this.boards = boards;
 		this.columns = columns;
 		this.tasks = tasks;
+	}
+
+	@Transactional(readOnly = true)
+	public List<Task> listBoardTasks(UUID boardId) {
+		UUID owner = identity.currentUser().id();
+		boards.findByIdAndOwnerId(boardId, owner).orElseThrow(() ->
+				new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found", "The requested board was not found."));
+		return tasks.listBoardTasks(boardId, owner).stream().map(TaskService::toTask).toList();
 	}
 
 	@Transactional(readOnly = true)
@@ -70,15 +82,20 @@ public class TaskService {
 		boards.findByIdAndOwnerIdForUpdate(boardId, owner).orElseThrow(TaskService::columnNotFound);
 		var column = columns.findByIdAndBoard_IdAndBoard_OwnerId(columnId, boardId, owner)
 				.orElseThrow(TaskService::columnNotFound);
-		int position = ordered(columnId, owner).size();
-		return toTask(tasks.saveAndFlush(new TaskEntity(column, title, description, priority, dueDate, position)));
+		int position = Math.toIntExact(tasks.countByColumn_IdAndColumn_Board_OwnerId(columnId, owner));
+		var result = toTask(tasks.saveAndFlush(new TaskEntity(column, title, description, priority, dueDate, position)));
+		MutationLog.afterCommit(LOG, "event=task_created userId={} taskId={} columnId={}", owner, result.id(), columnId);
+		return result;
 	}
 
 	@Transactional
 	public Task updateTask(UUID taskId, String title, String description, TaskPriority priority, LocalDate dueDate) {
-		var task = lockedTask(taskId, identity.currentUser().id());
+		UUID owner = identity.currentUser().id();
+		var task = lockedTask(taskId, owner);
 		task.updateContent(title, description, priority, dueDate);
-		return toTask(tasks.saveAndFlush(task));
+		var result = toTask(tasks.saveAndFlush(task));
+		MutationLog.afterCommit(LOG, "event=task_updated userId={} taskId={} columnId={}", owner, taskId, result.columnId());
+		return result;
 	}
 
 	@Transactional
@@ -90,6 +107,7 @@ public class TaskService {
 		tasks.delete(task);
 		resequence(remaining, task.getColumn());
 		tasks.flush();
+		MutationLog.afterCommit(LOG, "event=task_deleted userId={} taskId={}", owner, taskId);
 	}
 
 	@Transactional
@@ -112,7 +130,10 @@ public class TaskService {
 		resequence(target, targetColumn);
 		// Managed entities are dirty-checked; deferred uniqueness validates the final state at commit.
 		tasks.flush();
-		return toTask(task);
+		var result = toTask(task);
+		MutationLog.afterCommit(LOG, "event=task_placed userId={} taskId={} sourceColumnId={} targetColumnId={} position={}",
+				owner, taskId, sourceColumn.getId(), targetColumnId, position);
+		return result;
 	}
 
 	private TaskEntity lockedTask(UUID taskId, UUID owner) {

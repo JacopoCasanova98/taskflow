@@ -136,6 +136,16 @@ describe('Auth session and HTTP recovery', () => {
     expect(session.accessTokenExpiresAt()).toBeNull();
   });
 
+  it('keeps authenticated credentials in memory only', () => {
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
+    login();
+    expect(session.user()).toEqual(response().user);
+    expect(session.accessToken()).toBe('test-access');
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
+  });
+
   it('attaches Bearer only to protected relative API requests, including me', () => {
     login();
     for (const url of ['/api', '/api/tasks', '/api/auth/me?details=true']) {

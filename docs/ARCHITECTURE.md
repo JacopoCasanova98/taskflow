@@ -828,4 +828,621 @@ Column and Task positions remain canonical manual ordering. Task content and pla
 
 Final gates: **377 backend tests passed with zero failures/errors/skips**, **586 frontend tests across 38 files passed (one acceptance test added)**, and the production frontend build passed **without warnings**. Backend execution used the approved method after sandbox Mockito attachment failed; the build used the approved rerun after the sandboxed exit-134 abort without diagnostics. Diff/whitespace checks passed. This verifies application flow, routing, UI/state composition, emitted HTTP contracts, the full automated suites, and static architecture/security invariants. It does not prove live PostgreSQL/Flyway behavior (MS6.4), browser pointer geometry, real network/browser cookie integration, or deployment. The HTTP test does not simulate Set-Cookie behavior or manually manipulate cookies; this is functional acceptance, not full production/browser E2E. Broader frontend quality remains MS6.5 and deployed smoke testing remains later work.
 
-**MS5.1–MS5.16 and MacroStep 5 are complete.** The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within these explicitly recorded verification boundaries. MacroStep 6 — Software quality is next; MS6.1 has not started.
+**MS5.1–MS5.16 and MacroStep 5 are complete.** The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within these explicitly recorded verification boundaries. MacroStep 6 — Software quality follows this baseline; see MS6.1 below.
+
+
+## OpenAPI and Swagger UI (MS6.1)
+
+API documentation uses the single direct production dependency `org.springdoc:springdoc-openapi-starter-webmvc-ui`, pinned through `springdoc.version=2.8.17`. Maven Central metadata was checked on 2026-09-13: 2.8.17 is the latest stable 2.8.x release. The [official compatibility matrix](https://springdoc.org/v2/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot) maps Spring Boot 3.5.x to springdoc 2.8.x. Boot remains 3.5.16 and Java remains 21. The dependency tree contains the expected springdoc API/common modules, Swagger Jakarta components and Swagger UI 5.32.2; Spring Security remains 6.5.11, with no Springfox, Scalar or second documentation framework.
+
+`com.taskflow.shared.openapi.OpenApiConfiguration` owns technical metadata, the Bearer scheme, reusable error components and common operation documentation. Title is **TaskFlow API**, described as an authenticated Board / Column / Task management API. The explicit documentation version `0.0.1-SNAPSHOT` matches the Maven application version; no resource filtering or version infrastructure was introduced.
+
+| Resource | Endpoint |
+| --- | --- |
+| Generated OpenAPI JSON | `GET /v3/api-docs` |
+| Generated OpenAPI YAML | `GET /v3/api-docs.yaml` |
+| Swagger UI entry | `GET /swagger-ui.html` |
+| Standard UI redirect target | `GET /swagger-ui/index.html` |
+
+`springdoc.paths-to-match=/api/**` limits the definition to the application API. Actuator, framework resources and documentation endpoints are excluded. All **24 operations across five controllers** have summaries, unique explicit operation IDs, success statuses and relevant errors, grouped under **Authentication, Boards, Columns, Tasks, Board Statistics**. Task content replacement and placement are distinct; Search documents literal case-insensitive title OR description matching, the 200-character limit after trimming, blank behavior and deterministic canonical ordering. Statistics requires a date-only `asOf`, uses `dueDate < asOf` for overdue, includes canonical Board data and intentionally omits completed/open metrics.
+
+The sole security scheme, `bearerAuth`, is HTTP `bearer` with format `JWT`. It represents the **short-lived access token**, never the refresh cookie. There is no global security requirement. Business operations and `GET /api/auth/me` require Bearer; register, login, refresh, logout and CSRF bootstrap do not. Refresh uses the HttpOnly `TASKFLOW_REFRESH` cookie, while logout accepts missing refresh state and clears the cookie. The cookie's existing Path=/api/auth, SameSite=Strict and configurable Secure behavior remain unchanged. Cookie arguments are described in prose rather than exposed as misleading editable Swagger cookie fields.
+
+**CSRF remains enabled for every unsafe request, including Bearer-authenticated mutations.** The definition adds the required `X-XSRF-TOKEN` header and the existing `403 ACCESS_DENIED` response to those operations. `GET /api/auth/csrf` bootstraps the readable `XSRF-TOKEN` cookie with a 204 response; callers send its current value in the header and update that value when authentication rotates cookies. Swagger Authorize only supplies access-token authentication. Swagger UI is documentation/testing assistance, not the canonical SPA authentication implementation; it does not automatically orchestrate TaskFlow's refresh-cookie/CSRF lifecycle. Cookie-dependent Try it out requires browser cookie state and explicit current CSRF state. Seamless register/login/refresh/logout or mutation execution is not promised, and no custom JavaScript interceptor or security bypass was added.
+
+Schemas derive from existing records, UUID/enum/date types and Jakarta Validation. Targeted annotations add synthetic examples, date-only/nullability semantics, write-only password fields and the existing rejection of unknown business request properties. Priority is exactly LOW/MEDIUM/HIGH; the nullable creation input uses an anyOf enum/null schema because OpenAPI 3.1 enum constraints otherwise reject null. dueDate is a nullable date (OpenAPI 3.1 string/null types) and audit Instants are date-time. Runtime DTOs are unchanged. Wildcard auth return types have explicit success-schema documentation using the existing AuthenticationResponse and CurrentUserResponse classes.
+
+Errors retain the runtime RFC 9457 ProblemDetail contract. The documentation-only `TaskFlowProblem` component describes standard fields and top-level `code`, plus optional `violations` with field/message/code. Shared response components reference safe synthetic examples for authentication, session, private-resource 404s, validation/malformed input, Search, domain conflicts and internal errors. Multiple codes sharing one status are combined where needed, including Task placement 404s. `springdoc.override-with-generic-response=false` prevents broad exception-advice inference from attaching misleading responses to operations; explicit response references document the actual errors instead. No advice is hidden or runtime handler changed.
+
+The existing SecurityFilterChain already permits non-API documentation endpoints through its fallback rule, so **no security configuration change was needed**. Generated-document tests use the existing database-free Spring Boot/MockMvc profile and actual springdoc endpoints. They compare operation coverage against MVC handler mappings, check metadata/tags/security/schema constraints/error references and verify JSON, YAML, UI redirect/HTML/assets/initializer/configuration. Security regressions prove anonymous Board access still returns 401 AUTHENTICATION_REQUIRED and unsafe API requests without CSRF still return 403 ACCESS_DENIED, even with a valid Bearer token. Existing auth and CSRF tests remain unchanged.
+
+Verification: **384 backend tests passed, zero failures/errors/skips (seven added)**; **586 frontend tests across 38 files passed**; frontend production build passed without warnings. Backend tests used the approved execution path after the known sandbox Mockito attachment failure; the build used the approved rerun after the known sandbox exit-134 abort. Frontend production code, dependency manifests and lockfile are unchanged. The generated document was inspected for DTO-only responses, UUID/date/priority accuracy, status/security correctness, unique operation IDs and safe errors. Generated specifications are not checked into the repository. A temporary localhost Spring Boot instance with mocked persistence also served the actual generated document over HTTP; it was stopped after review. No browser was available through the browser tool, so visual layout and an interactive Authorize click were not verified. UI availability, configuration, all five operation tags and the HTTP Bearer/JWT authorization definition are verified automatically.
+
+**MS6.1 is complete within the automated verification boundaries above.** MS6.1 introduces no runtime API semantic changes, API versioning, logging work, Testcontainers, broader test milestone or quality-toolchain dependency. MS6.2 Logging is recorded below; MS6.3 and later MS6 work remain not started.
+
+## Logging (MS6.2)
+
+TaskFlow uses Spring Boot's existing SLF4J + Logback stack, with root and
+`com.taskflow` at INFO. No dependencies, custom Logback XML, SQL logging,
+global DEBUG/TRACE, or security debug configuration are added. Boot's
+`logging.pattern.correlation` renders `[requestId=…]` (empty outside requests);
+its existing correlation-pattern support requires no tracing provider.
+
+### Levels and events
+
+- **INFO:** one API HTTP completion event and successful business mutations.
+- **WARN:** invalid login credentials and access-denied/CSRF rejections, without
+  exception detail or a stack trace.
+- **DEBUG:** routine authentication-required/invalid-bearer responses and successful
+  session refresh. Expected 400/404/409 errors use the completion event alone;
+  validation, malformed requests and ownership-safe not-found responses are not
+  application ERRORs.
+- **ERROR:** unexpected failures, owned by `GlobalExceptionHandler` with
+  `event=unhandled_exception` and the exception stack. Framework 5xx errors
+  receive the same server-side logging treatment without changing their response.
+
+Business messages use stable, parameterized `event=snake_case key={}` fields:
+`board_created`, `board_renamed`, `board_deleted`;
+`column_created`, `column_renamed`, `column_deleted`, `columns_reordered`;
+`task_created`, `task_updated`, `task_deleted`, `task_placed`.
+Only existing user/resource UUIDs, reorder count and placement position are
+captured. Placement includes the existing source and target Column IDs.
+Reads, Search and statistics have no INFO business event.
+
+Transactional domain mutations register a small `MutationLog.afterCommit`
+callback. It captures scalar identifiers before transaction completion, reads no
+entities in the callback, and emits no success on rollback or commit failure.
+Direct nontransactional calls (including isolated service tests) emit after the
+successful operation. Authentication operations log after their existing
+TransactionTemplate completes. No query, transaction, flush, DTO, status,
+persistence behavior or migration is introduced for logging.
+
+Successful registration logs `user_registered userId`; login logs
+`authentication_succeeded userId`. Invalid credentials log only
+`authentication_failed reason=invalid_credentials`, without revealing whether
+an email exists. Routine refresh logs `session_refreshed userId` at DEBUG;
+failure retains the existing SESSION_INVALID contract. Idempotent logout logs
+`session_logged_out` without looking up an identity. Security responses log
+`authentication_required code=AUTHENTICATION_REQUIRED status=401` at DEBUG or
+`access_denied code=ACCESS_DENIED status=403` at WARN.
+
+### Request correlation and completion
+
+The shared technical `RequestLoggingFilter` is a OncePerRequestFilter ordered
+immediately before Boot's default Spring Security filter. It covers the current
+synchronous MVC request through security, controllers, services, transaction
+completion and MVC exception handling.
+
+Incoming `X-Request-ID` is accepted only as a full 36-character hexadecimal UUID
+in 8-4-4-4-12 form (case insensitive). Missing, malformed, abbreviated, whitespace,
+newline or overlong values generate a random UUID; they never cause a 400 or
+change application semantics. Arbitrary caller text never enters MDC or the
+response header. The value is set in MDC key `requestId` and response header
+`X-Request-ID`, including security failures and non-API requests. A nested
+finally removes only this MDC key even if processing or completion logging throws.
+
+For `/api` and `/api/**`, the filter emits one INFO
+`event=http_request_completed method={} path={} status={} durationMs={}` while
+MDC is still available. Duration uses System.nanoTime and whole milliseconds.
+The path comes from getRequestURI, never a full URL or query string. Known API
+segments and actual UUIDs are retained; unknown/malformed paths or paths longer
+than 512 characters become `/api/[redacted]`, preventing arbitrary path content
+or log injection. New API route segments must be added to this small allowlist.
+HTTP methods are bounded uppercase tokens. Swagger assets, API docs, health,
+frontend assets and favicon receive correlation without access-log noise.
+
+Handled 4xx/5xx responses retain their actual status. An exception escaping the
+filter chain is rethrown and recorded as a failed completion with status 500;
+this is the application failure classification, not a guarantee of a
+container's eventual wire status after a committed response. The filter never
+prints a throwable. MVC advice owns one application error stack; controllers,
+services and the filter do not duplicate it. There are no asynchronous MVC
+endpoints today: worker-thread MDC propagation and async/error redispatch final
+completion handling must be designed if those execution models are introduced.
+
+ProblemDetail code/title/detail/status/violations remain unchanged and safe.
+The request ID is only a response header, not a new ProblemDetail field or
+authentication/authorization identity. A support report can supply the header
+value to correlate server events.
+
+### Data safety and evolution boundary
+
+Allowed business fields are userId, boardId, columnId and taskId UUIDs; bounded
+counts/positions, public error codes/status and, only if operationally needed,
+priority enums. Never log whole entities, DTOs or JSON payloads. Never pass
+Board/Column names, Task titles/descriptions/due dates, Search queries, email,
+passwords, JWT/access/refresh token values or hashes, JWT secrets, Authorization,
+Cookie, XSRF-TOKEN or X-XSRF-TOKEN values to a logger. No request/response bodies,
+headers or query strings are captured. Cross-user not-found errors must not
+create sensitive ownership linkages.
+
+Unexpected throwable stacks remain server-side diagnostics. Exception authors
+must also avoid embedding secrets or user content in messages/causes; passing a
+throwable is not a redaction mechanism for arbitrary third-party exception text.
+SQL/bind logging stays disabled. The source review checks actual logging
+arguments, distinguishing credential-handling code from logging code.
+
+Human-readable logs are deliberate. Structured ECS/GELF/JSON console output can
+be selected later for a concrete deployment/aggregation need. No Micrometer
+Tracing, OpenTelemetry, traceId/spanId, ELK/Loki or observability SaaS is added.
+Future distributed tracing may replace or augment this local request identifier
+when the system actually needs cross-service propagation.
+
+Focused logging tests cover UUID validation/injection, MDC lifecycle, safe
+completion fields and query/header/body omission, security filter ordering,
+correlation rendering, representative business and auth events, expected versus
+unexpected errors, and commit/rollback timing. They use scoped Logback event
+capture for levels/MDC/throwables and one Boot output capture for the correlation
+pattern, avoiding whole-line and whole-stack snapshots. These tests belong to
+MS6.2; MS6.3 Backend unit tests and later quality milestones remain not started.
+
+**MS6.2 is complete.** Final verification: **414 backend tests passed, zero
+failures/errors/skips (30 added)**, including all seven OpenAPI regression tests
+and the existing 24-operation contract; **586 frontend tests across 38 files
+passed**, and the production build passed without warnings. Backend tests used
+the approved execution route after sandbox Mockito self-attachment failed; the
+production build used the approved rerun after the sandbox exit-134 abort. Source
+logging-argument review and git diff whitespace checks passed. There are no
+frontend, Maven dependency, lockfile or migration changes. These remain
+database-free automated checks, not live PostgreSQL or deployed-container
+verification. Changes are left uncommitted for manual review.
+
+## Backend unit-test audit (MS6.3)
+
+MS6.3 audits existing behavior protection and closes meaningful gaps; test count
+is an outcome, not a target. The clean baseline at commit `6f8f491` contained
+**414 passing backend tests**. New tests instantiate services/domain objects
+directly using JUnit 5, AssertJ and Mockito for external collaborators. They use
+no Spring context, MockMvc, HTTP server, PostgreSQL, Flyway, repository execution
+or Testcontainers. Spring value/helper types and a mocked transaction manager do
+not start a context or establish real transaction semantics.
+
+### Existing inventory and classification
+
+| Category | Existing coverage |
+| --- | --- |
+| Pure domain | TaskPoliciesTest, UserEmailNormalizerTest; Board/Column/Task/User entity tests exercise real normalization and state behavior without JPA execution |
+| Application/service | BoardServiceTest, ColumnServiceTest, TaskServiceTest, BoardStatisticsServiceTest, CurrentUserServiceTest, RefreshSessionsTest, RefreshSessionLifecycleTest |
+| Utilities | Email trim/Locale.ROOT (including Turkish locale), Search escaping, direct error transformation, JWT claim/validation helpers, password delegation |
+| MVC/web | Authentication, current user, Board, Column, Task, statistics MVC suites; GlobalExceptionHandlerMvcTest uses standalone MockMvc |
+| Security | CredentialAuthenticationTest, PasswordEncoderTest, SpringSecurityAuthenticatedUserProviderTest and JwtFoundationTest are context-free; SecurityConfigurationTest exercises the Spring chain |
+| Persistence contracts | ColumnPersistenceContractTest, TaskPersistenceContractTest, BoardStatisticsQueryContractTest and BaseEntityTest inspect metadata/query strings or direct auditing helpers, not database behavior |
+| OpenAPI | OpenApiDocumentationTest runs generated-document/Swagger regressions with Spring and mocked persistence |
+| Logging | RequestLoggingFilterTest and MutationLogTest are direct tests; business/error/security logging assertions also live in service and MVC suites |
+| Context/smoke | BackendApplicationTests, JwtConfigurationTest and part of CookieSecurityTest exercise context/configuration behavior |
+
+Database-free does not mean unit-only: `@SpringBootTest` suites and standalone
+MockMvc tests remain web/context tests. JwtConfigurationTest and CookieSecurityTest
+use ApplicationContextRunner despite their ordinary test names. Existing service
+suites also contain a few query/annotation reflection checks; those are static
+contracts, not evidence of SQL execution or transaction correctness. Existing
+tests are retained without reclassification refactors.
+
+### Gap matrix and close-out decisions
+
+| Area | Existing protection and identified gap | MS6.3 action/result |
+| --- | --- | --- |
+| Auth | Current-user scoping, credential provider, hashing, rotation/replay and commit-failure propagation already covered; AuthenticationService orchestration primarily protected through MVC | ADD direct normalized registration/login, password preservation and credential erasure, duplicate short-circuit, nested email-constraint mapping versus unrelated integrity failure, and credential/provider failure propagation |
+| Board | CRUD, scoped ownership, missing/inaccessible resources, name policy boundaries, canonical results and failure propagation | ALREADY COVERED; no duplicate additions |
+| Column | Append, rename, first/middle/last delete compaction delegation, COLUMN_NOT_EMPTY, complete-order validation, empty/idempotent order and contiguous positions | ALREADY COVERED; real bulk compaction and locks DEFER MS6.4 |
+| Task | CRUD, nullable clearing, valid same/cross-Column positions including append/empty/same position, contiguous resequencing, same-Board ownership and revalidation | ADD invalid cross-Column positions: negative or beyond an empty target must leave both source tasks unchanged and never flush; source size must not determine target bounds |
+| Search | Trim, blank ownership check, exact/max+1 length, interior case/spacing, percent/underscore/escape/backslash handling | ALREADY COVERED; actual PostgreSQL LIKE behavior DEFER MS6.4 |
+| Statistics | Owned Board lookup, totals, LOW/MEDIUM/HIGH zero filling, empty Columns/Boards, canonical Column order without completion inference | ALREADY COVERED; aggregate execution DEFER MS6.4 |
+| Domain/utilities | Name/title/description normalization and bounds, priority defaults, locale-independent email, JWT and error helpers covered; refresh lifetime validation and rejected rotation transitions lacked direct coverage | ADD null/nonpositive/fractional lifetime rejection, valid whole seconds, expiration just before/at/after now, revoked-token history protection and null replacement without partial revocation |
+| Refresh orchestration | Existing rotation/family replay and exact-expiry rejection tests; early guards and deleted-user path mainly covered via MVC | ADD malformed/unknown refresh handling, no work for malformed logout, deleted-user prevention of rotation, repeated logout preserving original revocation time |
+| Logging | Commit, rollback, commit failure, no-transaction service events, UUID validation, MDC cleanup including downstream exceptions | ALREADY COVERED; no duplicate synchronization tests |
+| OpenAPI | Seven generated-document tests covering the 24-operation contract | ALREADY COVERED; no annotation-by-annotation unit tests |
+
+The final matrix leaves no unexplained major service-rule gap: additions protect
+the missing decisions above, while query/transaction claims remain explicitly
+outside unit scope. Straight-through adapters and constant holders do not need
+artificial tests. Mapping uses record constructors/direct DTO field copies;
+nontrivial statistics zero filling and canonical ordering already have service
+tests. No mapper class or mapper-only test was introduced.
+
+New UUID fixtures are fixed constants. Time-dependent cases use fixed Instants
+and UTC Clock, with nanosecond examples around expiration and no sleep/current
+time. RefreshSessions is mocked where orchestration is under test; random token
+generation itself is not retested. Existing normalizer tests already establish
+Unicode edge stripping and Turkish-locale independence. Email structural/length
+validation remains owned by request validation rather than the normalizer.
+
+No production defect was discovered and no production code changed. There are
+no new public test hooks, dependencies, migrations, coverage plugins, thresholds,
+JaCoCo, Sonar or mutation tooling. Coverage/quality automation remains MS6.6.
+
+### Remaining integration boundary
+
+MS6.4 remains not started. It must prove real Spring/JPA/PostgreSQL/Flyway
+composition, repository JPQL/SQL execution, Search LIKE semantics, statistics
+aggregates, auditing, constraints (including deferred uniqueness), pessimistic
+locks/concurrency, cascade deletion, real commit/rollback and HTTP backed by
+persistence. Mocked repository results and transaction-manager calls in unit or
+existing MVC tests cannot prove those properties. Full Security filter-chain
+integration is outside new MS6.3 tests; existing web/security regressions remain
+part of the full suite.
+
+**MS6.3 COMPLETE.** The focused selection
+`AuthenticationServiceTest,RefreshSessionRulesTest,RefreshSessionPropertiesTest,RefreshTokenEntityTest,TaskPlacementBoundaryTest`
+passed **29 cases**, zero failures/errors/skips, without starting a Spring
+context (about **11 seconds** Maven wall time including compilation/startup).
+The full backend suite passed **443 tests**, zero failures/errors/skips, versus
+**414** at baseline. OpenApiDocumentationTest (7), RequestLoggingFilterTest (20)
+and MutationLogTest (3) remain unchanged and passing. Frontend regression passed
+**586 tests across 38 files**; production build passed without warnings. The
+backend used the approved Mockito-compatible execution route after the baseline
+sandbox attachment failure; the frontend build used the approved rerun after
+the known sandbox exit-134 abort. Final diff/whitespace and scope reviews passed.
+Only five new test files and these two documents changed; all work remains
+uncommitted for manual review. MS6.4 and MS6.6 have not started.
+
+## Backend integration tests (MS6.4)
+
+MS6.4 adds a focused PostgreSQL suite under `backend/src/test/java/com/taskflow/integration` using Spring Boot 3.5.16 service connections and one Spring-managed official `postgres:17-alpine` container. Boot manages Testcontainers 1.21.4; PostgreSQL JDBC 42.7.11 remains the only driver. H2, Docker Compose testing and production Testcontainers dependencies are not used.
+
+The integration profile keeps Flyway enabled and Hibernate `ddl-auto=validate`. A clean container applies V1–V6 and tests inspect migration history, pending migrations and PostgreSQL deferrable constraints. Application tables are truncated with `CASCADE` between tests while Flyway history is preserved. Commit, rollback, deferred-constraint and lock tests use real transaction boundaries.
+
+Coverage includes email/token constraints and cascades, Board/Column/Task cascades and ordering, deferred uniqueness rollback, task movement and ownership queries, PostgreSQL Search (case-insensitive title/description, literal `%`, `_`, `!`, backslash and deterministic order), real statistics with empty-column zero fill, and bounded pessimistic Board plus refresh family/token lock tests. One real MockMvc flow covers registration, CSRF, JWT security, Board/Column/Task persistence, Search, statistics, safe non-empty-column rejection and deletion. Auditing, LocalDate and textual priority round trips are checked after reload.
+
+Docker is required; an unavailable daemon produces a visible test failure, never a skipped milestone. The focused suite passed 16 tests in about 28 seconds, including container/context startup; the full backend suite passed 459 tests in about 39 seconds. MS6.3 remains database-free; MS6.5 and MS6.6 remain not started. Deployed sizing, multi-node concurrency and rollout operations remain outside MS6.4.
+
+**MS6.4 COMPLETE.** Final backend verification passed 459 tests with zero failures/errors/skips, including 16 PostgreSQL integration tests. Frontend regression passed 586 tests across 38 files and the production build passed without warnings. No migrations, frontend production code or unrelated tooling changed.
+
+## Frontend test audit (MS6.5)
+
+MS6.5 audited the existing frontend suite by behavioral area before adding tests. Core HTTP/auth infrastructure, auth forms, guards, Board and workspace state, Column and Task management, Search, combined filters, sorting, due/local-day behavior, statistics, semantic components, and the routed acceptance flow were already strongly covered. The audit added only three focused lifecycle regressions: authenticated credentials remain memory-only, pending Search debounce work is cancelled on destruction, and pending statistics requests are cancelled with the owning injector. No production frontend code, backend code, dependencies, or coverage tooling changed.
+
+The final suite passes **589 tests across 38 files**; the production build passes without warnings. Error-flow coverage includes safe handling for 401/session invalidation, validation, stale 404s, 409 conflicts, and generic transport failures; raw server detail is not rendered. Representative route, reload, Search, statistics, mutation, refresh-concurrency, and destruction races are covered. Native labels, roles, button semantics, and text alternatives are asserted where owned by components.
+
+Real-browser pointer geometry, cookie behavior across a browser, CSS pixel responsiveness, and screen-reader interaction remain outside this milestone. No coverage threshold is defined; quality automation remains MS6.6.
+
+**MS6.5 COMPLETE.**
+
+## Local code quality automation (MS6.6)
+
+The repository gate is `./scripts/quality.sh`. It resolves the repository relative
+to its own location, runs `backend/./mvnw verify`, then `frontend/npm run quality`,
+and stops at the first failure. It works from any current directory with Bash on
+macOS/Linux. Install frontend dependencies with `npm ci` beforehand. Java 21,
+the frontend's supported Node runtime, and a running Docker daemon are prerequisites.
+The script neither installs dependencies nor starts Docker; PostgreSQL integration
+tests are mandatory and are not silently skipped when Docker is unavailable.
+
+### Tool selection and scope
+
+| Tool | Selected version | Responsibility |
+| --- | --- | --- |
+| Prettier (existing) | 3.9.6 resolved; existing declaration retained | Frontend formatting |
+| angular-eslint | 22.5.0 | Angular TypeScript/template recommended lint |
+| ESLint / @eslint/js | 10.10.0 / 10.0.1 resolved | Recommended JavaScript defect rules |
+| typescript-eslint | 8.69.0 | Recommended TypeScript lint |
+| @vitest/coverage-v8 | 4.1.11 | Coverage with the existing Vitest 4.1.11 |
+| SpotBugs Maven plugin | 4.10.4.1 | Production bytecode analysis, Max effort, Medium threshold |
+| JaCoCo Maven plugin | 0.8.15 | Full backend test coverage report and regression check |
+
+Versions were checked against the [angular-eslint releases](https://github.com/angular-eslint/angular-eslint/releases),
+[SpotBugs plugin documentation](https://spotbugs.github.io/spotbugs-maven-plugin/plugin-info.html),
+and [JaCoCo releases](https://www.jacoco.org/jacoco/trunk/doc/changes.html).
+Existing Angular, CDK, TypeScript, Vitest, Prettier, Spring Boot, Spring Security,
+Testcontainers, PostgreSQL driver, and springdoc versions are unchanged.
+
+Frontend `quality` runs `format:check`, `lint`, `test:coverage`, and `build` in that
+order. Tests run once within this aggregate. `test:ci` retains its original
+non-coverage command. Formatting covers all `src/**/*.ts`, HTML and SCSS, root
+JSON configuration/manifests, `eslint.config.js`, and `.prettierrc`; explicit globs
+avoid generated artifacts. `format` is the separate opt-in write command.
+The initial Prettier check found 11 files: five specs, index.html, main.ts,
+styles.scss, angular.json, and two tsconfig files. Their formatting changes are
+mechanical (angular.json also receives tooling configuration).
+
+The official angular-eslint schematic supplied the CLI lint target and flat
+configuration. Only ESLint, TypeScript and Angular recommended presets plus the
+existing `app` selector convention are enabled. Its optional stylistic and template
+accessibility presets were removed to keep this first gate focused. Type-aware
+Project Service/strictTypeChecked rules are deferred: the normal baseline found
+only two issues, so additional runtime and policy surface are not justified yet.
+One unused test variable/import was removed. `safe-return-url.ts` has a single-line
+`no-control-regex` exception because rejecting control characters is intentional.
+No project-wide lint suppression or automatic fix runs in the gate.
+
+### Coverage regression floors
+
+Thresholds were selected only after threshold-free measurement, rounding down
+approximately five percentage points below each baseline.
+
+| Production metric | Measured baseline | Enforced minimum |
+| --- | --- | --- |
+| Frontend statements | 98.35% (1255/1276) | 93% |
+| Frontend branches | 96.84% (768/793) | 91% |
+| Frontend functions | 98.82% (335/339) | 93% |
+| Frontend lines | 100% (983/983) | 95% |
+| Backend lines | 96.33% (840/872) | 91% |
+| Backend branches | 89.38% (202/226) | 84% |
+
+Angular's supported `coverageThresholds` enforce aggregate application coverage.
+The scope is all `src/app/**/*.ts`, excluding specs; this includes services,
+components, auth/security helpers, routes, configuration, state and utilities.
+The browser entrypoint and environment constants outside `app` are bootstrap
+wiring, not this behavioral coverage scope. HTML/CSS layout is not represented
+by TypeScript coverage. JaCoCo covers all compiled production classes without
+package exclusions; its own generated-bytecode filtering applies. The full suite,
+including real PostgreSQL tests, contributes to the report.
+
+JaCoCo prepares the agent before tests and reports/checks at verify. Surefire uses
+late substitution for both existing `argLine` options and `jacocoArgLine`, plus
+the Boot-managed Mockito agent explicitly at JVM startup. This avoids dynamic
+self-attachment and preserves both agents. Coverage data is overwritten each run
+instead of accumulating stale executions. Reports are under
+`backend/target/site/jacoco/` (HTML/XML/CSV), `backend/target/spotbugsXml.xml`, and
+`frontend/coverage/taskflow/` (HTML/LCOV/JSON summary plus console text summary).
+Existing `target/` and `coverage/` ignores already cover all generated output.
+
+These percentages are regression floors, not targets for artificial tests.
+A future behavior change can justify a reviewed threshold adjustment. Coverage
+does not prove correctness, accessibility, browser behavior, or security.
+
+### Findings and deliberate deferrals
+
+SpotBugs initially reported 21 findings with no exclusions. DTO list exposure
+was fixed with defensive copies in BoardStatisticsResponse and ReorderColumnsRequest;
+the latter preserves null collections/elements for Bean Validation. Three focused
+regressions cover list ownership and null validation. Identity extraction now
+guards a null subject explicitly instead of catching NullPointerException.
+Transaction callbacks assert their non-null result contract, and ApiException
+is final (there are no subclasses). These are small quality fixes, not API redesigns.
+
+`backend/spotbugs-exclude.xml` documents exact detector/class/field or method
+exceptions: five Spring-injected shared collaborators cannot be defensively copied;
+four proxyable JPA entity constructors intentionally validate inputs and own no
+finalizable resources; RequestLoggingFilter only echoes fully regex-validated UUIDs.
+No package-wide exclusion exists, and none of these exclusions affect coverage.
+
+Maven dependency analyzer 3.11.0 was evaluated in non-failing mode. Its bytecode
+view reports starter-provided transitive libraries as used/undeclared, and Spring
+starters, runtime drivers, Flyway modules and reflective providers as unused.
+Making this a failing gate would require extensive declaration/suppression policy,
+so it remains an explicit audit command without an ignore list:
+
+```sh
+cd backend
+./mvnw test-compile org.apache.maven.plugins:maven-dependency-plugin:3.11.0:analyze-only -DfailOnWarning=false
+./mvnw dependency:tree
+```
+
+Java formatting is deferred: 77 of 82 production Java files use the established
+tab-based style; adopting a standard Java formatter would cause broad unrelated
+indentation/wrapping/import churn. Spotless, Checkstyle and PMD are not added.
+Frontend dependency integrity is checked with `npm ls`; no vulnerability scanner
+is bound to the local gate. FindSecBugs, npm audit/CVE policy, OWASP Dependency-Check,
+and systematic security review remain MS6.7. Performance review remains MS6.8.
+No CI workflow is introduced; later MS10 CI can invoke this same local command.
+
+### Verification
+
+The initial clean `feature/software-quality` baseline was 459 backend tests
+(including 16 PostgreSQL integration tests), 589 frontend tests across 38 files,
+and a warning-free production build. MS6.1–MS6.5 were committed before this work.
+
+Individual formatting, lint, coverage, ordinary `test:ci`, build, backend verify,
+dependency-tree and npm dependency checks passed. Final verification has **462
+backend tests, zero failures/errors/skips**, including the same 16 PostgreSQL tests,
+and **589 frontend tests across 38 files**. SpotBugs has zero remaining findings
+under the documented filter. Backend final coverage is **96.35% lines (845/877)**
+and **89.57% branches (206/230)**; frontend coverage retains the measured baseline.
+The frontend production build passes without warnings.
+
+The complete root gate passed in **172.52 seconds** on the development machine
+(cached tooling, Docker running). A before/after SHA-256 fingerprint of tracked and
+untracked non-ignored repository files was identical. Repeatability verification
+uses a second complete invocation from outside the repository, comparing the same
+file fingerprint and coverage counters; the gate's commands are checks and never
+run formatter writes. Timing varies with Docker startup and machine load.
+
+No existing resolved frontend package version changed; all additions are dev-only.
+The npm tree has one compatible ESLint major and matching Vitest/coverage-v8
+versions. Backend runtime/test dependency declarations and versions are unchanged.
+No migration, CI workflow, generated report, vulnerability scan or performance
+work is included. Changes remain uncommitted for manual review.
+
+**MS6.6 COMPLETE.**
+
+### Security quality review (MS6.7)
+
+MS6.7 reviewed production source, configuration, dependency trees, focused MVC
+and PostgreSQL integration regressions, FindSecBugs/SpotBugs, OWASP
+Dependency-Check 13.0.0, Gitleaks 8.30.1, and `npm audit --audit-level=high`.
+Scanner output remains under ignored `backend/target`; the concise human
+decision register is in `docs/SECURITY-DEPENDENCIES.md`.
+
+FindSecBugs is integrated into the existing SpotBugs execution. The initial
+finding was `CRLF_INJECTION_LOGS` at `MutationLog.afterCommit`; callers pass
+constant event templates and UUID/integer values only, with logging tests
+enforcing that boundary. The final exact class/method/detector exclusion leaves
+zero SpotBugs/FindSecBugs findings; no package-wide exclusion is used.
+
+Dependency-Check keeps `failBuildOnCVSS=7.0` and
+`failBuildOnUnusedSuppressionRule=true`. Same-stack compatible updates are
+Tomcat 10.1.60, PostgreSQL JDBC 42.7.13, Jackson BOM 2.21.6, Commons Lang
+3.18.0, Log4j 2.25.5, and Swagger UI 5.32.15. Spring Boot remains 3.5.16;
+Spring Framework/Security remain on the Boot 3.5 line. The remaining Spring
+advisories are individually recorded with expiry, CVE, and an explicit
+resolved-jar selector because their vulnerable APIs are absent: no WebFlux,
+RSocket, WebAuthn, LDAP, reactive XML/SSE/WebSocket, user-controlled SpEL or
+template/view rendering, unsafe data binding paths, native/user-controlled
+ordering, or untrusted download filenames. Suppressions are not a claim that
+the libraries are patched and must be reviewed before introducing those
+features. All remaining MEDIUM/LOW findings were reviewed in the register.
+
+The security tests retain the infrastructure exposure checks
+(`/actuator/health` only, with no detailed components), HTTPS security headers
+and untrusted-Origin CORS checks, real cross-user Board/Column/Task IDOR
+coverage including reorder, placement, Search and statistics, unchanged-owner
+state assertions, and the authentication boundary regression: historical
+passwords shorter than the 15-character registration minimum still log in,
+while login input over 128 characters is rejected. Test-only JWT material and
+insecure-cookie settings now live only in
+`backend/src/test/resources/application-test.yml`, so they are not packaged
+in the production JAR.
+
+The reviewed controls remain: Argon2id (19 MiB, two iterations, parallelism
+one); approximately 15-minute HS256 access JWTs with issuer/audience/expiry/
+UUID-subject validation and memory-only frontend storage; and opaque,
+high-entropy refresh tokens with hash-only persistence, HttpOnly cookies,
+rotation, family replay handling, locking, expiry, revocation and logout.
+CSRF remains required for unsafe requests, including Bearer mutations.
+Validation and mass-assignment boundaries are explicit; JPQL uses bound
+parameters and Search is ownership-scoped, with no SQL injection path found.
+Angular renders API text through safe bindings, no open redirect is introduced,
+errors/logs avoid secrets, credentials and stack traces, and Swagger remains
+public intentionally for portfolio API discoverability rather than as an
+authorization bypass. Gitleaks' narrow allowlist covers only the exact
+synthetic Base64 JWT fixture in test-resource paths (including the historical
+former path); it is not a JWT or repository-wide secret allowlist.
+
+#### Residual-risk register
+
+| Risk | Severity | Current decision/mitigation | Blocking | Future owner |
+| --- | --- | --- | --- | --- |
+| Registration email enumeration via 409 `EMAIL_ALREADY_REGISTERED` | Medium | Accepted current product behavior; review before public production exposure | No | Product/security |
+| No application login rate limiter | High | No unsuitable in-memory limiter; require deployment/edge brute-force and credential-stuffing policy before public exposure | Yes for public exposure | Deployment/security |
+| Access JWT revocation window | Medium | Accepted architecture: short lifetime plus refresh revocation; issued JWT may remain valid for about 15 minutes | No | Auth/deployment |
+| Single HMAC JWT secret rotation | Medium | External secret is required; key-ring/rotation design deferred | No | Deployment/security |
+| HTTPS and Secure cookies | High | Production assumes HTTPS and production Secure-cookie configuration | Yes for production | Deployment |
+| CSP and hosting security headers | Medium | Final CSP belongs to the known frontend hosting topology | No | Frontend/deployment |
+| Cloud secret management | High | Configuration is externalized now; AWS Secrets Manager/SSM integration belongs to AWS deployment | Yes for AWS production | Infrastructure |
+
+Search/SQL injection, XSS, open redirect, CORS, error exposure, logging
+exposure, and authorization/IDOR were reviewed as non-findings within the
+current architecture. Dynamic security boundaries remain deployment-owned:
+HTTPS termination, Secure cookies, edge rate limiting, CSP/hosting headers,
+cloud secret rotation, and public Swagger exposure policy.
+
+Final verification (2026-09-17): Gitleaks v8.30.1 full-history scan passed
+(54 commits), and its working-tree scan passed; no real secrets were found.
+Dependency-Check 13.0.0 passed with zero unresolved findings and successful
+unused-suppression validation. npm audit reported zero vulnerabilities.
+The complete `scripts/security-audit.sh` passed with exit 0. The already-passing
+final quality gate verified 466 backend tests (zero failures/errors/skips),
+589 frontend tests, JaCoCo, SpotBugs/FindSecBugs, formatting, lint and the
+production build. Close-out changed documentation only, so that quality gate
+was not repeated. **MS6.7 COMPLETE.** MS6.8 is recorded below.
+
+### Performance sanity review (MS6.8)
+
+#### MEASURED — methodology and results
+
+`PerformanceIntegrationTest` uses the existing integration profile and real
+PostgreSQL 17 via Testcontainers, committed synthetic fixtures, fresh service
+transactions and Hibernate statistics reset after seeding. Measurements include
+domain and TaskResponse mapping. Structural assertions compare statement/query
+counts across cardinalities; there are no timing thresholds or plan snapshots.
+This is a sanity review, not a production load test.
+
+| Operation | Small → large fixture | Prepared statements | HQL queries | Entity loads |
+| --- | --- | --- | --- | --- |
+| Board list | 1 → 20 Boards | 1 → 1 | 1 → 1 | 1 → 20 |
+| Board get | 1 Board | 1 | 1 | 1 |
+| Columns | 1 → 20 Columns | 2 → 2 | 2 → 2 | 2 → 21 |
+| Column Tasks | 1 → 100 Tasks | 2 → 2 | 2 → 2 | 2 → 101 |
+| Board Tasks | 1 → 2,000 Tasks, 1 → 20 Columns | 2 → 2 | 2 → 2 | 2 → 2,001 |
+| Search | 1 → 2,000 matching Tasks | 2 → 2 | 2 → 2 | 2 → 2,001 |
+| Statistics | 1 → 2,000 Tasks, 1 → 20 Columns | 5 → 5 | 5 → 5 | 2 → 21 |
+| Append Task after COUNT fix | 1 → 100 existing Tasks | 5 → 5 | 4 → 4 | 2 → 2 |
+
+No measured read path exhibits N+1. Board Tasks/Search load the Board and returned
+Tasks only: mapping `Task → Column.id` does not initialize Column proxies.
+Append now performs DB COUNT instead of hydrating existing Tasks; only Board
+and Column are loaded, with the same structural queries plus INSERT at both
+cardinalities. COUNT still performs database work proportional to relevant rows.
+
+The workspace bootstrap reads Board, Columns, then at most one
+`GET /api/boards/{boardId}/tasks`: Task requests fall from N to 1 (20 Columns:
+22 bootstrap requests become 3; 1 Column: 3 remain 3). Zero Columns skip Tasks.
+Tests cover 1/20 Columns and retry, route cancellation, stale responses,
+BOARD_NOT_FOUND and rejection of unknown Task Columns without invented lanes.
+Existing Search debounce/dedupe/cancellation and confirmed-mutation invalidation
+remain covered. Filters/sort issue no requests of their own; view-only changes
+do not refresh statistics. Statistics remains a separate dashboard request.
+
+The new endpoint retains TaskResponse[], requires authentication and scopes both
+Board lookup and Task query to the owner. Missing/other-owner Boards return
+BOARD_NOT_FOUND; empty Boards return []. Canonical order is Column.position,
+Task.position, Task.id ascending. GET needs no CSRF token. The per-Column GET
+remains available. OpenAPI adds only this operation (25 total), with Tasks tag,
+bearerAuth and BoardNotFound. The fixed two-query design intentionally preserves
+safe not-found semantics; O(1) round trips does not mean one absolute statement.
+
+EXPLAIN (ANALYZE, BUFFERS), after ANALYZE on a 10-Column/1,000-Task fixture,
+shows Search sequentially scanning Tasks for the case-insensitive substring
+predicate, nested-loop joins with small Column/Board scans, then quicksort on
+canonical order. The observed estimate of one matching row versus 1,000 actual
+rows illustrates this synthetic predicate's selectivity-estimation limitation.
+Internal plan loops are not application/database round trips or ORM N+1.
+Totals uses Aggregate; priority/status distributions use HashAggregate. Their
+plans join Tasks/Columns with a hash join and the owner-scoped Board through a
+nested loop, with sequential scans on this small fixture. Statistics performs
+three DB-side aggregates plus Board/Column reads; it never hydrates Tasks.
+One ordered Column read and zero-fill from aggregate maps include empty Columns
+without query-per-Column, also covered by the existing PostgreSQL regression.
+These are observed representative SQL plans, not optimizer contracts.
+
+#### ACCEPTED TRADE-OFF — indexes and writes
+
+V1–V6 remain unchanged. V1 supplies user PK/email uniqueness; V2 supplies refresh
+token PK/unique token_hash; V3 adds family_id access for locking/revocation and
+family-scoped root discovery. V4 supplies Board PK/owner_id access; V5 supplies
+Column PK, deferred (board_id, position) uniqueness and (board_id, position, id)
+ordering index; V6 supplies Task PK, deferred (column_id, position) uniqueness
+and (column_id, position, id) ordering index. Search/Statistics/Board Task joins
+use the existing PK and foreign-key index prefixes. No clearly missing index
+with demonstrated benefit justifies V7. An available index need not be chosen
+on small tables; ordinary B-tree indexes do not solve `%substring%` search.
+The observed sequential Search scan is accepted at current Board scale.
+
+Column reorder, Task delete compaction and Task placement can update O(N) rows
+to preserve contiguous positions under the existing Board lock and deferred
+uniqueness constraints. This deliberate write complexity is distinct from read
+N+1. No LexoRank, fractional/sparse ranking or locking redesign is justified.
+
+#### ACCEPTED TRADE-OFF — pagination and payload
+
+Boards remain unpaginated at current scale. Columns require the complete Kanban
+structure and are not paginated. Conventional workspace Task pagination would
+break complete membership, manual ordering and cross-Column drag/drop, so it is
+not introduced. Search remains unpaginated at current Board scale.
+The repeated synthetic 1,000-Task measurement is 308,801 JSON bytes (about 309 KB)
+with short descriptions: sanity evidence, not a bound for maximum descriptions
+or proof of production browser rendering performance.
+
+#### DEFERRED — optimize when real scale warrants it
+
+Revisit Search limits/pagination and substring indexing (potentially pg_trgm)
+when much larger Boards, thousands/tens of thousands of Tasks or observed Search
+latency warrant it; no arbitrary latency/cardinality cutoff is imposed.
+TaskCardResponse/TaskSummaryResponse, lazy descriptions and DTO fragmentation
+remain deferred until actual payload pressure appears. Large-board rendering,
+long token families and lock/write contention warrant measurements if real use
+makes them problematic. No cache, benchmark/load-test framework, APM,
+virtualization framework, performance dependency, migration, CI or MS7 change
+is introduced. No dependency changed, so the network-dependent security audit
+is not repeated; authentication, cross-user isolation and OpenAPI security are
+covered by the focused regressions and complete quality gate.
+
+#### Verification and close-out
+
+The preserved baseline was 466 backend tests (17 PostgreSQL integration cases)
+and 589 frontend tests. Final focused verification passed 126 backend tests
+(PerformanceIntegrationTest, ApiIntegrationTest, TaskServiceTest, TaskMvcTest,
+OpenApiDocumentationTest) and 496 frontend tests across 26 feature spec files.
+The complete `./scripts/quality.sh` passed on 2026-09-18: 472 backend tests
+(22 PostgreSQL integration cases), zero failures/errors/skips; 593 frontend
+tests across 38 files; JaCoCo, SpotBugs/FindSecBugs, formatting, lint, frontend
+coverage and production build all passed. The gate exposed one obsolete MVC
+append mock, updated to COUNT without changing its position assertion, and one
+Prettier formatting issue; both were corrected before the successful full run.
+The final documentation-only close-out records the verified result.
+
+MacroStep 6 DoD is satisfied: repeatable quality gate, available API documentation,
+adequate critical-flow tests and coverage of primary technical risks within the
+documented boundaries. **MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** No MS7 work started;
+all MS6.8 changes remain uncommitted on `feature/software-quality`.

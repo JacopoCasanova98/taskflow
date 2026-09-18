@@ -40,4 +40,7 @@ export class TaskApi {
   listTasks(columnId: string) {
     return this.http.get<Task[]>(this.base + '/columns/' + encodeURIComponent(columnId) + '/tasks');
   }
+  listBoardTasks(boardId: string) {
+    return this.http.get<Task[]>(this.base + '/boards/' + encodeURIComponent(boardId) + '/tasks');
+  }
 }

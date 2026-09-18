@@ -46,3 +46,17 @@ management:
     web:
       exposure:
         include: health
+
+# Only application routes; document errors explicitly instead of inferring broad advice responses.
+springdoc:
+  paths-to-match: /api/**
+  override-with-generic-response: false
+  swagger-ui:
+    version: 5.32.15
+
+logging:
+  level:
+    root: INFO
+    com.taskflow: INFO
+  pattern:
+    correlation: "[requestId=%X{requestId:-}] "

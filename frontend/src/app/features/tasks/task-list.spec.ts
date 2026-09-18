@@ -81,11 +81,7 @@ describe('Task CRUD in workspace', () => {
       .expectOne('/api/boards/' + id)
       .flush({ id, name: 'Board ' + id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(columns);
-    columns.forEach((column) =>
-      http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush(response.filter((task) => task.columnId === column.id)),
-    );
+    http.expectOne('/api/boards/' + id + '/tasks').flush(response);
     await settle();
   }
   function button(name: string) {

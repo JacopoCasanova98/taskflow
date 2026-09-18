@@ -82,10 +82,7 @@ describe('Task Search in the Board workspace', () => {
   async function load(id = 'one', response = tasks) {
     http.expectOne('/api/boards/' + id).flush({ id, name: id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(columns);
-    for (const column of columns)
-      http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush(response.filter((t) => t.columnId === column.id));
+    http.expectOne('/api/boards/' + id + '/tasks').flush(response);
     await settle();
   }
   function canonical() {
@@ -228,7 +225,7 @@ describe('Task Search in the Board workspace', () => {
     expect(view.filter()).toBe('HIGH');
     expect(titles()).toEqual(['Payment']);
     expect(canonical().columns[0].tasks.map((t) => t.position)).toEqual([0, 1]);
-    http.expectNone(r => r.url.endsWith('/search'));
+    http.expectNone((r) => r.url.endsWith('/search'));
   });
   it('disables CDK and rejects direct drops without any optimistic mutation or request', async () => {
     const lists = fixture.debugElement.queryAll(By.directive(CdkDropList));
@@ -326,6 +323,12 @@ describe('Task Search in the Board workspace', () => {
     fixture.destroy();
     expect(old.cancelled).toBe(true);
   });
+  it('cancels a pending debounce on destruction without issuing Search HTTP', async () => {
+    await type('login');
+    fixture.destroy();
+    await vi.advanceTimersByTimeAsync(300);
+    http.expectNone((r) => r.url.endsWith('/search'));
+  });
   it('preserves Search on same-Board reload and runs it exactly once after ready', async () => {
     await search('login', [tasks[0]]);
     fixture.componentInstance.state.retry();
@@ -379,9 +382,7 @@ describe('Task Search in the Board workspace', () => {
     http.expectOne('/api/boards/one/columns').flush([]);
     await settle();
     await search('login', []);
-    expect(element.textContent).toContain(
-      'No tasks match your search.',
-    );
+    expect(element.textContent).toContain('No tasks match your search.');
   });
   it('cancels pending Search on same-Board reload and reruns after loading', async () => {
     await type('login');

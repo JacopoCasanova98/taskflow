@@ -62,7 +62,7 @@ class TaskServiceTest {
 	@ValueSource(ints = {0, 2})
 	void createLocksRevalidatesAndAppendsBeforeMappingFlushedResult(int size) {
 		parent();
-		if (size == 2) ordered(source, task(source, "A", 0), task(source, "B", 1));
+		when(tasks.countByColumn_IdAndColumn_Board_OwnerId(source.getId(), OWNER)).thenReturn((long) size);
 		when(tasks.saveAndFlush(any())).thenAnswer(inv -> {
 			TaskEntity t = inv.getArgument(0); metadata(t); return t;
 		});
@@ -78,7 +78,7 @@ class TaskServiceTest {
 		order.verify(columns).findBoardIdByIdAndOwnerId(source.getId(), OWNER);
 		order.verify(boards).findByIdAndOwnerIdForUpdate(BOARD, OWNER);
 		order.verify(columns).findByIdAndBoard_IdAndBoard_OwnerId(source.getId(), BOARD, OWNER);
-		order.verify(tasks).findAllByColumn_IdAndColumn_Board_OwnerIdOrderByPositionAscIdAsc(source.getId(), OWNER);
+		order.verify(tasks).countByColumn_IdAndColumn_Board_OwnerId(source.getId(), OWNER);
 		order.verify(tasks).saveAndFlush(any());
 		verifyNoMoreInteractions(columns, boards, tasks);
 	}
@@ -333,4 +333,20 @@ class TaskServiceTest {
 			assertThat(e.getCode()).isEqualTo(code); assertThat(e.getStatus().value()).isEqualTo(status);
 		});
 	}
+
+	@Test
+	void creationLogContainsOnlySafeIdentifiers() {
+		parent();
+		when(tasks.saveAndFlush(any())).thenAnswer(inv -> {
+			TaskEntity entity = inv.getArgument(0); metadata(entity); return entity;
+		});
+		try (var logs = new com.taskflow.shared.logging.LogCapture(TaskService.class)) {
+			var result = service.createTask(source.getId(), "PRIVATE_TASK_TITLE", "PRIVATE_DESCRIPTION", null, null);
+			assertThat(logs.events()).hasSize(1);
+			assertThat(logs.messages()).contains("event=task_created", "userId=" + OWNER,
+					"taskId=" + result.id(), "columnId=" + source.getId())
+					.doesNotContain("PRIVATE_TASK_TITLE", "PRIVATE_DESCRIPTION");
+		}
+	}
+
 }

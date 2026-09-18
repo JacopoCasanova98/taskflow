@@ -56,16 +56,14 @@ describe('Board workspace state', () => {
       .expectOne(url)
       .flush({ code, detail: 'Sensitive internal information' }, { status, statusText: 'Failure' });
   }
-  it('loads sequentially then joins parallel tasks in exact server order', () => {
+  it('loads Board then Columns then Board Tasks, preserving canonical server order', () => {
     expect(state.workspace()).toEqual({ status: 'loading' });
     http.expectNone('/api/boards/one/columns');
     readBoard();
     http.expectNone((r) => r.url.includes('/tasks'));
     readColumns();
-    const pending = columns.map((c) => http.expectOne('/api/columns/' + c.id + '/tasks'));
-    for (const index of [2, 0]) pending[index].flush(tasks(columns[index].id));
     expect(state.workspace()).toEqual({ status: 'loading' });
-    pending[1].flush(tasks(columns[1].id));
+    http.expectOne('/api/boards/one/tasks').flush(columns.flatMap((column) => tasks(column.id)));
     expect(state.workspace()).toEqual({
       status: 'ready',
       board,
@@ -77,32 +75,33 @@ describe('Board workspace state', () => {
     http.expectOne('/api/boards/one/columns').flush([]);
     expect(state.workspace()).toEqual({ status: 'ready', board, columns: [] });
   });
-  it.each(['board', 'columns'])('treats %s BOARD_NOT_FOUND as final not-found', (stage) => {
-    if (stage === 'columns') readBoard();
-    fail('/api/boards/one' + (stage === 'columns' ? '/columns' : ''), 'BOARD_NOT_FOUND', 404);
-    expect(state.workspace()).toEqual({ status: 'not-found' });
-  });
+  it.each(['board', 'columns', 'tasks'])(
+    'treats %s BOARD_NOT_FOUND as final not-found',
+    (stage) => {
+      if (stage !== 'board') readBoard();
+      if (stage === 'tasks') readColumns();
+      fail('/api/boards/one' + (stage === 'board' ? '' : '/' + stage), 'BOARD_NOT_FOUND', 404);
+      expect(state.workspace()).toEqual({ status: 'not-found' });
+    },
+  );
   it.each(['board', 'columns', 'tasks'])('clears all content on a generic %s failure', (stage) => {
     if (stage !== 'board') readBoard();
     if (stage === 'tasks') {
       readColumns();
-      const pending = columns.map((c) => http.expectOne('/api/columns/' + c.id + '/tasks'));
-      pending[0].flush(tasks('z'));
-      pending[1].flush({ code: 'INTERNAL_ERROR' }, { status: 500, statusText: 'Failure' });
-      expect(pending[2].cancelled).toBe(true);
+      fail('/api/boards/one/tasks');
     } else fail('/api/boards/one' + (stage === 'columns' ? '/columns' : ''));
     expect(state.workspace()).toEqual({ status: 'error' });
   });
-  it('treats COLUMN_NOT_FOUND as reloadable failure and retries the full pipeline', () => {
+  it('rejects unknown Task Columns without publishing partial content and retries the full pipeline', () => {
     readBoard();
     http.expectOne('/api/boards/one/columns').flush([columns[0]]);
-    fail('/api/columns/z/tasks', 'COLUMN_NOT_FOUND', 404);
+    http.expectOne('/api/boards/one/tasks').flush([...tasks('z'), ...tasks('unknown')]);
     expect(state.workspace()).toEqual({ status: 'error' });
     state.retry();
     expect(state.workspace()).toEqual({ status: 'loading' });
     readBoard();
     http.expectOne('/api/boards/one/columns').flush([columns[0]]);
-    http.expectOne('/api/columns/z/tasks').flush([]);
+    http.expectOne('/api/boards/one/tasks').flush([]);
     expect(state.workspace()).toEqual({
       status: 'ready',
       board,
@@ -116,7 +115,7 @@ describe('Board workspace state', () => {
       if (stage === 'tasks') http.expectOne('/api/boards/one/columns').flush([columns[0]]);
       const old = http.expectOne(
         stage === 'tasks'
-          ? '/api/columns/z/tasks'
+          ? '/api/boards/one/tasks'
           : '/api/boards/one' + (stage === 'columns' ? '/columns' : ''),
       );
       ids.next('two');
@@ -147,4 +146,30 @@ describe('Board workspace state', () => {
     TestBed.resetTestingModule();
     expect(pending.cancelled).toBe(true);
   });
+  it.each([1, 20])(
+    'makes exactly one Task-list request for %s Columns on load and retry',
+    (count) => {
+      const lanes = Array.from({ length: count }, (_, position) => ({
+        ...columns[0],
+        id: 'c' + position,
+        position,
+      }));
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt) state.retry();
+        readBoard();
+        http.expectOne('/api/boards/one/columns').flush(lanes);
+        const requests = http.match(
+          (request) => request.method === 'GET' && request.url.endsWith('/tasks'),
+        );
+        expect(requests).toHaveLength(1);
+        expect(requests[0].request.url).toBe('/api/boards/one/tasks');
+        requests[0].flush(lanes.flatMap((lane) => tasks(lane.id)));
+        expect(state.workspace()).toEqual({
+          status: 'ready',
+          board,
+          columns: lanes.map((column) => ({ column, tasks: tasks(column.id) })),
+        });
+      }
+    },
+  );
 });
