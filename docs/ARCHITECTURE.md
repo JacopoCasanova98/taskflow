@@ -1446,3 +1446,425 @@ MacroStep 6 DoD is satisfied: repeatable quality gate, available API documentati
 adequate critical-flow tests and coverage of primary technical risks within the
 documented boundaries. **MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** No MS7 work started;
 all MS6.8 changes remain uncommitted on `feature/software-quality`.
+
+### Backend container (MS7.1)
+
+The backend image is built independently from the `backend/` context:
+
+```sh
+docker build -t taskflow-backend:ms7.1 ./backend
+```
+
+`backend/Dockerfile` uses the Dockerfile v1 frontend and named `build`/`runtime`
+stages. Official tags verified against Docker Hub are
+`maven:3.9.16-eclipse-temurin-21` (Maven/JDK builder) and
+`eclipse-temurin:21.0.12_8-jre-noble` (Java 21 JRE runtime). Versioned tags avoid
+`latest`; they are not immutable digest locks or a byte-for-byte reproducibility
+guarantee. Future base-image updates remain explicit maintenance decisions.
+
+The builder copies `pom.xml` and runs `dependency:go-offline` before copying
+`src/main`, allowing dependency-layer reuse when production source changes.
+Both Maven steps share a BuildKit `/root/.m2` cache with locked sharing. Packaging
+uses `mvn -B -Dmaven.test.skip=true package`, with no special Maven/Spring profile
+or packaging change. The independent `scripts/quality.sh` gate proves source
+correctness; Docker packages already-reviewed source and does not rerun
+Testcontainers, coverage/static-analysis verification or the security audit.
+Dependency resolution may download test/plugin dependencies into the builder
+cache, but none are copied as build tooling into the runtime image.
+
+Spring Boot repackage produces the executable JAR and a `.jar.original` backup.
+The build requires exactly one `target/*.jar`, copies it to a deterministic
+artifact path and copies only that artifact into the runtime as `/app/app.jar`.
+The runtime has no Maven, compiler, source tree, test source, Maven repository
+or target intermediates. `.dockerignore` excludes build output, tests, local
+metadata, logs and `.env` files; explicit COPY inputs are only POM/main source.
+
+The dedicated system account has UID/GID 10001, no created home and a nologin
+shell. `/app` stays root-owned; the JAR is root-owned mode 0444 and does not
+require mutation. Java runs directly as PID 1 via exec-form ENTRYPOINT. Port
+8080 is exposed as metadata; host publishing belongs to `docker run` or future
+Compose. No heap/GC/CPU tuning is baked in; `JAVA_TOOL_OPTIONS` remains available
+for externally justified JVM options. Persistent data belongs outside the image.
+
+The existing runtime boundary remains `TASKFLOW_DB_URL`, `TASKFLOW_DB_USERNAME`,
+`TASKFLOW_DB_PASSWORD`, `TASKFLOW_JWT_SECRET_BASE64` and
+`TASKFLOW_COOKIE_SECURE`. No runtime values, secret build arguments, local env
+files or Docker-specific application profile are embedded. Production retains
+the existing HTTPS/Secure-cookie requirements.
+
+Health remains public `GET /actuator/health`, with details hidden and health the
+only exposed Actuator endpoint. No Dockerfile HEALTHCHECK or added HTTP-client
+package is needed: MS7.1 probes from the host; orchestration health behavior is
+deferred to MS7.4. This milestone introduces no frontend Docker work, PostgreSQL
+deployment configuration, Compose, developer automation or MS7.6 verification
+suite. A disposable PostgreSQL instance is used only to verify this backend image.
+
+Verification on 2026-09-18 used local linux/amd64 and tag
+`taskflow-backend:ms7.1`. Both source builds passed with no Dockerfile warnings;
+the second unchanged build reported CACHED for dependency resolution, production
+source, packaging and runtime layers. `docker image inspect .Size` reported
+167,729,929 bytes (about 167.7 MB); this is a local observation, not a size budget.
+The Maven/JDK stage and its cache are excluded from the final image.
+
+Runtime verification used an isolated temporary network, official
+`postgres:17-alpine` (PostgreSQL 17.11 in this run), tmpfs database storage and
+random disposable credentials passed via environment. The synthetic JWT key
+must decode to exactly 32 bytes, as required by existing validation; an initial
+48-byte test key was rejected and corrected in the temporary setup only.
+The backend ran with a read-only root filesystem, writable tmpfs `/tmp`, and a
+random host port bound to 127.0.0.1. No env file or verification credential was
+committed. All temporary containers and the network were removed afterward.
+
+Flyway validated/applied V1–V6 successfully, with all six schema-history rows
+successful. Hibernate initialized with the unchanged `ddl-auto: validate`;
+Tomcat started on 8080 and the application started normally. Host HTTP returned
+200 with `{"status":"UP","groups":["liveness","readiness"]}`, without detailed
+components. Logs contained no connection retry storm, fatal error or test secret.
+The two SpringDoc warnings that API docs/Swagger are enabled reflect the already
+accepted public-documentation policy, not a container configuration failure.
+
+`docker exec id` confirmed UID/GID 10001; `/proc/1/cmdline` confirmed
+`java -jar /app/app.jar`. Java reported Temurin 21.0.12+8 JRE; Maven, javac,
+source/build directories and Maven repository were absent. `/app` and the JAR
+were not writable by the runtime user. JAR inspection confirmed Spring Boot
+JarLauncher, main-class metadata and only the existing main configuration
+resources (including the inert local-profile placeholder), with no test profiles,
+test libraries or Java sources. Image ENV/labels/history and packaged configuration
+were reviewed: no TaskFlow credentials or secret values were embedded. The base
+image includes HTTP utilities, but MS7.1 adds no OS packages or HEALTHCHECK.
+
+Only Dockerfile, .dockerignore and documentation changed. The established MS6
+baseline (472 backend tests including 22 PostgreSQL integration cases, 593
+frontend tests) was not rerun because application/POM/configuration stayed
+unchanged. Container build/run/health/content/security-boundary checks and
+`git diff --check` passed. **MS7.1 COMPLETE**; MacroStep 7 remains incomplete.
+
+### Frontend container (MS7.2)
+
+`docker build -t taskflow-frontend:ms7.2 ./frontend` builds independently from the
+frontend context. The named build stage uses the verified official
+`node:22.23.2-alpine3.24` tag (bundled npm 10.9.8); the runtime uses verified
+official `nginx:1.30.5-alpine3.24`. Versioned tags are explicit choices, not
+immutable digest locks. Only compiled browser output and Nginx configuration
+cross the stage boundary. No package versions or lockfile entries changed.
+
+Package descriptors are copied before `npm ci`, with a locked BuildKit cache at
+`/root/.npm`; source/build inputs follow in separate layers. `npm run build`
+uses the existing default production configuration and budgets, with
+`outputHashing: all`. The actual browser output is `dist/taskflow/browser`,
+checked during the image build and copied into `/usr/share/nginx/html` after
+removing the default Nginx site. No SSR/server output is used. The observed
+production initial bundle is 278.95 kB; runtime assets are hashed JS/CSS without
+development source maps. Tests/lint/coverage remain owned by the MS6 quality gate.
+`.dockerignore` excludes local dependencies, dist, coverage, Angular cache,
+Git/IDE/OS metadata, logs and environment files.
+
+Both Angular environments retain `apiBaseUrl: '/api'`. Browser requests remain
+same-origin: frontend Nginx proxies `/api` and `/api/...` to `backend:8080` while
+preserving the entire request URI, including `/api` and any query string.
+`backend` is a Docker-network name/alias that MS7.4 must provide, never a browser
+hostname. The resolver at `127.0.0.11` is Docker's embedded DNS, not the backend;
+`valid=30s`, the variable upstream and `proxy_pass $backend$request_uri` permit
+new connections to resolve a replacement backend without reloading Nginx.
+Temporary 502 responses are possible while the backend starts or a cached old
+address expires; this is not a zero-downtime deployment strategy.
+
+API matching precedes static-file regexes and SPA fallback. Unknown API paths
+retain backend behavior: anonymous requests return 401 AUTHENTICATION_REQUIRED;
+authenticated missing routes return 404 RESOURCE_NOT_FOUND ProblemDetail.
+Neither response becomes Angular HTML, including an API path ending in `.js`.
+Other client routes use `try_files $uri $uri/ /index.html`. Recognized static
+extensions use an actual file or 404, so missing JS/CSS/source maps never become
+HTML. Dot-file access is denied (`/.env` returns 403).
+
+Host, X-Real-IP, X-Forwarded-For and X-Forwarded-Proto are forwarded. Cookie,
+Set-Cookie and X-XSRF-TOKEN pass transparently; there are no cookie path/domain
+rewrites, CORS additions or Angular API-host substitutions. API cache policy
+remains upstream-owned. HTML, SPA fallback and non-hashed resources receive
+`no-cache, must-revalidate`. The current root-level Angular JS/CSS filenames
+with an eight-character content hash receive
+`public, max-age=31536000, immutable`; this header is not added to missing files.
+Unversioned assets such as favicon.ico retain revalidation.
+
+The hosting baseline is `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`
+and `Referrer-Policy: strict-origin-when-cross-origin`, including error responses.
+Nginx emits one consistent copy on proxied responses. `server_tokens off`
+removes the Nginx version from HTTP responses (small disclosure reduction, not
+an authorization boundary). CSP remains deferred to a deliberate hosting and
+Angular/CDK compatibility review; TLS/deployment headers remain topology-owned.
+
+The official entrypoint/CMD and SIGQUIT behavior are preserved. Both master and
+workers run as `nginx`, verified UID/GID 101, listening on unprivileged port 8080.
+PID and request/proxy/temp paths live in `/tmp`; root-owned assets/configuration
+are not writable by that user. The runtime was verified with `--read-only
+--tmpfs /tmp`. The official `10-listen-on-ipv6-by-default.sh` emits an informational
+message that it cannot modify default.conf, then safely continues; IPv4/IPv6
+listeners are already specified in the supplied config. No entrypoint workaround
+or root master is required. Inherited image metadata still lists port 80, but
+the configured listeners use 8080; no host port is baked into the image.
+No OS package or Dockerfile HEALTHCHECK was added. Host HTTP checks verify MS7.2;
+orchestration healthchecks and service wiring belong to MS7.4.
+
+Verification on 2026-09-18 used local linux/amd64. The initial source build passed,
+and the second unchanged build reused npm, Angular build and runtime/config COPY
+layers (`CACHED`). No Dockerfile or Angular budget warnings were emitted; npm's
+new-version notice did not change tooling. Final `docker image inspect .Size`
+was 26,241,971 bytes (about 26.24 MB), an observation rather than a size threshold.
+Image config/history contained only the expected runtime metadata and copy/setup
+steps, without application secrets, local env configuration or builder caches.
+
+An isolated temporary network connected disposable PostgreSQL, the existing
+`taskflow-backend:ms7.1` image with alias `backend`, and the frontend. Credentials
+were synthetic, only the frontend published a random loopback host port, and
+both application containers used read-only filesystems with tmpfs `/tmp`.
+Through that frontend port, `/`, `/boards` and `/boards/<uuid>` returned 200 and
+the same Angular index; real hashed JS/CSS returned correct MIME/cache/security
+headers; missing JS/map files returned 404; index/SPA pages were not immutable.
+CSRF bootstrap returned 204 with XSRF-TOKEN; registration returned 201 with an
+HttpOnly refresh cookie; refresh returned 200 using the returned cookies and
+X-XSRF-TOKEN. Verification did not print credential/token/cookie values.
+API precedence, all three security headers and version-free `Server: nginx`
+were asserted on static and proxy responses.
+
+A replacement backend was allocated a different IP (172.18.0.3 → 172.18.0.5 in
+this run), the original was removed, and the API recovered to 204 through the
+unchanged frontend without restart/reload. Startup/replacement probes generated
+expected transient connection-refused 502 logs before readiness. `nginx -t`
+passed; process inspection confirmed the non-root master/workers. Runtime checks
+found no Node/npm/npx/Angular CLI/tsc, node_modules, npm cache, build/source/test/
+coverage directories or source maps; index.html was not writable. All temporary
+containers and the network were removed and cleanup was independently checked.
+
+The only verification correction was in the temporary smoke script: anonymous
+API misses require 401, not 404; authenticated 404 cases were then checked too.
+No existing Docker/Nginx implementation needed a change during close-out.
+Application source, backend, Angular configuration, dependencies and lockfile
+remain unchanged, so the established 593 frontend tests/full quality gate were
+not rerun. Two image builds, the full HTTP/auth smoke, DNS replacement, runtime
+content/metadata checks and `git diff --check` passed. **MS7.2 COMPLETE**.
+MS7.3–MS7.6 and MS8 remain unstarted; no Compose, database deployment configuration,
+developer automation or CI is introduced by this milestone.
+
+### PostgreSQL container contract (MS7.3)
+
+Use the official `postgres:17-alpine` image directly, without a custom Dockerfile
+or database configuration layer. The registry pull and local runtime verification
+on 2026-09-18 observed PostgreSQL **17.11**, linux/amd64. The tag fixes the major
+family, not an immutable digest; PostgreSQL 17 patch/base-image updates can arrive
+over time. Release/cloud image immutability remains a later decision.
+
+The local contract is `POSTGRES_DB=taskflow`, `POSTGRES_USER=taskflow` and an
+externally supplied `POSTGRES_PASSWORD`. The official initialization creates
+that role as a superuser: this is the current local-development convention, not
+a production least-privilege role design. These variables initialize an empty
+data directory; changing them does not reset an existing database or rotate its
+password. Credentials are never baked into an image or committed in env files.
+Backend wiring remains external:
+
+```text
+TASKFLOW_DB_URL=jdbc:postgresql://postgres:5432/taskflow
+TASKFLOW_DB_USERNAME=taskflow
+TASKFLOW_DB_PASSWORD=<externally supplied password>
+```
+
+`postgres` is the network alias/service-name contract for MS7.4, not a new Spring
+default. PostgreSQL remains the sole supported database (runtime JDBC 42.7.13
+and existing PostgreSQL integration tests). Flyway alone owns application schema
+creation/evolution through V1–V6; Hibernate stays `ddl-auto: validate`. No SQL is
+mounted into `/docker-entrypoint-initdb.d` and no docker application profile is
+needed. No PostgreSQL host port publication is required for backend connectivity.
+
+For this PostgreSQL 17 image, both image metadata and `SHOW data_directory`
+confirm `/var/lib/postgresql/data`. Mount a Docker-managed named volume there;
+do not substitute a data path from a different PostgreSQL major version.
+The official entrypoint initialized the volume without host chmod changes;
+the server ran as OS user `postgres`, UID/GID 70, and owned PGDATA with mode 0700.
+The database has its normal writable runtime filesystem; persistent data goes
+to the volume. UTF8 encoding and UTC timezone were observed. Default durability
+remained enabled: fsync, synchronous_commit and full_page_writes were all `on`.
+No tuning, additional extensions (including pg_trgm), or custom postgresql.conf
+is introduced. A named volume is persistence, not a backup. A deliberate local
+reset would remove the container and then its volume; the supported developer
+workflow is deferred to MS7.5, with no reset/backup automation added here.
+
+The readiness contract is PostgreSQL-native:
+
+```sh
+pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
+
+The TCP loopback probe avoids mistaking the image's socket-only initialization
+server for the final ready server. It was exercised as a Docker healthcheck:
+container A initially returned exit 2 (no response), then exit 0 and `healthy`;
+B also became healthy. Running is not readiness. `pg_isready` checks server
+availability, not successful password authentication or applied migrations;
+the backend/API verification establishes those additional contracts. MS7.4 will
+encode health-based startup ordering rather than merely container start order.
+
+Verification created the temporary named volume `taskflow-ms73-postgres-data`
+on an isolated network, with no database port binding. Backend image
+`taskflow-backend:ms7.1` was reused, with only a random loopback host port for API
+checks. Passwords and a valid 32-byte decoded JWT key were generated dynamically
+and not printed. On fresh PostgreSQL A, initialization completed, Flyway applied
+all six migrations to an empty schema, Hibernate validated and backend health
+returned 200/UP. A real user and identifiable Board were created through APIs.
+The first backend and PostgreSQL A were stopped and removed, retaining the volume.
+
+PostgreSQL B was a new container mounting the same named volume. Its entrypoint
+reported "Skipping initialization". All six successful Flyway history rows,
+including checksums and installation timestamps, matched before/after replacement
+and after the second backend start. The fresh backend validated six migrations,
+reported "No migration necessary", initialized Hibernate and returned 200/UP.
+Login with the persisted account and fetching the same Board ID/name both passed.
+The initial Alpine initdb locale warning was non-fatal; UTF8 initialization and
+both application starts succeeded without configuration changes.
+
+Image metadata/history and runtime logs were reviewed; no custom secret-bearing
+layers or credential files were created, and generated verification secrets were
+absent from logs. All temporary containers, network and the verification volume
+were removed after the persistence proof; independent Docker listings confirmed
+cleanup. Only architecture/roadmap documentation changed. Container readiness,
+Flyway/API integration, remove/recreate persistence and `git diff --check` passed;
+the unchanged 472/593 application-test baseline and network security audit were
+not rerun. **MS7.3 COMPLETE**. Compose encoding belongs to MS7.4; MS7.4–MS7.6 and
+MS8 remain unstarted.
+
+### Local Compose orchestration (MS7.4)
+
+Root `compose.yaml` defines exactly `frontend`, `backend` and `postgres` using
+Compose Specification syntax (verified with Docker Compose v5.3.1). Application
+build contexts remain `./frontend` and `./backend`, producing
+`taskflow-frontend:local` and `taskflow-backend:local` from their existing
+Dockerfiles. PostgreSQL uses `postgres:17-alpine` directly.
+
+Two networks preserve service separation: frontend joins `frontend-network`,
+backend joins both networks, and PostgreSQL joins only internal `data-network`.
+`frontend-network` is a regular bridge. The initially internal frontend network
+produced no effective host port mapping on the tested Docker runtime, even with
+an explicit host port; host HTTP failed while all containers were healthy.
+Making only that network non-internal restored host access. This permits egress
+for frontend/backend; the data network remains isolated. Service DNS preserves
+`backend:8080` for Nginx and `postgres:5432` for JDBC. Only frontend publishes
+`127.0.0.1:${TASKFLOW_HTTP_PORT:-8080}:8080`; backend and PostgreSQL have no host
+publication. No source bind mounts or fixed container names are used.
+
+Compose requires external `TASKFLOW_DB_PASSWORD` and `TASKFLOW_JWT_SECRET_BASE64`
+through `${VAR:?error}` interpolation, with no secret defaults. The JWT key must
+satisfy the existing application contract. Database/user are `taskflow`, and
+the JDBC URL is `jdbc:postgresql://postgres:5432/taskflow`. Local loopback HTTP
+explicitly uses `TASKFLOW_COOKIE_SECURE=false`; the production application
+default remains unchanged. Real `.env` files are already ignored. Runtime env
+values are visible to local Docker inspection; production secret management
+and developer onboarding are separate later work.
+
+PostgreSQL stores data in Compose-owned `postgres-data`, mounted read/write at
+`/var/lib/postgresql/data`. Its healthcheck uses TCP-loopback `pg_isready` with
+container-expanded DB/user variables. Backend uses existing `curl` against
+`/actuator/health`, requiring HTTP success and status UP; frontend uses existing
+`wget` against its own `/`. No runtime package was added. `service_healthy`
+dependencies enforce PostgreSQL healthy → backend start → backend healthy →
+frontend start. Backend/frontend retain read-only root filesystems and tmpfs
+`/tmp`. Neither service restart policies nor dependency `restart: true` are
+configured: local lifecycle stays explicit. Health dependencies govern startup,
+not continuous supervision or automatic cascading restarts.
+
+Verification used isolated project `taskflow-ms74` and generated disposable
+credentials, without printing secrets or resolved configuration. Quiet config
+validation passed; removing either required secret failed clearly. A Compose
+`build --no-cache` successfully packaged both source Dockerfiles, including the
+Angular production build. After the network correction, all three healthchecks
+passed; Docker event timestamps confirmed startup ordering. Inspect confirmed
+network membership, actual frontend-only loopback publication, read-only/tmpfs
+application filesystems and the writable database volume.
+
+Through frontend port 18074, root/deep-route HTML, CSRF bootstrap, registration,
+Board creation/read and refresh passed, preserving HttpOnly refresh cookies and
+the XSRF round trip. `down` without `-v` removed containers but retained the
+volume. A second `up --wait` restored all services healthy; login retrieved the
+same Board ID/name. All six successful Flyway history rows, checksums and install
+timestamps were identical; backend reported validation of six migrations and
+"No migration necessary", then initialized Hibernate normally.
+
+An explicit PostgreSQL restart recovered all healthchecks and the same API flow
+without restarting backend/frontend processes. PostgreSQL connection-termination
+messages and Hikari replacement of closed connections were transient consequences
+of that restart, not a persistent retry storm. Brief downtime is accepted;
+this single-instance local stack makes no HA or zero-downtime claim. Generated
+credentials were absent from reviewed logs. Final `down -v` removed only the
+verification project's containers, networks and volume; independent listings
+confirmed cleanup, and local images were retained.
+
+Only Compose and documentation changed. Config/build, startup, HTTP/auth flow,
+persistence, Flyway, recovery, runtime inspection and `git diff --check` passed;
+the unchanged 472/593 application-test baseline was not rerun. **MS7.4 COMPLETE**.
+MS7.5 developer workflows, MS7.6 reusable/exhaustive container verification,
+MS8 and CI/CD remain deferred; MacroStep 7 is still incomplete.
+
+### Local developer experience (MS7.5)
+
+`scripts/setup-local-env.sh` creates an ignored root `.env` with random DB/JWT
+credentials, exactly 32 decoded JWT bytes and mode 0600. It resolves the root
+from its own location and preserves an existing environment without rotation.
+Native Compose remains the lifecycle interface: normal `down` preserves data;
+deliberate `down -v` deletes the database volume. Credentials and an initialized
+volume normally stay paired. The [local development guide](LOCAL_DEVELOPMENT.md)
+documents setup, rebuilds, logs, migrations, resets and troubleshooting; README
+provides the quick start. There is no new runtime architecture or wrapper CLI.
+
+An isolated temporary repository-like directory/project verified generation,
+permissions, JWT length, no-overwrite behavior, automatic Compose `.env` loading,
+two healthy starts, frontend HTTP, logs, Flyway history inspection and both volume
+lifecycle operations. Its credentials, containers, networks and volume were
+removed; developer state was untouched. Shell syntax, the existing redacted
+Gitleaks working-tree scan and diff checks passed. Application tests were not
+rerun because only the helper and documentation changed. **MS7.5 COMPLETE**;
+MS7.6 and later milestones remain deferred.
+
+### Container verification and close-out (MS7.6)
+
+On 2026-09-18, isolated Compose project `taskflow-ms76` verified the committed
+MS7.1–MS7.5 stack without using developer `.env` or data. Generated temporary
+credentials included a JWT key decoding to 32 bytes; config validation passed.
+A fresh `compose build --no-cache` built both `:local` images from source,
+including Angular production output. The existing useradd warning about fixed
+UID 10001 exceeding the system-UID range was non-fatal; no Dockerfile change was
+needed. Download time was accepted without changing dependencies.
+
+With an empty named volume, PostgreSQL, backend and frontend all became healthy.
+An explicit in-container backend HTTP probe returned 200 and
+`{"status":"UP","groups":["liveness","readiness"]}`, without component details.
+The temporary probe assertion was corrected to allow these public group names;
+application behavior was unchanged. Through frontend loopback port 18076, `/`
+and `/boards` returned the same Angular HTML, and `/api/auth/csrf` returned 204.
+
+The same-origin API flow registered a synthetic user, created a Board and two
+Columns, created a Task in A, updated its title/description/priority/due date,
+and moved it to B at position 0. Normal read endpoints confirmed canonical
+Columns and Task state, including an empty A; Search also found the Task.
+HttpOnly refresh cookies and XSRF round trips passed. Logout cleared the cookie
+and revoked the presented refresh session (reuse returned SESSION_INVALID/401);
+subsequent login and refresh succeeded. Tokens/cookies remained in process memory,
+and only non-sensitive persistence markers were stored temporarily.
+
+Fresh startup applied V1–V6 and initialized Hibernate normally. Normal `down`
+removed containers/networks but retained the volume. The second healthy startup
+and login recovered the same user, Board, both Columns and updated/moved Task.
+All six Flyway history rows, checksums and installation timestamps matched;
+the second backend reported validation and "No migration necessary".
+
+Inspect confirmed frontend-only loopback publication, no backend/PostgreSQL host
+ports, expected two-network membership, a read/write named database volume at
+`/var/lib/postgresql/data`, and read-only frontend/backend with tmpfs `/tmp` and
+no database mounts. All containers had zero restarts. Logs showed no unresolved
+application, migration or proxy failures; existing SpringDoc and initial Alpine
+locale warnings were non-fatal. Generated credentials were absent from logs,
+and the existing redacted Gitleaks working-tree scan found no leaks.
+
+Final isolated `down -v` removed verification containers, networks and volume;
+independent listings confirmed cleanup. Local images and developer state were
+preserved. Verification scripts remain disposable under `/tmp`, with no permanent
+suite added. Only close-out documentation changed; no application, dependency,
+migration or Compose change was needed. The unchanged MS6 472/593 test baseline
+was not rerun; source builds, container/API/persistence checks, secret scan and
+`git diff --check` passed. TaskFlow can be started completely with local Docker
+Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 remains unstarted.

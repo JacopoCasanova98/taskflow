@@ -55,11 +55,43 @@ MacroStep 6 Definition of Done:
 - [x] Adequate critical-flow tests
 - [x] Primary technical risks covered, with residual deployment/scale boundaries documented
 
-**MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** MacroStep 7 has not started.
+**MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** MacroStep 7 progress is recorded below.
 
-## MacroStep 7 — Docker and local infrastructure
+## MACROSTEP 7 — Docker and local infrastructure ✅
 
-- [ ] Establish local containerized development infrastructure
+- [x] MS7.1 — Backend Dockerfile
+- [x] MS7.2 — Frontend Dockerfile
+- [x] MS7.3 — PostgreSQL container
+- [x] MS7.4 — Docker Compose
+- [x] MS7.5 — Local developer experience
+- [x] MS7.6 — Container verification
+
+MS7.1 passed two local image builds (second build cached), disposable PostgreSQL
+startup/Flyway verification, HTTP 200/UP health and non-root/JRE-only runtime
+checks. See [Backend container](ARCHITECTURE.md#backend-container-ms71).
+MS7.2 passed production/cached image builds, non-root read-only Nginx runtime,
+SPA/static/cache/header checks, same-origin API and cookie/XSRF round trips, and
+backend replacement through Docker DNS. See [Frontend container](ARCHITECTURE.md#frontend-container-ms72).
+MS7.3 verified the official PostgreSQL 17 image, environment-based credentials,
+native readiness and named-volume persistence across container removal/recreation,
+including Flyway history and real TaskFlow user/Board data. The durable artifact
+is the [PostgreSQL container contract](ARCHITECTURE.md#postgresql-container-contract-ms73);
+no custom database image or Compose file is needed in this milestone.
+MS7.4 passed clean Compose source builds, health-based startup, same-origin
+user/Board flow, down/up persistence, unchanged Flyway history and PostgreSQL
+restart recovery. See [Local Compose orchestration](ARCHITECTURE.md#local-compose-orchestration-ms74).
+MS7.5 provides private generated local configuration and a native Compose
+[developer workflow](LOCAL_DEVELOPMENT.md), verified through setup, healthy
+startup, shutdown/restart, logs, migration inspection and isolated reset.
+MS7.6 passed clean source builds, fresh startup/health, same-origin auth and full
+Board/Column/Task flow, and persistence of updated/moved state across down/up.
+Flyway, runtime boundaries, logs, secret scan and isolated cleanup passed.
+
+MacroStep 7 Definition of Done:
+
+- [x] TaskFlow completo può essere avviato localmente tramite Docker Compose.
+
+**MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 has not started.
 
 ## MacroStep 8 — Infrastructure as Code
 

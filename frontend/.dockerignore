@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.angular/
+.git
+.gitignore
+.idea/
+.vscode/
+*.iml
+**/.DS_Store
+**/._*
+*.log
+logs/
+.env
+.env.*

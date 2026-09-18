@@ -1,0 +1,79 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    image: taskflow-frontend:local
+    ports:
+      - "127.0.0.1:${TASKFLOW_HTTP_PORT:-8080}:8080"
+    networks:
+      - frontend-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+    image: taskflow-backend:local
+    environment:
+      TASKFLOW_DB_URL: jdbc:postgresql://postgres:5432/taskflow
+      TASKFLOW_DB_USERNAME: taskflow
+      TASKFLOW_DB_PASSWORD: ${TASKFLOW_DB_PASSWORD:?TASKFLOW_DB_PASSWORD is required}
+      TASKFLOW_JWT_SECRET_BASE64: ${TASKFLOW_JWT_SECRET_BASE64:?TASKFLOW_JWT_SECRET_BASE64 is required}
+      # This stack is loopback HTTP only; production keeps Secure cookies enabled.
+      TASKFLOW_COOKIE_SECURE: "false"
+    networks:
+      - frontend-network
+      - data-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          health=$$(curl --fail --silent --show-error --max-time 3 http://127.0.0.1:8080/actuator/health)
+          && printf '%s' "$$health" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: taskflow
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: ${TASKFLOW_DB_PASSWORD:?TASKFLOW_DB_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - data-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+networks:
+  frontend-network:
+    # Host publication requires a non-internal bridge on the verified Docker runtime.
+    driver: bridge
+  data-network:
+    internal: true
+
+volumes:
+  postgres-data:
