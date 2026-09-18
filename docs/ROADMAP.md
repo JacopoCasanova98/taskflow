@@ -63,7 +63,7 @@ MacroStep 6 Definition of Done:
 - [x] MS7.2 — Frontend Dockerfile
 - [x] MS7.3 — PostgreSQL container
 - [x] MS7.4 — Docker Compose
-- [ ] MS7.5 — Local developer experience
+- [x] MS7.5 — Local developer experience
 - [ ] MS7.6 — Container verification
 
 MS7.1 passed two local image builds (second build cached), disposable PostgreSQL
@@ -80,7 +80,10 @@ no custom database image or Compose file is needed in this milestone.
 MS7.4 passed clean Compose source builds, health-based startup, same-origin
 user/Board flow, down/up persistence, unchanged Flyway history and PostgreSQL
 restart recovery. See [Local Compose orchestration](ARCHITECTURE.md#local-compose-orchestration-ms74).
-**MacroStep 7 remains incomplete.** MS7.5–MS7.6 have not started.
+MS7.5 provides private generated local configuration and a native Compose
+[developer workflow](LOCAL_DEVELOPMENT.md), verified through setup, healthy
+startup, shutdown/restart, logs, migration inspection and isolated reset.
+**MacroStep 7 remains incomplete.** MS7.6 has not started.
 
 ## MacroStep 8 — Infrastructure as Code
 

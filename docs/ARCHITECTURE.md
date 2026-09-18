@@ -1799,3 +1799,23 @@ persistence, Flyway, recovery, runtime inspection and `git diff --check` passed;
 the unchanged 472/593 application-test baseline was not rerun. **MS7.4 COMPLETE**.
 MS7.5 developer workflows, MS7.6 reusable/exhaustive container verification,
 MS8 and CI/CD remain deferred; MacroStep 7 is still incomplete.
+
+### Local developer experience (MS7.5)
+
+`scripts/setup-local-env.sh` creates an ignored root `.env` with random DB/JWT
+credentials, exactly 32 decoded JWT bytes and mode 0600. It resolves the root
+from its own location and preserves an existing environment without rotation.
+Native Compose remains the lifecycle interface: normal `down` preserves data;
+deliberate `down -v` deletes the database volume. Credentials and an initialized
+volume normally stay paired. The [local development guide](LOCAL_DEVELOPMENT.md)
+documents setup, rebuilds, logs, migrations, resets and troubleshooting; README
+provides the quick start. There is no new runtime architecture or wrapper CLI.
+
+An isolated temporary repository-like directory/project verified generation,
+permissions, JWT length, no-overwrite behavior, automatic Compose `.env` loading,
+two healthy starts, frontend HTTP, logs, Flyway history inspection and both volume
+lifecycle operations. Its credentials, containers, networks and volume were
+removed; developer state was untouched. Shell syntax, the existing redacted
+Gitleaks working-tree scan and diff checks passed. Application tests were not
+rerun because only the helper and documentation changed. **MS7.5 COMPLETE**;
+MS7.6 and later milestones remain deferred.
