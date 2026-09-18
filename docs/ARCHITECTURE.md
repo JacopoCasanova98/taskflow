@@ -1728,3 +1728,74 @@ Flyway/API integration, remove/recreate persistence and `git diff --check` passe
 the unchanged 472/593 application-test baseline and network security audit were
 not rerun. **MS7.3 COMPLETE**. Compose encoding belongs to MS7.4; MS7.4–MS7.6 and
 MS8 remain unstarted.
+
+### Local Compose orchestration (MS7.4)
+
+Root `compose.yaml` defines exactly `frontend`, `backend` and `postgres` using
+Compose Specification syntax (verified with Docker Compose v5.3.1). Application
+build contexts remain `./frontend` and `./backend`, producing
+`taskflow-frontend:local` and `taskflow-backend:local` from their existing
+Dockerfiles. PostgreSQL uses `postgres:17-alpine` directly.
+
+Two networks preserve service separation: frontend joins `frontend-network`,
+backend joins both networks, and PostgreSQL joins only internal `data-network`.
+`frontend-network` is a regular bridge. The initially internal frontend network
+produced no effective host port mapping on the tested Docker runtime, even with
+an explicit host port; host HTTP failed while all containers were healthy.
+Making only that network non-internal restored host access. This permits egress
+for frontend/backend; the data network remains isolated. Service DNS preserves
+`backend:8080` for Nginx and `postgres:5432` for JDBC. Only frontend publishes
+`127.0.0.1:${TASKFLOW_HTTP_PORT:-8080}:8080`; backend and PostgreSQL have no host
+publication. No source bind mounts or fixed container names are used.
+
+Compose requires external `TASKFLOW_DB_PASSWORD` and `TASKFLOW_JWT_SECRET_BASE64`
+through `${VAR:?error}` interpolation, with no secret defaults. The JWT key must
+satisfy the existing application contract. Database/user are `taskflow`, and
+the JDBC URL is `jdbc:postgresql://postgres:5432/taskflow`. Local loopback HTTP
+explicitly uses `TASKFLOW_COOKIE_SECURE=false`; the production application
+default remains unchanged. Real `.env` files are already ignored. Runtime env
+values are visible to local Docker inspection; production secret management
+and developer onboarding are separate later work.
+
+PostgreSQL stores data in Compose-owned `postgres-data`, mounted read/write at
+`/var/lib/postgresql/data`. Its healthcheck uses TCP-loopback `pg_isready` with
+container-expanded DB/user variables. Backend uses existing `curl` against
+`/actuator/health`, requiring HTTP success and status UP; frontend uses existing
+`wget` against its own `/`. No runtime package was added. `service_healthy`
+dependencies enforce PostgreSQL healthy → backend start → backend healthy →
+frontend start. Backend/frontend retain read-only root filesystems and tmpfs
+`/tmp`. Neither service restart policies nor dependency `restart: true` are
+configured: local lifecycle stays explicit. Health dependencies govern startup,
+not continuous supervision or automatic cascading restarts.
+
+Verification used isolated project `taskflow-ms74` and generated disposable
+credentials, without printing secrets or resolved configuration. Quiet config
+validation passed; removing either required secret failed clearly. A Compose
+`build --no-cache` successfully packaged both source Dockerfiles, including the
+Angular production build. After the network correction, all three healthchecks
+passed; Docker event timestamps confirmed startup ordering. Inspect confirmed
+network membership, actual frontend-only loopback publication, read-only/tmpfs
+application filesystems and the writable database volume.
+
+Through frontend port 18074, root/deep-route HTML, CSRF bootstrap, registration,
+Board creation/read and refresh passed, preserving HttpOnly refresh cookies and
+the XSRF round trip. `down` without `-v` removed containers but retained the
+volume. A second `up --wait` restored all services healthy; login retrieved the
+same Board ID/name. All six successful Flyway history rows, checksums and install
+timestamps were identical; backend reported validation of six migrations and
+"No migration necessary", then initialized Hibernate normally.
+
+An explicit PostgreSQL restart recovered all healthchecks and the same API flow
+without restarting backend/frontend processes. PostgreSQL connection-termination
+messages and Hikari replacement of closed connections were transient consequences
+of that restart, not a persistent retry storm. Brief downtime is accepted;
+this single-instance local stack makes no HA or zero-downtime claim. Generated
+credentials were absent from reviewed logs. Final `down -v` removed only the
+verification project's containers, networks and volume; independent listings
+confirmed cleanup, and local images were retained.
+
+Only Compose and documentation changed. Config/build, startup, HTTP/auth flow,
+persistence, Flyway, recovery, runtime inspection and `git diff --check` passed;
+the unchanged 472/593 application-test baseline was not rerun. **MS7.4 COMPLETE**.
+MS7.5 developer workflows, MS7.6 reusable/exhaustive container verification,
+MS8 and CI/CD remain deferred; MacroStep 7 is still incomplete.

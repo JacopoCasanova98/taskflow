@@ -62,7 +62,7 @@ MacroStep 6 Definition of Done:
 - [x] MS7.1 — Backend Dockerfile
 - [x] MS7.2 — Frontend Dockerfile
 - [x] MS7.3 — PostgreSQL container
-- [ ] MS7.4 — Docker Compose
+- [x] MS7.4 — Docker Compose
 - [ ] MS7.5 — Local developer experience
 - [ ] MS7.6 — Container verification
 
@@ -77,7 +77,10 @@ native readiness and named-volume persistence across container removal/recreatio
 including Flyway history and real TaskFlow user/Board data. The durable artifact
 is the [PostgreSQL container contract](ARCHITECTURE.md#postgresql-container-contract-ms73);
 no custom database image or Compose file is needed in this milestone.
-**MacroStep 7 remains incomplete.** MS7.4–MS7.6 have not started.
+MS7.4 passed clean Compose source builds, health-based startup, same-origin
+user/Board flow, down/up persistence, unchanged Flyway history and PostgreSQL
+restart recovery. See [Local Compose orchestration](ARCHITECTURE.md#local-compose-orchestration-ms74).
+**MacroStep 7 remains incomplete.** MS7.5–MS7.6 have not started.
 
 ## MacroStep 8 — Infrastructure as Code
 
