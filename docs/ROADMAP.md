@@ -57,14 +57,14 @@ MacroStep 6 Definition of Done:
 
 **MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** MacroStep 7 progress is recorded below.
 
-## MacroStep 7 — Docker and local infrastructure
+## MACROSTEP 7 — Docker and local infrastructure ✅
 
 - [x] MS7.1 — Backend Dockerfile
 - [x] MS7.2 — Frontend Dockerfile
 - [x] MS7.3 — PostgreSQL container
 - [x] MS7.4 — Docker Compose
 - [x] MS7.5 — Local developer experience
-- [ ] MS7.6 — Container verification
+- [x] MS7.6 — Container verification
 
 MS7.1 passed two local image builds (second build cached), disposable PostgreSQL
 startup/Flyway verification, HTTP 200/UP health and non-root/JRE-only runtime
@@ -83,7 +83,15 @@ restart recovery. See [Local Compose orchestration](ARCHITECTURE.md#local-compos
 MS7.5 provides private generated local configuration and a native Compose
 [developer workflow](LOCAL_DEVELOPMENT.md), verified through setup, healthy
 startup, shutdown/restart, logs, migration inspection and isolated reset.
-**MacroStep 7 remains incomplete.** MS7.6 has not started.
+MS7.6 passed clean source builds, fresh startup/health, same-origin auth and full
+Board/Column/Task flow, and persistence of updated/moved state across down/up.
+Flyway, runtime boundaries, logs, secret scan and isolated cleanup passed.
+
+MacroStep 7 Definition of Done:
+
+- [x] TaskFlow completo può essere avviato localmente tramite Docker Compose.
+
+**MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 has not started.
 
 ## MacroStep 8 — Infrastructure as Code
 

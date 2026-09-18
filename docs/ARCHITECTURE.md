@@ -1819,3 +1819,52 @@ removed; developer state was untouched. Shell syntax, the existing redacted
 Gitleaks working-tree scan and diff checks passed. Application tests were not
 rerun because only the helper and documentation changed. **MS7.5 COMPLETE**;
 MS7.6 and later milestones remain deferred.
+
+### Container verification and close-out (MS7.6)
+
+On 2026-09-18, isolated Compose project `taskflow-ms76` verified the committed
+MS7.1–MS7.5 stack without using developer `.env` or data. Generated temporary
+credentials included a JWT key decoding to 32 bytes; config validation passed.
+A fresh `compose build --no-cache` built both `:local` images from source,
+including Angular production output. The existing useradd warning about fixed
+UID 10001 exceeding the system-UID range was non-fatal; no Dockerfile change was
+needed. Download time was accepted without changing dependencies.
+
+With an empty named volume, PostgreSQL, backend and frontend all became healthy.
+An explicit in-container backend HTTP probe returned 200 and
+`{"status":"UP","groups":["liveness","readiness"]}`, without component details.
+The temporary probe assertion was corrected to allow these public group names;
+application behavior was unchanged. Through frontend loopback port 18076, `/`
+and `/boards` returned the same Angular HTML, and `/api/auth/csrf` returned 204.
+
+The same-origin API flow registered a synthetic user, created a Board and two
+Columns, created a Task in A, updated its title/description/priority/due date,
+and moved it to B at position 0. Normal read endpoints confirmed canonical
+Columns and Task state, including an empty A; Search also found the Task.
+HttpOnly refresh cookies and XSRF round trips passed. Logout cleared the cookie
+and revoked the presented refresh session (reuse returned SESSION_INVALID/401);
+subsequent login and refresh succeeded. Tokens/cookies remained in process memory,
+and only non-sensitive persistence markers were stored temporarily.
+
+Fresh startup applied V1–V6 and initialized Hibernate normally. Normal `down`
+removed containers/networks but retained the volume. The second healthy startup
+and login recovered the same user, Board, both Columns and updated/moved Task.
+All six Flyway history rows, checksums and installation timestamps matched;
+the second backend reported validation and "No migration necessary".
+
+Inspect confirmed frontend-only loopback publication, no backend/PostgreSQL host
+ports, expected two-network membership, a read/write named database volume at
+`/var/lib/postgresql/data`, and read-only frontend/backend with tmpfs `/tmp` and
+no database mounts. All containers had zero restarts. Logs showed no unresolved
+application, migration or proxy failures; existing SpringDoc and initial Alpine
+locale warnings were non-fatal. Generated credentials were absent from logs,
+and the existing redacted Gitleaks working-tree scan found no leaks.
+
+Final isolated `down -v` removed verification containers, networks and volume;
+independent listings confirmed cleanup. Local images and developer state were
+preserved. Verification scripts remain disposable under `/tmp`, with no permanent
+suite added. Only close-out documentation changed; no application, dependency,
+migration or Compose change was needed. The unchanged MS6 472/593 test baseline
+was not rerun; source builds, container/API/persistence checks, secret scan and
+`git diff --check` passed. TaskFlow can be started completely with local Docker
+Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 remains unstarted.
