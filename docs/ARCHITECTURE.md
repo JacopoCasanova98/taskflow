@@ -1446,3 +1446,95 @@ MacroStep 6 DoD is satisfied: repeatable quality gate, available API documentati
 adequate critical-flow tests and coverage of primary technical risks within the
 documented boundaries. **MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** No MS7 work started;
 all MS6.8 changes remain uncommitted on `feature/software-quality`.
+
+### Backend container (MS7.1)
+
+The backend image is built independently from the `backend/` context:
+
+```sh
+docker build -t taskflow-backend:ms7.1 ./backend
+```
+
+`backend/Dockerfile` uses the Dockerfile v1 frontend and named `build`/`runtime`
+stages. Official tags verified against Docker Hub are
+`maven:3.9.16-eclipse-temurin-21` (Maven/JDK builder) and
+`eclipse-temurin:21.0.12_8-jre-noble` (Java 21 JRE runtime). Versioned tags avoid
+`latest`; they are not immutable digest locks or a byte-for-byte reproducibility
+guarantee. Future base-image updates remain explicit maintenance decisions.
+
+The builder copies `pom.xml` and runs `dependency:go-offline` before copying
+`src/main`, allowing dependency-layer reuse when production source changes.
+Both Maven steps share a BuildKit `/root/.m2` cache with locked sharing. Packaging
+uses `mvn -B -Dmaven.test.skip=true package`, with no special Maven/Spring profile
+or packaging change. The independent `scripts/quality.sh` gate proves source
+correctness; Docker packages already-reviewed source and does not rerun
+Testcontainers, coverage/static-analysis verification or the security audit.
+Dependency resolution may download test/plugin dependencies into the builder
+cache, but none are copied as build tooling into the runtime image.
+
+Spring Boot repackage produces the executable JAR and a `.jar.original` backup.
+The build requires exactly one `target/*.jar`, copies it to a deterministic
+artifact path and copies only that artifact into the runtime as `/app/app.jar`.
+The runtime has no Maven, compiler, source tree, test source, Maven repository
+or target intermediates. `.dockerignore` excludes build output, tests, local
+metadata, logs and `.env` files; explicit COPY inputs are only POM/main source.
+
+The dedicated system account has UID/GID 10001, no created home and a nologin
+shell. `/app` stays root-owned; the JAR is root-owned mode 0444 and does not
+require mutation. Java runs directly as PID 1 via exec-form ENTRYPOINT. Port
+8080 is exposed as metadata; host publishing belongs to `docker run` or future
+Compose. No heap/GC/CPU tuning is baked in; `JAVA_TOOL_OPTIONS` remains available
+for externally justified JVM options. Persistent data belongs outside the image.
+
+The existing runtime boundary remains `TASKFLOW_DB_URL`, `TASKFLOW_DB_USERNAME`,
+`TASKFLOW_DB_PASSWORD`, `TASKFLOW_JWT_SECRET_BASE64` and
+`TASKFLOW_COOKIE_SECURE`. No runtime values, secret build arguments, local env
+files or Docker-specific application profile are embedded. Production retains
+the existing HTTPS/Secure-cookie requirements.
+
+Health remains public `GET /actuator/health`, with details hidden and health the
+only exposed Actuator endpoint. No Dockerfile HEALTHCHECK or added HTTP-client
+package is needed: MS7.1 probes from the host; orchestration health behavior is
+deferred to MS7.4. This milestone introduces no frontend Docker work, PostgreSQL
+deployment configuration, Compose, developer automation or MS7.6 verification
+suite. A disposable PostgreSQL instance is used only to verify this backend image.
+
+Verification on 2026-09-18 used local linux/amd64 and tag
+`taskflow-backend:ms7.1`. Both source builds passed with no Dockerfile warnings;
+the second unchanged build reported CACHED for dependency resolution, production
+source, packaging and runtime layers. `docker image inspect .Size` reported
+167,729,929 bytes (about 167.7 MB); this is a local observation, not a size budget.
+The Maven/JDK stage and its cache are excluded from the final image.
+
+Runtime verification used an isolated temporary network, official
+`postgres:17-alpine` (PostgreSQL 17.11 in this run), tmpfs database storage and
+random disposable credentials passed via environment. The synthetic JWT key
+must decode to exactly 32 bytes, as required by existing validation; an initial
+48-byte test key was rejected and corrected in the temporary setup only.
+The backend ran with a read-only root filesystem, writable tmpfs `/tmp`, and a
+random host port bound to 127.0.0.1. No env file or verification credential was
+committed. All temporary containers and the network were removed afterward.
+
+Flyway validated/applied V1–V6 successfully, with all six schema-history rows
+successful. Hibernate initialized with the unchanged `ddl-auto: validate`;
+Tomcat started on 8080 and the application started normally. Host HTTP returned
+200 with `{"status":"UP","groups":["liveness","readiness"]}`, without detailed
+components. Logs contained no connection retry storm, fatal error or test secret.
+The two SpringDoc warnings that API docs/Swagger are enabled reflect the already
+accepted public-documentation policy, not a container configuration failure.
+
+`docker exec id` confirmed UID/GID 10001; `/proc/1/cmdline` confirmed
+`java -jar /app/app.jar`. Java reported Temurin 21.0.12+8 JRE; Maven, javac,
+source/build directories and Maven repository were absent. `/app` and the JAR
+were not writable by the runtime user. JAR inspection confirmed Spring Boot
+JarLauncher, main-class metadata and only the existing main configuration
+resources (including the inert local-profile placeholder), with no test profiles,
+test libraries or Java sources. Image ENV/labels/history and packaged configuration
+were reviewed: no TaskFlow credentials or secret values were embedded. The base
+image includes HTTP utilities, but MS7.1 adds no OS packages or HEALTHCHECK.
+
+Only Dockerfile, .dockerignore and documentation changed. The established MS6
+baseline (472 backend tests including 22 PostgreSQL integration cases, 593
+frontend tests) was not rerun because application/POM/configuration stayed
+unchanged. Container build/run/health/content/security-boundary checks and
+`git diff --check` passed. **MS7.1 COMPLETE**; MacroStep 7 remains incomplete.

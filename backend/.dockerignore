@@ -1,0 +1,21 @@
+# Build output and local metadata are not build inputs.
+target/
+.git
+.gitignore
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iml
+**/.DS_Store
+**/._*
+*.log
+logs/
+
+# Runtime configuration/secrets must never enter the build context.
+.env
+.env.*
+
+# Docker packages production code; the separate quality gate owns tests.
+src/test/

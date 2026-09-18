@@ -55,11 +55,22 @@ MacroStep 6 Definition of Done:
 - [x] Adequate critical-flow tests
 - [x] Primary technical risks covered, with residual deployment/scale boundaries documented
 
-**MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** MacroStep 7 has not started.
+**MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** MacroStep 7 progress is recorded below.
 
 ## MacroStep 7 — Docker and local infrastructure
 
-- [ ] Establish local containerized development infrastructure
+- [x] MS7.1 — Backend Dockerfile
+- [ ] MS7.2 — Frontend Dockerfile
+- [ ] MS7.3 — PostgreSQL container
+- [ ] MS7.4 — Docker Compose
+- [ ] MS7.5 — Local developer experience
+- [ ] MS7.6 — Container verification
+
+MS7.1 passed two local image builds (second build cached), disposable PostgreSQL
+startup/Flyway verification, HTTP 200/UP health and non-root/JRE-only runtime
+checks. See [Backend container](ARCHITECTURE.md#backend-container-ms71).
+**MacroStep 7 remains incomplete.** MS7.2–MS7.6 have not started; the disposable
+database was verification infrastructure only, not an MS7.3 implementation.
 
 ## MacroStep 8 — Infrastructure as Code
 
