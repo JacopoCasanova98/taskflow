@@ -86,10 +86,10 @@ describe('Combined Task filters in the Board workspace', () => {
   async function load(id = 'one', response = tasks, lanes = columns) {
     http.expectOne('/api/boards/' + id).flush({ id, name: id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(lanes);
-    for (const column of lanes)
+    if (lanes.length)
       http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush(response.filter((t) => t.columnId === column.id));
+        .expectOne('/api/boards/' + id + '/tasks')
+        .flush(response.filter((task) => lanes.some((lane) => lane.id === task.columnId)));
     await settle();
   }
   function canonical() {

@@ -1325,4 +1325,124 @@ The complete `scripts/security-audit.sh` passed with exit 0. The already-passing
 final quality gate verified 466 backend tests (zero failures/errors/skips),
 589 frontend tests, JaCoCo, SpotBugs/FindSecBugs, formatting, lint and the
 production build. Close-out changed documentation only, so that quality gate
-was not repeated. **MS6.7 COMPLETE.** MS6.8 remains not started.
+was not repeated. **MS6.7 COMPLETE.** MS6.8 is recorded below.
+
+### Performance sanity review (MS6.8)
+
+#### MEASURED — methodology and results
+
+`PerformanceIntegrationTest` uses the existing integration profile and real
+PostgreSQL 17 via Testcontainers, committed synthetic fixtures, fresh service
+transactions and Hibernate statistics reset after seeding. Measurements include
+domain and TaskResponse mapping. Structural assertions compare statement/query
+counts across cardinalities; there are no timing thresholds or plan snapshots.
+This is a sanity review, not a production load test.
+
+| Operation | Small → large fixture | Prepared statements | HQL queries | Entity loads |
+| --- | --- | --- | --- | --- |
+| Board list | 1 → 20 Boards | 1 → 1 | 1 → 1 | 1 → 20 |
+| Board get | 1 Board | 1 | 1 | 1 |
+| Columns | 1 → 20 Columns | 2 → 2 | 2 → 2 | 2 → 21 |
+| Column Tasks | 1 → 100 Tasks | 2 → 2 | 2 → 2 | 2 → 101 |
+| Board Tasks | 1 → 2,000 Tasks, 1 → 20 Columns | 2 → 2 | 2 → 2 | 2 → 2,001 |
+| Search | 1 → 2,000 matching Tasks | 2 → 2 | 2 → 2 | 2 → 2,001 |
+| Statistics | 1 → 2,000 Tasks, 1 → 20 Columns | 5 → 5 | 5 → 5 | 2 → 21 |
+| Append Task after COUNT fix | 1 → 100 existing Tasks | 5 → 5 | 4 → 4 | 2 → 2 |
+
+No measured read path exhibits N+1. Board Tasks/Search load the Board and returned
+Tasks only: mapping `Task → Column.id` does not initialize Column proxies.
+Append now performs DB COUNT instead of hydrating existing Tasks; only Board
+and Column are loaded, with the same structural queries plus INSERT at both
+cardinalities. COUNT still performs database work proportional to relevant rows.
+
+The workspace bootstrap reads Board, Columns, then at most one
+`GET /api/boards/{boardId}/tasks`: Task requests fall from N to 1 (20 Columns:
+22 bootstrap requests become 3; 1 Column: 3 remain 3). Zero Columns skip Tasks.
+Tests cover 1/20 Columns and retry, route cancellation, stale responses,
+BOARD_NOT_FOUND and rejection of unknown Task Columns without invented lanes.
+Existing Search debounce/dedupe/cancellation and confirmed-mutation invalidation
+remain covered. Filters/sort issue no requests of their own; view-only changes
+do not refresh statistics. Statistics remains a separate dashboard request.
+
+The new endpoint retains TaskResponse[], requires authentication and scopes both
+Board lookup and Task query to the owner. Missing/other-owner Boards return
+BOARD_NOT_FOUND; empty Boards return []. Canonical order is Column.position,
+Task.position, Task.id ascending. GET needs no CSRF token. The per-Column GET
+remains available. OpenAPI adds only this operation (25 total), with Tasks tag,
+bearerAuth and BoardNotFound. The fixed two-query design intentionally preserves
+safe not-found semantics; O(1) round trips does not mean one absolute statement.
+
+EXPLAIN (ANALYZE, BUFFERS), after ANALYZE on a 10-Column/1,000-Task fixture,
+shows Search sequentially scanning Tasks for the case-insensitive substring
+predicate, nested-loop joins with small Column/Board scans, then quicksort on
+canonical order. The observed estimate of one matching row versus 1,000 actual
+rows illustrates this synthetic predicate's selectivity-estimation limitation.
+Internal plan loops are not application/database round trips or ORM N+1.
+Totals uses Aggregate; priority/status distributions use HashAggregate. Their
+plans join Tasks/Columns with a hash join and the owner-scoped Board through a
+nested loop, with sequential scans on this small fixture. Statistics performs
+three DB-side aggregates plus Board/Column reads; it never hydrates Tasks.
+One ordered Column read and zero-fill from aggregate maps include empty Columns
+without query-per-Column, also covered by the existing PostgreSQL regression.
+These are observed representative SQL plans, not optimizer contracts.
+
+#### ACCEPTED TRADE-OFF — indexes and writes
+
+V1–V6 remain unchanged. V1 supplies user PK/email uniqueness; V2 supplies refresh
+token PK/unique token_hash; V3 adds family_id access for locking/revocation and
+family-scoped root discovery. V4 supplies Board PK/owner_id access; V5 supplies
+Column PK, deferred (board_id, position) uniqueness and (board_id, position, id)
+ordering index; V6 supplies Task PK, deferred (column_id, position) uniqueness
+and (column_id, position, id) ordering index. Search/Statistics/Board Task joins
+use the existing PK and foreign-key index prefixes. No clearly missing index
+with demonstrated benefit justifies V7. An available index need not be chosen
+on small tables; ordinary B-tree indexes do not solve `%substring%` search.
+The observed sequential Search scan is accepted at current Board scale.
+
+Column reorder, Task delete compaction and Task placement can update O(N) rows
+to preserve contiguous positions under the existing Board lock and deferred
+uniqueness constraints. This deliberate write complexity is distinct from read
+N+1. No LexoRank, fractional/sparse ranking or locking redesign is justified.
+
+#### ACCEPTED TRADE-OFF — pagination and payload
+
+Boards remain unpaginated at current scale. Columns require the complete Kanban
+structure and are not paginated. Conventional workspace Task pagination would
+break complete membership, manual ordering and cross-Column drag/drop, so it is
+not introduced. Search remains unpaginated at current Board scale.
+The repeated synthetic 1,000-Task measurement is 308,801 JSON bytes (about 309 KB)
+with short descriptions: sanity evidence, not a bound for maximum descriptions
+or proof of production browser rendering performance.
+
+#### DEFERRED — optimize when real scale warrants it
+
+Revisit Search limits/pagination and substring indexing (potentially pg_trgm)
+when much larger Boards, thousands/tens of thousands of Tasks or observed Search
+latency warrant it; no arbitrary latency/cardinality cutoff is imposed.
+TaskCardResponse/TaskSummaryResponse, lazy descriptions and DTO fragmentation
+remain deferred until actual payload pressure appears. Large-board rendering,
+long token families and lock/write contention warrant measurements if real use
+makes them problematic. No cache, benchmark/load-test framework, APM,
+virtualization framework, performance dependency, migration, CI or MS7 change
+is introduced. No dependency changed, so the network-dependent security audit
+is not repeated; authentication, cross-user isolation and OpenAPI security are
+covered by the focused regressions and complete quality gate.
+
+#### Verification and close-out
+
+The preserved baseline was 466 backend tests (17 PostgreSQL integration cases)
+and 589 frontend tests. Final focused verification passed 126 backend tests
+(PerformanceIntegrationTest, ApiIntegrationTest, TaskServiceTest, TaskMvcTest,
+OpenApiDocumentationTest) and 496 frontend tests across 26 feature spec files.
+The complete `./scripts/quality.sh` passed on 2026-09-18: 472 backend tests
+(22 PostgreSQL integration cases), zero failures/errors/skips; 593 frontend
+tests across 38 files; JaCoCo, SpotBugs/FindSecBugs, formatting, lint, frontend
+coverage and production build all passed. The gate exposed one obsolete MVC
+append mock, updated to COUNT without changing its position assertion, and one
+Prettier formatting issue; both were corrected before the successful full run.
+The final documentation-only close-out records the verified result.
+
+MacroStep 6 DoD is satisfied: repeatable quality gate, available API documentation,
+adequate critical-flow tests and coverage of primary technical risks within the
+documented boundaries. **MS6.8 COMPLETE. MACROSTEP 6 COMPLETE.** No MS7 work started;
+all MS6.8 changes remain uncommitted on `feature/software-quality`.

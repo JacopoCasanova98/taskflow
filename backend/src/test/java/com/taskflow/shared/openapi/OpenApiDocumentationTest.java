@@ -64,7 +64,7 @@ class OpenApiDocumentationTest extends DatabaseFreePersistenceTest {
 				mapping.getMethodsCondition().getMethods().forEach(method -> implemented.add(method.name() + " " + path));
 			}
 		});
-		assertThat(actual).hasSize(24).isEqualTo(implemented);
+		assertThat(actual).hasSize(25).isEqualTo(implemented);
 		assertThat(api.path("tags").findValuesAsText("name")).containsExactlyInAnyOrderElementsOf(tags);
 		assertThat(tags).containsExactlyInAnyOrder("Authentication", "Boards", "Columns", "Tasks", "Board Statistics");
 		assertThat(api.path("paths").properties()).extracting(Map.Entry::getKey).contains(
@@ -72,6 +72,17 @@ class OpenApiDocumentationTest extends DatabaseFreePersistenceTest {
 				"/api/boards", "/api/boards/{boardId}/columns", "/api/columns/{columnId}/tasks",
 				"/api/tasks/{taskId}", "/api/tasks/{taskId}/placement", "/api/boards/{boardId}/tasks/search",
 				"/api/boards/{boardId}/statistics");
+	}
+
+	@Test
+	void describesCanonicalBoardTaskReadUsingTheExistingTaskSchema() throws Exception {
+		var operation = document().path("paths").path("/api/boards/{boardId}/tasks").path("get");
+		assertThat(operation.path("tags")).containsExactly(mapper.valueToTree("Tasks"));
+		assertThat(operation.path("description").asText()).contains("Column position, Task position, then Task ID");
+		assertThat(operation.at("/responses/200/content/application~1json/schema/type").asText()).isEqualTo("array");
+		assertThat(operation.at("/responses/200/content/application~1json/schema/items/$ref").asText()).endsWith("/TaskResponse");
+		assertThat(operation.at("/responses/404/$ref").asText()).endsWith("/BoardNotFound");
+		assertThat(operation.path("security").findValues("bearerAuth")).hasSize(1);
 	}
 
 	@Test

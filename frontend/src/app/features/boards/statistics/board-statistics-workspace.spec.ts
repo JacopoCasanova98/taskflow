@@ -78,8 +78,7 @@ describe('Board statistics dashboard and mutation integration', () => {
       .expectOne('/api/boards/one')
       .flush({ id: 'one', name: 'Product', createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/one/columns').flush(columns);
-    for (const c of columns)
-      http.expectOne('/api/columns/' + c.id + '/tasks').flush(c.id === 'a' ? [task] : []);
+    http.expectOne('/api/boards/one/tasks').flush([task]);
     await settle();
   });
   afterEach(() => {

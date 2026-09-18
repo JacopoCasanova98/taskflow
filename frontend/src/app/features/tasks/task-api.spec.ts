@@ -85,6 +85,14 @@ describe('TaskApi CRUD', () => {
     request.flush(task);
     expect(next).toHaveBeenCalledExactlyOnceWith(task);
   });
+  it('lists Board Tasks with an encoded Board id and preserves the Task response', () => {
+    const next = vi.fn();
+    api.listBoardTasks('board/one').subscribe(next);
+    const request = http.expectOne('/api/boards/board%2Fone/tasks');
+    expect(request.request.method).toBe('GET');
+    request.flush([task]);
+    expect(next).toHaveBeenCalledExactlyOnceWith([task]);
+  });
   it('creates with only content and accepts 201 plus Location', () => {
     const next = vi.fn();
     api.createTask('column', content).subscribe(next);

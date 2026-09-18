@@ -36,6 +36,14 @@ public class TaskService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<Task> listBoardTasks(UUID boardId) {
+		UUID owner = identity.currentUser().id();
+		boards.findByIdAndOwnerId(boardId, owner).orElseThrow(() ->
+				new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found", "The requested board was not found."));
+		return tasks.listBoardTasks(boardId, owner).stream().map(TaskService::toTask).toList();
+	}
+
+	@Transactional(readOnly = true)
 	public List<Task> searchTasks(UUID boardId, String query) {
 		UUID owner = identity.currentUser().id();
 		boards.findByIdAndOwnerId(boardId, owner).orElseThrow(() ->
@@ -74,7 +82,7 @@ public class TaskService {
 		boards.findByIdAndOwnerIdForUpdate(boardId, owner).orElseThrow(TaskService::columnNotFound);
 		var column = columns.findByIdAndBoard_IdAndBoard_OwnerId(columnId, boardId, owner)
 				.orElseThrow(TaskService::columnNotFound);
-		int position = ordered(columnId, owner).size();
+		int position = Math.toIntExact(tasks.countByColumn_IdAndColumn_Board_OwnerId(columnId, owner));
 		var result = toTask(tasks.saveAndFlush(new TaskEntity(column, title, description, priority, dueDate, position)));
 		MutationLog.afterCommit(LOG, "event=task_created userId={} taskId={} columnId={}", owner, result.id(), columnId);
 		return result;

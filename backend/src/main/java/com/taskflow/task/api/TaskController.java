@@ -37,6 +37,18 @@ public class TaskController {
 
 	public TaskController(TaskService tasks) { this.tasks = tasks; }
 
+	@Operation(operationId = "boardTaskList", summary = "List Board Tasks",
+			description = "Returns all Tasks of the owned Board in canonical Column position, Task position, then Task ID ascending order. Missing and other-owner Boards both return BOARD_NOT_FOUND.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "Success", useReturnTypeSchema = true),
+		@ApiResponse(responseCode = "400", ref = "#/components/responses/MalformedRequest"),
+		@ApiResponse(responseCode = "404", ref = "#/components/responses/BoardNotFound")
+	})
+	@GetMapping("/boards/{boardId}/tasks")
+	List<TaskResponse> listBoard(@PathVariable UUID boardId) {
+		return tasks.listBoardTasks(boardId).stream().map(TaskResponse::from).toList();
+	}
+
 	@Operation(operationId = "taskSearch", summary = "Search Board Tasks",
 			description = "Owner- and Board-scoped, case-insensitive literal substring matching on title OR description. Trims query edges; blank queries return an empty list. Maximum 200 characters after trimming. Results order by Column position, Task position, then Task ID ascending; no relevance ranking.")
 	@ApiResponses({

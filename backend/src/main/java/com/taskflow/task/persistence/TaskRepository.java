@@ -47,9 +47,17 @@ public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
 	List<ColumnCount> aggregateBoardColumns(@Param("boardId") UUID boardId, @Param("ownerId") UUID ownerId);
 
 	List<TaskEntity> findAllByColumn_IdAndColumn_Board_OwnerIdOrderByPositionAscIdAsc(UUID columnId, UUID ownerId);
+	long countByColumn_IdAndColumn_Board_OwnerId(UUID columnId, UUID ownerId);
 	Optional<TaskEntity> findByIdAndColumn_Board_OwnerId(UUID id, UUID ownerId);
 	Optional<TaskEntity> findByIdAndColumn_Board_IdAndColumn_Board_OwnerId(UUID id, UUID boardId, UUID ownerId);
 	boolean existsByColumn_Id(UUID columnId);
+
+	@Query("""
+			select t from TaskEntity t
+			where t.column.board.id = :boardId and t.column.board.ownerId = :ownerId
+			order by t.column.position asc, t.position asc, t.id asc
+			""")
+	List<TaskEntity> listBoardTasks(@Param("boardId") UUID boardId, @Param("ownerId") UUID ownerId);
 
 	@Query("""
 			select t from TaskEntity t

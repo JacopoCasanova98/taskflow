@@ -64,9 +64,9 @@ describe('Task management', () => {
   function load(id = 'one') {
     http.expectOne('/api/boards/' + id).flush({ id, name: id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(columns);
-    columns.forEach((column) =>
-      http.expectOne('/api/columns/' + column.id + '/tasks').flush(tasks(column.id)),
-    );
+    http
+      .expectOne('/api/boards/' + id + '/tasks')
+      .flush(columns.flatMap((column) => tasks(column.id)));
   }
   function ready() {
     const value = state.workspace();

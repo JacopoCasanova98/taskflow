@@ -82,10 +82,7 @@ describe('Task Search in the Board workspace', () => {
   async function load(id = 'one', response = tasks) {
     http.expectOne('/api/boards/' + id).flush({ id, name: id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(columns);
-    for (const column of columns)
-      http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush(response.filter((t) => t.columnId === column.id));
+    http.expectOne('/api/boards/' + id + '/tasks').flush(response);
     await settle();
   }
   function canonical() {

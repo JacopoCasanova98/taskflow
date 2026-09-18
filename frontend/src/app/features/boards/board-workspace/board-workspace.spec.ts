@@ -62,17 +62,17 @@ describe('Board workspace page', () => {
       { id: 'z', name: 'Planning', position: 0 },
       { id: 'a', name: 'Doing', position: 1 },
     ]);
-    http.expectOne('/api/columns/a/tasks').flush([]);
-    http.expectOne('/api/columns/z/tasks').flush([
+    http.expectOne('/api/boards/one/tasks').flush([
       {
         id: 'z',
+        columnId: 'z',
         title: 'Second alphabetically',
         position: 0,
         priority: 'HIGH',
         dueDate: '2026-09-12',
         description: 'Hidden description',
       },
-      { id: 'a', title: 'First alphabetically', position: 1 },
+      { id: 'a', columnId: 'z', title: 'First alphabetically', position: 1 },
     ]);
     await fixture.whenStable();
     expect(

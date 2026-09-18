@@ -41,9 +41,9 @@ describe('Column management', () => {
       .expectOne('/api/boards/' + boardId)
       .flush({ id: boardId, name: boardId, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + boardId + '/columns').flush(response);
-    response.forEach((column) =>
-      http.expectOne('/api/columns/' + column.id + '/tasks').flush([
-        {
+    if (response.length)
+      http.expectOne('/api/boards/' + boardId + '/tasks').flush(
+        response.map((column) => ({
           id: 'task-' + column.id,
           columnId: column.id,
           title: 'Read only',
@@ -53,9 +53,8 @@ describe('Column management', () => {
           position: 0,
           createdAt: '',
           updatedAt: '',
-        },
-      ]),
-    );
+        })),
+      );
   }
   function ready() {
     const value = state.workspace();

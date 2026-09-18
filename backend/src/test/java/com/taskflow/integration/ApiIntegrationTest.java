@@ -22,6 +22,39 @@ class ApiIntegrationTest extends PostgresIntegrationSupport {
 	@Autowired com.taskflow.shared.security.jwt.AccessTokenService accessTokens;
 
 	@Test
+	void boardTaskReadReturnsOnlyOwnedBoardTasksInCanonicalOrderAndHandlesEmptyBoards() throws Exception {
+		UUID owner = user("board-tasks@example.test").getId();
+		actAs(owner);
+		var board = boardService.createBoard("Workspace");
+		String bearer = accessTokens.issue(owner).value();
+		clearIdentity();
+		mvc.perform(get("/api/boards/" + board.id() + "/tasks")).andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/boards/not-a-uuid/tasks").header("Authorization", "Bearer " + bearer))
+				.andExpect(status().isBadRequest());
+		mvc.perform(get("/api/boards/" + board.id() + "/tasks").header("Authorization", "Bearer " + bearer))
+				.andExpect(status().isOk()).andExpect(content().json("[]"));
+		actAs(owner);
+		var a = columnService.createColumn(board.id(), "A");
+		var b = columnService.createColumn(board.id(), "B");
+		columnService.createColumn(board.id(), "Empty");
+		var a1 = taskService.createTask(a.id(), "A1", null, null, null);
+		var b1 = taskService.createTask(b.id(), "B1", null, null, null);
+		var a2 = taskService.createTask(a.id(), "A2", "Full description", null, null);
+		taskService.placeTask(a2.id(), a.id(), 0);
+		var otherBoard = boardService.createBoard("Other owned Board");
+		var otherColumn = columnService.createColumn(otherBoard.id(), "Other");
+		taskService.createTask(otherColumn.id(), "Must not leak", null, null, null);
+		clearIdentity();
+		var response = mapper.readTree(mvc.perform(get("/api/boards/" + board.id() + "/tasks")
+				.header("Authorization", "Bearer " + bearer)) // GET needs no CSRF token.
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+		assertThat(response).hasSize(3);
+		assertThat(response.findValuesAsText("id")).containsExactly(a2.id().toString(), a1.id().toString(), b1.id().toString());
+		assertThat(response.findValuesAsText("columnId")).containsExactly(a.id().toString(), a.id().toString(), b.id().toString());
+		assertThat(response.get(0).get("description").asText()).isEqualTo("Full description");
+	}
+
+	@Test
 	void crossUserOperationsMatchMissingResourcesAndCannotChangePersistedWorkspace() throws Exception {
 		var owner = user("owner@example.test").getId();
 		actAs(owner);
@@ -40,6 +73,7 @@ class ApiIntegrationTest extends PostgresIntegrationSupport {
 			assertPrivate404(json(secured(patch("/api/boards/" + boardId), bearer, csrf), Map.of("name", "Changed")), "BOARD_NOT_FOUND");
 			assertPrivate404(secured(delete("/api/boards/" + boardId), bearer, csrf), "BOARD_NOT_FOUND");
 			assertPrivate404(secured(get("/api/boards/" + boardId + "/columns"), bearer, csrf), "BOARD_NOT_FOUND");
+			assertPrivate404(secured(get("/api/boards/" + boardId + "/tasks"), bearer, csrf), "BOARD_NOT_FOUND");
 			assertPrivate404(json(secured(post("/api/boards/" + boardId + "/columns"), bearer, csrf), Map.of("name", "New")), "BOARD_NOT_FOUND");
 			assertPrivate404(json(secured(put("/api/boards/" + boardId + "/columns/order"), bearer, csrf), Map.of("columnIds", java.util.List.of(columnId))), "BOARD_NOT_FOUND");
 			assertPrivate404(json(secured(patch("/api/columns/" + columnId), bearer, csrf), Map.of("name", "Changed")), "COLUMN_NOT_FOUND");

@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   catchError,
   distinctUntilChanged,
-  forkJoin,
   map,
   Observable,
   of,
@@ -119,10 +118,17 @@ export class BoardWorkspaceState {
           switchMap((columns) =>
             columns.length === 0
               ? of([])
-              : forkJoin(
-                  columns.map((column) =>
-                    this.tasks.listTasks(column.id).pipe(map((tasks) => ({ column, tasks }))),
-                  ),
+              : this.tasks.listBoardTasks(id).pipe(
+                  map((tasks) => {
+                    const byColumn = new Map(columns.map((column) => [column.id, [] as Task[]]));
+                    for (const task of tasks) {
+                      const lane = byColumn.get(task.columnId);
+                      // A concurrent Column change requires a fresh snapshot, never invented lanes.
+                      if (!lane) throw new Error('Workspace Task references an unknown Column.');
+                      lane.push(task);
+                    }
+                    return columns.map((column) => ({ column, tasks: byColumn.get(column.id)! }));
+                  }),
                 ),
           ),
           map((columns): WorkspaceState => ({ status: 'ready', board, columns })),

@@ -59,11 +59,14 @@ describe('Column controls in Board workspace', () => {
       .expectOne('/api/boards/' + id)
       .flush({ id, name: 'Board ' + id, createdAt: '', updatedAt: '' });
     http.expectOne('/api/boards/' + id + '/columns').flush(response);
-    response.forEach((column) =>
-      http
-        .expectOne('/api/columns/' + column.id + '/tasks')
-        .flush([{ id: 'task-' + column.id, title: 'Task ' + column.id }]),
-    );
+    if (response.length)
+      http.expectOne('/api/boards/' + id + '/tasks').flush(
+        response.map((column) => ({
+          id: 'task-' + column.id,
+          columnId: column.id,
+          title: 'Task ' + column.id,
+        })),
+      );
     await settle();
   }
   function button(name: string) {
