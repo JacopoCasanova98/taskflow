@@ -1,3 +1,49 @@
+resource "aws_cloudwatch_log_group" "postgres" {
+  name              = "/aws/rds/instance/${local.name_prefix}-db/postgresql"
+  retention_in_days = 14
+  tags              = { Component = "database" }
+}
+
+resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
+  alarm_name                = "${local.name_prefix}-rds-cpu"
+  alarm_description         = "RDS CPU above 80 percent for fifteen minutes; notifications are not connected."
+  namespace                 = "AWS/RDS"
+  metric_name               = "CPUUtilization"
+  statistic                 = "Average"
+  comparison_operator       = "GreaterThanThreshold"
+  threshold                 = 80
+  period                    = 300
+  evaluation_periods        = 3
+  treat_missing_data        = "missing"
+  alarm_actions             = []
+  ok_actions                = []
+  insufficient_data_actions = []
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.postgres.identifier
+  }
+  tags = { Component = "database" }
+}
+
+resource "aws_cloudwatch_metric_alarm" "rds_storage" {
+  alarm_name                = "${local.name_prefix}-rds-storage"
+  alarm_description         = "RDS free storage below 5 GiB, one quarter of the reference allocation, for fifteen minutes; notifications are not connected."
+  namespace                 = "AWS/RDS"
+  metric_name               = "FreeStorageSpace"
+  statistic                 = "Minimum"
+  comparison_operator       = "LessThanThreshold"
+  threshold                 = 5 * 1024 * 1024 * 1024
+  period                    = 300
+  evaluation_periods        = 3
+  treat_missing_data        = "missing"
+  alarm_actions             = []
+  ok_actions                = []
+  insufficient_data_actions = []
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.postgres.identifier
+  }
+  tags = { Component = "database" }
+}
+
 resource "aws_cloudwatch_log_group" "app" {
   for_each          = toset(["backend", "nginx", "host"])
   name              = "/${var.project_name}/${var.environment}/${each.key}"

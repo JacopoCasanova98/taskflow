@@ -1986,7 +1986,8 @@ Docker/SSM and prepares root-owned directories. No application/agent collection
 configuration, image pull, credentials or migration is embedded. IAM trusts only
 EC2, attaches SSM managed-instance core and grants repository-scoped ECR pulls
 plus log-stream writes to three groups and namespace-restricted telemetry.
-No ECR push, broad admin or Secrets Manager grant exists.
+MS8.5 added no ECR push, broad admin or Secrets Manager grant; MS8.6 scoped
+secret access is recorded below.
 
 Frontend/backend ECR repositories have immutable tags, push scanning, AES256
 encryption and seven-day untagged cleanup. The Internet-facing IPv4 ALB uses both
@@ -2012,4 +2013,46 @@ with required AMI/certificate inputs unset. The provider lock was unchanged.
 Bootstrap shell syntax passed; it was not executed. Validation proves schema and
 reference consistency, not AWS acceptance or runtime success. No AWS API/resource
 operation, state, plan, apply or destroy occurred. **MS8.5 COMPLETE**;
-MS8.6–MS8.9 and MS9 remain deferred, and MacroStep 8 remains incomplete.
+Database progress is recorded below; MacroStep 8 remains incomplete.
+
+### Terraform database (MS8.6)
+
+One private RDS PostgreSQL 17 instance defaults to db.t4g.micro in logical AZ a.
+Its subnet group spans only database-a/b; DB SG alone permits App SG TCP 5432.
+Public accessibility and Multi-AZ are explicitly disabled. The second subnet
+does not make Single-AZ HA. Storage is fixed 20 GiB encrypted gp3, without custom
+KMS, IOPS or autoscaling. Region/minor/class/AZ orderability remains unverified
+by design; no live lookup is performed.
+
+Seven-day automated backups provide a retained PITR window, not uninterrupted
+availability. Deletion protection, required final snapshot and retained automated
+backups model recovery safeguards. The deterministic final snapshot name must be
+changed by an independent operator before a repeated deletion if it already
+exists. Retained automated backups expire; final snapshots persist until deleted.
+Minor upgrades are automatic, major upgrades disabled, ordinary changes deferred
+to maintenance. No database destruction is executed by TaskFlow.
+
+RDS manages the taskflowadmin master credential in Secrets Manager; Terraform
+never supplies or reads a password. Separate application DB and JWT secret
+metadata have seven-day recovery windows and no values/versions. The EC2 app role
+gets only GetSecretValue/DescribeSecret on those two exact secret ARNs, never the
+master secret, secret writes, RDS administration or IAM DB authentication.
+Controlled application-role bootstrap and secure secret population are external
+reference operations for MS9 documentation. Terraform creates no SQL role/table;
+Flyway remains sole application-schema authority and Hibernate remains validate.
+Default PostgreSQL 17 SSL parameters are retained; MS9 still requires JDBC
+sslmode=verify-full and the RDS CA bundle.
+
+PostgreSQL logs export natively to a pre-created, 14-day CloudWatch group. Two
+native RDS alarms cover sustained CPU >80% and free storage <5 GiB (25% of 20 GiB),
+each over three five-minute periods, without notifications. Connections await
+a measured baseline. Performance Insights/Enhanced Monitoring remain disabled;
+Database Insights stays Standard. No EC2 agent relationship is used for RDS.
+
+Eight resources were added. Terraform 1.16.3 / AWS 6.65.0 formatting, validation
+and dependency-graph review passed with networking disabled, no AWS environment
+variables or credential directory, and unresolved deployment inputs. Provider
+lock and metadata outputs remain unchanged. No credential value/state, AWS API
+operation, plan, apply or destroy was produced. Static validation checks schemas
+and references, not live availability or successful recovery.
+**MS8.6 COMPLETE**; MS8.7–MS8.9 and MS9 remain deferred.

@@ -1,3 +1,25 @@
+variable "db_engine_version" {
+  description = "PostgreSQL 17 reference major or minor; regional minor availability is not queried."
+  type        = string
+  default     = "17"
+  nullable    = false
+  validation {
+    condition     = can(regex("^17([.][0-9]+)?$", var.db_engine_version))
+    error_message = "Use PostgreSQL major 17 or a 17.x minor version."
+  }
+}
+
+variable "db_instance_class" {
+  description = "Reference RDS instance class; orderability and capacity remain external operator checks."
+  type        = string
+  default     = "db.t4g.micro"
+  nullable    = false
+  validation {
+    condition     = can(regex("^db[.][a-z0-9]+[.][a-z0-9]+$", var.db_instance_class))
+    error_message = "Use an RDS instance class such as db.t4g.micro."
+  }
+}
+
 variable "ec2_ami_id" {
   description = "Required regional Amazon Linux 2023 x86_64 AMI with SSM support; syntax only, never looked up."
   type        = string

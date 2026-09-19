@@ -1,3 +1,19 @@
+resource "aws_iam_role_policy" "application_secrets" {
+  name = "${local.name_prefix}-application-secrets"
+  role = aws_iam_role.app.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+      Resource = [
+        aws_secretsmanager_secret.app_database.arn,
+        aws_secretsmanager_secret.jwt_signing.arn
+      ]
+    }]
+  })
+}
+
 resource "aws_iam_role" "app" {
   name = "${local.name_prefix}-app"
   assume_role_policy = jsonencode({

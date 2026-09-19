@@ -100,7 +100,7 @@ MacroStep 7 Definition of Done:
 - [x] MS8.3 — Terraform networking
 - [x] MS8.4 — Terraform security
 - [x] MS8.5 — Terraform compute
-- [ ] MS8.6 — Terraform database
+- [x] MS8.6 — Terraform database
 - [ ] MS8.7 — Terraform outputs
 - [ ] MS8.8 — CloudFormation equivalent
 - [ ] MS8.9 — IaC verification (static/local)
@@ -125,10 +125,15 @@ EC2-only IAM/profile with SSM, scoped ECR pull and telemetry, two ECR repositori
 ALB/target/listeners with required external certificate input and internal-health
 blocking, three log groups and four alarms. Formatting, offline validation,
 graph/static review and bootstrap syntax checks passed; no runtime deployment
-or telemetry collection is claimed. No database, secret resources or live data
-sources are defined.
-**MS8.1–MS8.5 COMPLETE. MacroStep 8 remains incomplete.**
-MS8.6–MS8.9 and MacroStep 9 have not started. No resources provisioned.
+or telemetry collection is claimed.
+MS8.6 defines private Single-AZ PostgreSQL 17, encrypted 20 GiB gp3, seven-day
+backups/PITR and deletion/final-snapshot safeguards. RDS manages the master;
+two application secrets contain metadata only, with exact app-role read grants.
+Native PostgreSQL logs and two RDS alarms are defined. Formatting, offline
+validation and static dependency/security review passed; no live data sources
+or secret values exist. Flyway/schema and external role-bootstrap boundaries remain.
+**MS8.1–MS8.6 COMPLETE. MacroStep 8 remains incomplete.**
+MS8.7–MS8.9 and MacroStep 9 have not started. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 

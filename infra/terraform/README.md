@@ -4,13 +4,14 @@ This single root module models the [AWS reference architecture](../../docs/AWS_A
 MS8.2 establishes the provider, inputs, naming/tags and foundation outputs.
 MS8.3 adds networking; MS8.4 adds three Security Groups and their dedicated rules.
 MS8.5 adds compute, runtime IAM, ECR, ALB and observability definitions.
+MS8.6 adds private RDS, application secret metadata and scoped secret reads.
 There are no data sources or child modules.
 
 ## Execution policy and validation
 
 TaskFlow never provisions AWS infrastructure. No AWS account, credentials,
 billable resources or live AWS API calls are required. Do not run `terraform apply`
-or `terraform destroy`; no plan is required or run for MS8.2–MS8.5. Public Registry and
+or `terraform destroy`; no plan is required or run for MS8.2–MS8.6. Public Registry and
 HashiCorp release downloads are permitted.
 
 With Terraform installed, run from the repository root:
@@ -244,7 +245,8 @@ The instance profile uses a role trusted only by `ec2.amazonaws.com`.
 `AmazonSSMManagedInstanceCore` supplies SSM administration, not SSM full access.
 Custom ECR permissions allow only BatchCheckLayerAvailability, GetDownloadUrlForLayer
 and BatchGetImage on the two repository ARNs; GetAuthorizationToken uses the
-required wildcard resource. No ECR push or secret-read grants exist.
+required wildcard resource. No ECR push exists; MS8.6 adds the separate scoped
+application-secret policy documented below.
 
 Custom telemetry permissions allow CreateLogStream/PutLogEvents only under the
 three pre-created log groups, plus PutMetricData restricted to namespace
@@ -298,8 +300,7 @@ owns notification integration and threshold calibration.
 
 Static inventory adds 23 instances: one EC2, five IAM resources, two repositories
 and two lifecycle policies, six ALB/target/listener resources, three log groups
-and four alarms. RDS, DB subnet groups, secret resources and live data sources
-remain absent. Secrets and exact scoped read grants wait for MS8.6; ALB DNS,
+and four alarms. Database/secret additions are recorded under MS8.6; ALB DNS,
 EC2 IDs, ECR URLs and IAM outputs wait for MS8.7. MS9 owns release/runtime work.
 
 Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual graph review
@@ -308,10 +309,104 @@ Required deployment inputs remained unset; provider cache/lock were reused.
 Shell syntax passed; bootstrap was not executed. These are schema/reference and
 static checks, not proof of AWS service acceptance or bootstrap/runtime success.
 
+## Database and credentials (MS8.6)
+
+`database.tf` defines one RDS PostgreSQL instance with `db_engine_version = "17"`
+and `db_instance_class = "db.t4g.micro"` defaults. These are reference assumptions:
+the major-only version permits RDS minor selection; actual regional minor/class/AZ
+orderability is an external real-operator check, never a project API query.
+Database `taskflow` and administrative username `taskflowadmin` are non-sensitive
+constants. The DB subnet group contains only database-a/b, while the Single-AZ
+instance uses logical AZ a (an account-relative label). Two subnet-group AZs do
+not provide HA. Only DB SG is attached, TCP 5432, publicly_accessible=false;
+no public route or compute dependency is added.
+
+Storage is fixed 20 GiB encrypted gp3 with default AWS-managed encryption.
+No custom KMS, provisioned IOPS, storage autoscaling, replica, proxy or Aurora.
+Minor upgrades are automatic; major upgrades are disabled and ordinary changes
+wait for maintenance (`apply_immediately=false`).
+
+### Backups and lifecycle
+
+Seven-day automated backups support PITR within the retained recovery window;
+they do not provide HA, zero data loss or instant recovery. Single-AZ outages
+remain possible. Deletion protection is enabled, final snapshots are required,
+and the reference final identifier is `<prefix>-db-final`.
+A real operator would need to deliberately disable deletion protection and
+choose a fresh final-snapshot identifier if one already exists; a fixed name
+cannot be reused across repeated deletion cycles. TaskFlow never performs these
+operations. Snapshot tags are copied.
+
+`delete_automated_backups=false` avoids immediate backup removal on instance
+deletion; retained backups expire according to the retention policy in effect
+at deletion. Final snapshots remain until separately deleted. These behaviors
+were checked on 2026-09-19 against the
+[locked provider documentation](https://github.com/hashicorp/terraform-provider-aws/blob/v6.65.0/website/docs/r/db_instance.html.markdown)
+and [AWS retained-backup documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.Retaining.html).
+Native RDS backups suffice; no AWS Backup resources are defined.
+
+### Credential and schema authority
+
+`manage_master_user_password=true` delegates master generation/management to
+RDS and Secrets Manager. Terraform supplies no master password and never reads
+the secret value. No apply means no credential is actually generated.
+The EC2 role has no master-secret access.
+
+Two application-owned Secrets Manager resources define metadata only:
+`<prefix>/database/application` (future dedicated-role username/password) and
+`<prefix>/jwt/signing` (future TASKFLOW_JWT_SECRET_BASE64, decoding to 32 bytes).
+Both use normal service encryption and seven-day deletion recovery. No custom
+key, secret version, random provider, secret input or example value exists.
+The app role gets only GetSecretValue and DescribeSecret on those two exact ARN
+references, with no writes, wildcard secrets, master read or RDS management.
+IAM database authentication is explicitly disabled.
+
+Reference operational flow, not executed by TaskFlow: RDS manages the master;
+an independent operator would use that identity for controlled bootstrap of a
+dedicated `taskflow` PostgreSQL role with minimum required grants, then securely
+populate its credentials into the application secret. Application/Flyway use
+that role. Terraform creates neither SQL roles nor tables; no SQL provider,
+provisioner or user-data migration exists. Flyway alone owns application-schema
+migrations and Hibernate remains `validate`. MS9 may document the procedure.
+
+Default RDS PostgreSQL 17 parameters are retained: AWS documents
+[`rds.force_ssl=1` for PostgreSQL 15+](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html).
+MS9 JDBC must still use `sslmode=verify-full` with the RDS CA bundle; server-side
+SSL enforcement does not replace client certificate/hostname verification.
+No custom parameter group or CA material is stored in Terraform.
+
+### Database observability and validation
+
+Only the PostgreSQL log type is exported to the pre-created
+`/aws/rds/instance/<prefix>-db/postgresql` log group with 14-day retention.
+RDS explicitly depends on that group to avoid unmanaged initial retention.
+This is native [RDS PostgreSQL log export](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html),
+not EC2 CloudWatch Agent forwarding or app-role log access.
+
+Two AWS/RDS alarms use DBInstanceIdentifier: average CPU >80% and minimum
+FreeStorageSpace <5 GiB (5,368,709,120 bytes, 25% of the 20 GiB allocation), each
+for three five-minute periods. Missing data remains missing; notification arrays
+are empty. Connections are deferred pending capacity/baseline evidence.
+Enhanced Monitoring and Performance Insights are disabled; Database Insights
+stays in [default Standard mode](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DatabaseInsights.html).
+No Advanced tier, extended telemetry retention or extra monitoring role is enabled.
+Native metrics/logs are sufficient here; real operational logging/alarm costs
+would still apply outside the project's zero-provisioning model.
+
+Eight additions: subnet group, RDS instance, two secret metadata resources,
+one scoped IAM policy, one log group and two alarms. No secret value is supplied,
+read or generated by Terraform; metadata/ARN references are not credential values.
+No DB or secret outputs are added, including the administrative master-secret ARN.
+Offline validation requires neither deployment inputs nor secret population.
+MS8.6 formatting, validation and graph review passed with Terraform 1.16.3 /
+AWS 6.65.0, networking disabled, no AWS environment variables or credential
+directory, and the existing unresolved AMI/certificate inputs. Provider lock and
+outputs are unchanged. No state, AWS API operation, plan, apply or destroy occurred.
+
 ## Milestone ownership
 
 MS8.2 owns the foundation, MS8.3 networking, MS8.4 Security Groups and MS8.5 compute.
-Database (MS8.6), resource outputs (MS8.7), CloudFormation (MS8.8) and
+MS8.6 owns database/secret metadata and scoped access. Resource outputs (MS8.7), CloudFormation (MS8.8) and
 final IaC verification (MS8.9) remain deferred. Future authoring must preserve
 credential-free static validation; no live AWS data sources are introduced here.
 MS9 deployment design remains separate and unstarted.
