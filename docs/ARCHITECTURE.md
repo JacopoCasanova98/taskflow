@@ -1969,4 +1969,47 @@ directory. The provider lock and existing Terraform files remain unchanged.
 Static inspection confirms the exact traffic matrix and no SSH, public backend/DB,
 all-protocol, self or ICMP rules. Validation checks schemas/references, not AWS
 service acceptance. No state or AWS resources were created; no AWS API, plan,
-apply or destroy was used. **MS8.4 COMPLETE**; MS8.5–MS8.9 and MS9 remain deferred.
+apply or destroy was used. **MS8.4 COMPLETE**; compute progress is recorded below.
+
+### Terraform compute (MS8.5)
+
+One reference EC2 host in public subnet a uses App SG and a role-backed instance
+profile. Public IPv4 is for the approved no-NAT HTTPS egress; inbound 8080 remains
+ALB-only, with no SSH/key pair. Required AMI input identifies regional AL2023
+x86_64; it has no default or live lookup. Defaults remain t3.medium and encrypted
+30 GiB gp3 root storage, deleted on termination. IMDSv2 is required, endpoint
+enabled, hop limit 2 and metadata tags disabled. Container metadata isolation
+must be implemented before application startup in MS9; hop limit is not isolation.
+
+Minimal AL2023 user data installs Docker, SSM and CloudWatch Agent, enables
+Docker/SSM and prepares root-owned directories. No application/agent collection
+configuration, image pull, credentials or migration is embedded. IAM trusts only
+EC2, attaches SSM managed-instance core and grants repository-scoped ECR pulls
+plus log-stream writes to three groups and namespace-restricted telemetry.
+No ECR push, broad admin or Secrets Manager grant exists.
+
+Frontend/backend ECR repositories have immutable tags, push scanning, AES256
+encryption and seven-day untagged cleanup. The Internet-facing IPv4 ALB uses both
+public subnets and ALB SG, with one HTTP 8080 instance target/attachment. HTTP
+redirects to HTTPS; a required external regional ACM ARN supplies the certificate.
+ACM/DNS creation is not assigned explicitly to MS8.5 and is not introduced here.
+The current AWS-recommended TLS policy is recorded with source in the
+[Terraform README](../infra/terraform/README.md#alb-and-health-contract).
+Public HTTPS blocks internal/actuator paths with 404. Direct target health probes
+use /internal/health; MS9 must implement Nginx-to-backend health proxying. This is
+an unimplemented runtime contract, not a currently healthy service.
+
+Three log groups retain 14 days; four native-metric alarms cover EC2 status/CPU,
+healthy ALB targets and ALB-generated 5xx. No notifications are connected.
+Agent collection and notification integration remain MS9 design work.
+Static inventory adds 23 resource instances; no RDS, DB subnet groups, secret
+resources or live data sources. Secrets/scoped reads belong to MS8.6, resource
+outputs to MS8.7; existing metadata outputs remain unchanged.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual graph review
+passed without networking, AWS environment variables or a credential directory,
+with required AMI/certificate inputs unset. The provider lock was unchanged.
+Bootstrap shell syntax passed; it was not executed. Validation proves schema and
+reference consistency, not AWS acceptance or runtime success. No AWS API/resource
+operation, state, plan, apply or destroy occurred. **MS8.5 COMPLETE**;
+MS8.6–MS8.9 and MS9 remain deferred, and MacroStep 8 remains incomplete.

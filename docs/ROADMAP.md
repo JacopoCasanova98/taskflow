@@ -99,7 +99,7 @@ MacroStep 7 Definition of Done:
 - [x] MS8.2 — Terraform provider/state
 - [x] MS8.3 — Terraform networking
 - [x] MS8.4 — Terraform security
-- [ ] MS8.5 — Terraform compute
+- [x] MS8.5 — Terraform compute
 - [ ] MS8.6 — Terraform database
 - [ ] MS8.7 — Terraform outputs
 - [ ] MS8.8 — CloudFormation equivalent
@@ -119,10 +119,16 @@ network-invariant review passed with the unchanged provider lock.
 MS8.4 adds ALB/App/DB Security Groups and exactly seven dedicated traffic rules:
 public ALB entry, ALB-only Nginx ingress, app-only PostgreSQL ingress and explicit
 restricted egress. No SSH; future SSM IAM belongs to MS8.5. Formatting, offline
-validation and static security/graph review passed. No IAM, compute, database,
-secret resources or live data sources are defined.
-**MS8.1–MS8.4 COMPLETE. MacroStep 8 remains incomplete.**
-MS8.5–MS8.9 and MacroStep 9 have not started. No resources provisioned.
+validation and static security/graph review passed for MS8.4.
+MS8.5 defines one EC2 host with encrypted root storage and minimal host bootstrap,
+EC2-only IAM/profile with SSM, scoped ECR pull and telemetry, two ECR repositories,
+ALB/target/listeners with required external certificate input and internal-health
+blocking, three log groups and four alarms. Formatting, offline validation,
+graph/static review and bootstrap syntax checks passed; no runtime deployment
+or telemetry collection is claimed. No database, secret resources or live data
+sources are defined.
+**MS8.1–MS8.5 COMPLETE. MacroStep 8 remains incomplete.**
+MS8.6–MS8.9 and MacroStep 9 have not started. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 
