@@ -2,6 +2,9 @@
 
 ## Overview
 
+Milestone sections retain implementation-time evidence. The final MacroStep 8
+verification section records current IaC status; earlier deferrals are historical.
+
 TaskFlow is a full-stack application organized as a single repository. It separates the backend, frontend, infrastructure, and project documentation so each concern can evolve independently while remaining coordinated.
 
 ## Components and responsibilities
@@ -154,7 +157,7 @@ PostgreSQL is the application's persistent data store. Its use, local configurat
 
 ### Infrastructure
 
-The `infra/` directory contains infrastructure definitions. Docker assets support local containerized development and execution. Directories for Terraform and CloudFormation are reserved for infrastructure definitions when those tools are adopted.
+The `infra/` directory contains infrastructure definitions. Docker assets support local containerized development and execution. `infra/terraform/` contains the reference root module foundation; CloudFormation remains reserved for MS8.8.
 
 ## Authentication architecture (MS4)
 
@@ -826,7 +829,7 @@ Close-out review found no ownership/security gap or outstanding feature-flow def
 
 Column and Task positions remain canonical manual ordering. Task content and placement remain separate. Search/filter/sort remain presentation projections, with dragging disabled for projected/nonmanual views. Priority remains LOW/MEDIUM/HIGH; dueDate remains LocalDate/PostgreSQL DATE and a browser-local civil date in the UI. Column is workflow state; no completed/open inference exists. No production code, dependency, migration, or browser-automation infrastructure changed in MS5.16.
 
-Final gates: **377 backend tests passed with zero failures/errors/skips**, **586 frontend tests across 38 files passed (one acceptance test added)**, and the production frontend build passed **without warnings**. Backend execution used the approved method after sandbox Mockito attachment failed; the build used the approved rerun after the sandboxed exit-134 abort without diagnostics. Diff/whitespace checks passed. This verifies application flow, routing, UI/state composition, emitted HTTP contracts, the full automated suites, and static architecture/security invariants. It does not prove live PostgreSQL/Flyway behavior (MS6.4), browser pointer geometry, real network/browser cookie integration, or deployment. The HTTP test does not simulate Set-Cookie behavior or manually manipulate cookies; this is functional acceptance, not full production/browser E2E. Broader frontend quality remains MS6.5 and deployed smoke testing remains later work.
+Final gates: **377 backend tests passed with zero failures/errors/skips**, **586 frontend tests across 38 files passed (one acceptance test added)**, and the production frontend build passed **without warnings**. Backend execution used the approved method after sandbox Mockito attachment failed; the build used the approved rerun after the sandboxed exit-134 abort without diagnostics. Diff/whitespace checks passed. This verifies application flow, routing, UI/state composition, emitted HTTP contracts, the full automated suites, and static architecture/security invariants. It does not prove live PostgreSQL/Flyway behavior (MS6.4), browser pointer geometry, real network/browser cookie integration, or deployment. The HTTP test does not simulate Set-Cookie behavior or manually manipulate cookies; this is functional acceptance, not full production/browser E2E. Broader frontend quality remains MS6.5 and production smoke-test design remains later work; no AWS execution is required.
 
 **MS5.1–MS5.16 and MacroStep 5 are complete.** The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within these explicitly recorded verification boundaries. MacroStep 6 — Software quality follows this baseline; see MS6.1 below.
 
@@ -1309,7 +1312,7 @@ former path); it is not a JWT or repository-wide secret allowlist.
 | Single HMAC JWT secret rotation | Medium | External secret is required; key-ring/rotation design deferred | No | Deployment/security |
 | HTTPS and Secure cookies | High | Production assumes HTTPS and production Secure-cookie configuration | Yes for production | Deployment |
 | CSP and hosting security headers | Medium | Final CSP belongs to the known frontend hosting topology | No | Frontend/deployment |
-| Cloud secret management | High | Configuration is externalized now; AWS Secrets Manager/SSM integration belongs to AWS deployment | Yes for AWS production | Infrastructure |
+| Cloud secret management | High | Configuration is externalized now; AWS Secrets Manager/SSM integration belongs to the reference deployment design | Yes for AWS production | Infrastructure |
 
 Search/SQL injection, XSS, open redirect, CORS, error exposure, logging
 exposure, and authorization/IDOR were reviewed as non-findings within the
@@ -1867,4 +1870,313 @@ suite added. Only close-out documentation changed; no application, dependency,
 migration or Compose change was needed. The unchanged MS6 472/593 test baseline
 was not rerun; source builds, container/API/persistence checks, secret scan and
 `git diff --check` passed. TaskFlow can be started completely with local Docker
-Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 remains unstarted.
+Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 progress is recorded below.
+
+### AWS architecture decision (MS8.1)
+
+The selected AWS IaC reference target is Ireland (`eu-west-1`), ACM/ALB HTTPS in front of one
+EC2 Docker application host and isolated RDS PostgreSQL 17 Single-AZ. Same-origin
+Nginx `/api` remains the browser boundary; backend and database are not public.
+Public-IP host egress with ALB-only ingress and SSM administration avoids NAT
+cost. ECR, Secrets Manager and CloudWatch complete the operational contract.
+Single-instance downtime and ALB fixed cost are explicit portfolio trade-offs.
+See [AWS architecture](AWS_ARCHITECTURE.md) for the diagram, dated sources,
+cost uncertainty and MS9 security/runtime design, and
+[ADR 002](ADR/002-aws-deployment-architecture.md) for the decision.
+No live AWS environment is planned or authorized. AWS credentials are not
+required; static/local verification without AWS mutation is the project acceptance
+model. Terraform and CloudFormation will remain genuine, un-applied definitions.
+MS8.1 delivered the architecture decision only. **MS8.1 COMPLETE**; MS8.2 progress
+is recorded below. MacroStep 9 covers deployment design and production readiness,
+not cloud hosting. See the linked reference architecture for the hard execution policy.
+
+### Terraform provider/state foundation (MS8.2)
+
+MS8.2 established `infra/terraform/` as one root module without AWS resources,
+data sources or child modules. Terraform uses `~> 1.16.0`; `hashicorp/aws` uses `~> 6.65.0`, restricting
+automatic compatibility to the selected minor lines' patches. The generated
+`.terraform.lock.hcl` belongs in Git and pins the provider version/checksums.
+Version evidence, platform locking and state details live in the
+[Terraform README](../infra/terraform/README.md).
+
+String inputs default to `project_name = "taskflow"`, `environment = "prod"` and
+`aws_region = "eu-west-1"`. Prod identifies the model, not an existing stack.
+The canonical prefix is `<project_name>-<environment>`; provider default tags
+derive Project/Environment from inputs and set ManagedBy to Terraform.
+Component/Name tags belong to later resources. Only reference_region,
+environment and name_prefix metadata are outputs; infrastructure outputs wait
+for MS8.7.
+
+Actual state policy is default local state, ignored with cache/crash/plan artifacts;
+no active S3 backend exists. Hypothetical production would use private, encrypted,
+versioned S3 with least privilege and native `use_lockfile = true`, not deprecated
+DynamoDB locking. No state bucket, table or KMS key is provisioned.
+
+From `infra/terraform/`, run `terraform init -backend=false`,
+`terraform fmt -check -recursive` and `terraform validate`. AWS credentials,
+an account and AWS API access are unnecessary; public provider downloads are
+permitted. No plan, apply or destroy is run. Networking progress is recorded
+below; MacroStep 8 is incomplete.
+
+Verified with Terraform 1.16.3 and AWS provider 6.65.0: initialization, formatting
+and validation passed. Validation ran in an isolated container with networking
+disabled and no AWS credentials. Signed provider hashes cover macOS and Linux,
+each on ARM64 and x86_64. No state was generated. **MS8.2 COMPLETE**.
+
+### Terraform networking (MS8.3)
+
+`infra/terraform/networking.tf` implements the approved network as un-applied
+reference IaC: one DNS-enabled VPC (`10.42.0.0/16`), public-a/b
+(`10.42.0.0/24`, `10.42.1.0/24`) and isolated database-a/b
+(`10.42.10.0/24`, `10.42.11.0/24`). CIDRs are validated IPv4 inputs; subnet maps
+require exactly a/b. Logical AZ names derive from region plus a/b without API
+discovery; letters are account-relative, not physical identity guarantees.
+
+One IGW and a shared public route table provide the only Internet default route.
+Public subnets enable public IPv4 assignment for the later host's egress.
+Database subnets disable it and share an explicitly associated route table with
+only the implicit VPC local route. MS8.3 defined no NAT, endpoints, custom NACLs,
+Security Groups, compute or database resources. Names/common tags follow MS8.2;
+networking adds Name/Component/Tier tags. Foundation outputs remain unchanged.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual dependency-graph
+review passed with networking disabled and no AWS credentials, using the existing
+provider cache and unchanged lock. Static review confirms 13 networking instances:
+one VPC, four subnets, one IGW, two route tables, one public route and four
+associations. Validation checks schema/types/references, not AWS acceptance or
+regional availability. No state or AWS resources were created; no AWS API, plan,
+apply or destroy was used. **MS8.3 COMPLETE**. Security progress is recorded below;
+MacroStep 8 is incomplete. See the
+[Terraform README](../infra/terraform/README.md#networking-ms83) for the contract.
+
+### Terraform security (MS8.4)
+
+`infra/terraform/security.tf` adds three dedicated VPC Security Groups, four
+ingress rules and three egress rules using separate direction-specific resources.
+Only ALB accepts public ingress: TCP 80 for a future HTTPS redirect and TCP 443.
+ALB egress reaches only App SG TCP 8080; App accepts 8080 only from ALB SG.
+This port represents Nginx at the host boundary; Spring Boot stays Docker-internal.
+App egress permits DB SG TCP 5432 and public HTTPS TCP 443 for AWS services and
+host/bootstrap dependencies. DB accepts 5432 only from App SG and has no explicit
+egress. SG references express owned peer boundaries; only public entry and HTTPS
+egress use Internet CIDRs. No default allow-all egress is restored.
+
+Stateful response traffic needs no additional return/ephemeral-port rules. There
+is no SSH; future administration uses SSM over outbound HTTPS. No IAM, key pair,
+secret, EC2, ALB or RDS resource is added. EC2/ALB and IAM role/instance profile
+belong to MS8.5; RDS belongs to MS8.6. Names/tags inherit the existing conventions.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual graph review
+passed with networking disabled, no AWS environment variables and no credential
+directory. The provider lock and existing Terraform files remain unchanged.
+Static inspection confirms the exact traffic matrix and no SSH, public backend/DB,
+all-protocol, self or ICMP rules. Validation checks schemas/references, not AWS
+service acceptance. No state or AWS resources were created; no AWS API, plan,
+apply or destroy was used. **MS8.4 COMPLETE**; compute progress is recorded below.
+
+### Terraform compute (MS8.5)
+
+One reference EC2 host in public subnet a uses App SG and a role-backed instance
+profile. Public IPv4 is for the approved no-NAT HTTPS egress; inbound 8080 remains
+ALB-only, with no SSH/key pair. Required AMI input identifies regional AL2023
+x86_64; it has no default or live lookup. Defaults remain t3.medium and encrypted
+30 GiB gp3 root storage, deleted on termination. IMDSv2 is required, endpoint
+enabled, hop limit 2 and metadata tags disabled. Container metadata isolation
+must be implemented before application startup in MS9; hop limit is not isolation.
+
+Minimal AL2023 user data installs Docker, SSM and CloudWatch Agent, enables
+Docker/SSM and prepares root-owned directories. No application/agent collection
+configuration, image pull, credentials or migration is embedded. IAM trusts only
+EC2, attaches SSM managed-instance core and grants repository-scoped ECR pulls
+plus log-stream writes to three groups and namespace-restricted telemetry.
+MS8.5 added no ECR push, broad admin or Secrets Manager grant; MS8.6 scoped
+secret access is recorded below.
+
+Frontend/backend ECR repositories have immutable tags, AES256
+encryption and seven-day untagged cleanup. The Internet-facing IPv4 ALB uses both
+public subnets and ALB SG, with one HTTP 8080 instance target/attachment. HTTP
+redirects to HTTPS; a required external regional ACM ARN supplies the certificate.
+ACM/DNS creation is not assigned explicitly to MS8.5 and is not introduced here.
+The current AWS-recommended TLS policy is recorded with source in the
+[Terraform README](../infra/terraform/README.md#alb-and-health-contract).
+Public HTTPS blocks internal/actuator paths with 404. Direct target health probes
+use /internal/health; MS9 must implement Nginx-to-backend health proxying. This is
+an unimplemented runtime contract, not a currently healthy service.
+
+Three log groups retain 14 days; four native-metric alarms cover EC2 status/CPU,
+healthy ALB targets and ALB-generated 5xx. No notifications are connected.
+Agent collection and notification integration remain MS9 design work.
+Static inventory adds 23 resource instances; no RDS, DB subnet groups, secret
+resources or live data sources. Secrets/scoped reads belong to MS8.6, resource
+outputs to MS8.7; existing metadata outputs remain unchanged.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual graph review
+passed without networking, AWS environment variables or a credential directory,
+with required AMI/certificate inputs unset. The provider lock was unchanged.
+Bootstrap shell syntax passed; it was not executed. Validation proves schema and
+reference consistency, not AWS acceptance or runtime success. No AWS API/resource
+operation, state, plan, apply or destroy occurred. **MS8.5 COMPLETE**;
+Database progress is recorded below; MacroStep 8 remains incomplete.
+
+### Terraform database (MS8.6)
+
+One private RDS PostgreSQL 17 instance defaults to db.t4g.micro in logical AZ a.
+Its subnet group spans only database-a/b; DB SG alone permits App SG TCP 5432.
+Public accessibility and Multi-AZ are explicitly disabled. The second subnet
+does not make Single-AZ HA. Storage is fixed 20 GiB encrypted gp3, without custom
+KMS, IOPS or autoscaling. Region/minor/class/AZ orderability remains unverified
+by design; no live lookup is performed.
+
+Seven-day automated backups provide a retained PITR window, not uninterrupted
+availability. Deletion protection, required final snapshot and retained automated
+backups model recovery safeguards. The deterministic final snapshot name must be
+changed by an independent operator before a repeated deletion if it already
+exists. Retained automated backups expire; final snapshots persist until deleted.
+Minor upgrades are automatic, major upgrades disabled, ordinary changes deferred
+to maintenance. No database destruction is executed by TaskFlow.
+
+RDS manages the taskflowadmin master credential in Secrets Manager; Terraform
+never supplies or reads a password. Separate application DB and JWT secret
+metadata have seven-day recovery windows and no values/versions. The EC2 app role
+gets only GetSecretValue/DescribeSecret on those two exact secret ARNs, never the
+master secret, secret writes, RDS administration or IAM DB authentication.
+Controlled application-role bootstrap and secure secret population are external
+reference operations for MS9 documentation. Terraform creates no SQL role/table;
+Flyway remains sole application-schema authority and Hibernate remains validate.
+Default PostgreSQL 17 SSL parameters are retained; MS9 still requires JDBC
+sslmode=verify-full and the RDS CA bundle.
+
+PostgreSQL logs export natively to a pre-created, 14-day CloudWatch group. Two
+native RDS alarms cover sustained CPU >80% and free storage <5 GiB (25% of 20 GiB),
+each over three five-minute periods, without notifications. Connections await
+a measured baseline. Performance Insights/Enhanced Monitoring remain disabled;
+Database Insights stays Standard. No EC2 agent relationship is used for RDS.
+
+Eight resources were added. Terraform 1.16.3 / AWS 6.65.0 formatting, validation
+and dependency-graph review passed with networking disabled, no AWS environment
+variables or credential directory, and unresolved deployment inputs. Provider
+lock and metadata outputs remain unchanged. No credential value/state, AWS API
+operation, plan, apply or destroy was produced. Static validation checks schemas
+and references, not live availability or successful recovery.
+**MS8.6 COMPLETE**; output progress is recorded below.
+
+### Terraform outputs (MS8.7)
+
+`outputs.tf` exposes twelve curated non-sensitive outputs: the three foundation
+metadata values, canonical AWS-generated ALB hostname and alias zone ID, app
+instance/VPC IDs, stable a/b subnet maps, an alb/app/db security-group object,
+frontend/backend ECR URL map and private hostname-only RDS endpoint. The ALB
+hostname is not the final application domain. ECR URLs support conceptual release
+integration; the database hostname is infrastructure metadata, not a credential.
+
+EC2 public IP is omitted because it serves egress, not public application entry.
+No credential values, master-secret information, application-secret ARNs or
+unnecessary IAM/log metadata are exposed. No current consumer needs a database
+identifier output; internal metrics already reference it. Constants and deployment
+inputs are not echoed beyond the preserved foundation metadata.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting and validation passed with networking
+disabled, no AWS environment variables or credential directory and required
+AMI/certificate inputs unset. All 46 resource blocks are unchanged; there are no
+data sources/modules, topology changes or provider-lock changes. Outputs define
+interfaces only: no concrete resource values, state, AWS API/resource operation,
+plan, apply or destroy occurred. **MS8.7 COMPLETE**; CloudFormation and final
+verification are recorded below. MS9 remains unstarted.
+
+### CloudFormation equivalent (MS8.8)
+
+`infra/cloudformation/taskflow.yaml` represents the completed Terraform
+architecture as one alternative CloudFormation template. Terraform remains
+primary and unchanged; the two implementations must never concurrently manage
+the same live resources. TaskFlow deploys neither.
+
+The template includes the same VPC/four-subnet topology and isolated database
+routing, three SG boundaries and seven intended traffic rules, EC2-only
+IAM/profile with SSM and scoped ECR/telemetry/secret reads, two ECR repositories,
+one EC2 host, ALB/target/listeners, private Single-AZ PostgreSQL, two application
+secret metadata definitions, four log groups and six native alarms. AMI and
+certificate remain unresolved inputs. Bootstrap, health proxying, telemetry
+collection and external DB-role/secret population retain their MS9 boundaries.
+No ACM/Route 53 resources or application schema operations are added.
+
+CloudFormation-specific representation differences are documented in its
+[README parity matrix](../infra/cloudformation/README.md#parity-and-intentional-representation-differences):
+AWS::Region, explicit tags, standalone gateway attachment, primary network
+interface for public IPv4, embedded lifecycle/bootstrap/target/policy properties,
+and flat outputs. Three non-routable localhost egress sentinels suppress default
+allow-all SG egress; they add no architectural traffic capability. Application
+secrets use Retain rather than Terraform's seven-day recovery window; RDS uses
+Snapshot deletion/replacement policies alongside deletion protection and retained
+automated backups. Native EC2 user-data update behavior differs from Terraform's
+replace-on-change behavior and is explicitly documented, not claimed identical.
+
+Seventeen non-sensitive outputs preserve Terraform's twelve-output interface
+semantics, flattening subnet/SG/ECR maps. ALB remains the canonical entry hostname;
+EC2 public IP, master-secret information and credential values are excluded.
+Repository scan-on-push was preserved for MS8.8 parity; MS8.9 resolves its
+deprecation in both implementations as recorded below.
+
+Pinned cfn-lint **1.57.0** (stable release verified 2026-09-19) passed for
+eu-west-1 with no errors/warnings in an isolated container with networking
+disabled, no AWS environment variables and no credential directory. Intrinsic-aware
+YAML parsing, resource/security/parity inspection, matching bootstrap content,
+Bash syntax and Gitleaks checks passed. These verify local schemas and references,
+not regional orderability or runtime success. No AWS credentials, API operation,
+stack, change set, resource, Terraform state or deployment occurred.
+**MS8.8 COMPLETE**; final verification is recorded below. MS9 remains unstarted.
+
+### Final IaC verification (MS8.9)
+
+The audit started from clean branch `feature/infrastructure-as-code`, MS8.8
+commit `4332b2b`, and inspected the actual Terraform/CloudFormation sources.
+The [final parity matrix](../infra/cloudformation/README.md#final-parity-audit-ms89)
+classifies every architectural category as MATCH or INTENTIONAL REPRESENTATION
+DIFFERENCE. No unexplained drift remains. Approved network/SG/IAM, compute,
+ALB, private database, secret-metadata, backup, observability and output boundaries
+passed static assertions; bootstrap content matches and both scripts pass Bash
+syntax checks. Graph edges follow resource references; explicit dependencies
+cover first-boot routing/HTTPS/SSM and pre-created RDS logs.
+
+One current-practice finding required coordinated remediation: deprecated
+repository-level ECR scanning was removed from both representations. BASIC
+registry scan-on-push now has an explicit default-off ownership guard and the
+reserved project/environment prefix filter. Registry settings replace the entire
+regional policy; unmatched repositories become manual-scan, so a narrow filter
+does not make ownership application-local. With the default, the existing
+registry owner must supply TaskFlow scanning. Sole-owner opt-in models the same
+policy in both IaC forms. No Enhanced scanning, release execution or runtime IAM
+expansion was added. The selected ALB TLS policy and CFN egress sentinels remain
+supported by current AWS guidance. Explicit Standard Database Insights avoids
+reliance on changing service defaults; no additional deprecation required action.
+
+IAM custom policies contain only two wildcard Resource statements per
+implementation: ECR GetAuthorizationToken is not repository-scoped, and
+CloudWatch namespace-based metric publishing uses Resource=* with StringEquals
+on TaskFlow/<environment>. Repository pull, log streams and app DB/JWT reads are
+scoped; the required SSM core managed policy retains its AWS-defined scope.
+No master-secret access, application secret values or account-specific input was
+found. Gitleaks 8.30.1 passed over versioned infra and the AWS/ADR/architecture/
+roadmap documents. No secret-value resource, random provider or SQL provisioner exists.
+
+Pinned Terraform 1.16.3 / AWS 6.65.0 fmt check, validate, JSON validate and graph
+passed; JSON reports valid=true, zero errors and zero warnings. cfn-lint 1.57.0
+passed for eu-west-1 with zero diagnostics, including a temporary opt-in-default
+template. All execution checks ran with networking disabled, no AWS environment
+or credential directory, and unresolved AMI/certificate inputs. Tools and provider
+lock were not upgraded. Final inventories are 47 Terraform resource blocks /
+12 outputs and 49 CloudFormation resource declarations / 15 parameters / 17
+outputs; each includes one default-off registry resource. CFN default count is 48.
+
+No state or plan exists; Terraform cache/state/plan patterns are ignored and the
+unchanged dependency lock is versioned. The original live plan/stack-diff
+requirement is superseded by this local/static acceptance model. No AWS account,
+credentials, API, plan/apply/destroy, stack, change set, validate-template or
+resource creation was used. IaC is deployable in principle subject to documented
+external inputs and operator checks; static verification does not prove live AWS
+acceptance, capacity, bootstrap or application runtime.
+
+**MS8.1–MS8.9 COMPLETE. MACROSTEP 8 COMPLETE.**
+MS9 Deployment Design & Production Readiness is **NOT STARTED**. Image release,
+container startup, metadata isolation, agent configuration, DB-role bootstrap,
+secret population, Nginx health proxy, JDBC TLS, trusted proxy headers, auth rate
+limiting, notifications and rollback/runbooks remain its non-provisioning scope.

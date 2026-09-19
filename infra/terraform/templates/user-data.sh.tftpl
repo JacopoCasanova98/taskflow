@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+# Amazon Linux 2023 x86_64 host preparation only; no application deployment.
+dnf install -y docker amazon-ssm-agent amazon-cloudwatch-agent
+systemctl enable --now docker
+systemctl enable --now amazon-ssm-agent
+install -d -o root -g root -m 0750 /opt/taskflow /var/log/taskflow
+install -d -o root -g root -m 0700 /opt/taskflow/config
+# CloudWatch collection configuration and application runtime belong to MS9.
