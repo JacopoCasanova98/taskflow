@@ -2055,4 +2055,27 @@ variables or credential directory, and unresolved deployment inputs. Provider
 lock and metadata outputs remain unchanged. No credential value/state, AWS API
 operation, plan, apply or destroy was produced. Static validation checks schemas
 and references, not live availability or successful recovery.
-**MS8.6 COMPLETE**; MS8.7–MS8.9 and MS9 remain deferred.
+**MS8.6 COMPLETE**; output progress is recorded below.
+
+### Terraform outputs (MS8.7)
+
+`outputs.tf` exposes twelve curated non-sensitive outputs: the three foundation
+metadata values, canonical AWS-generated ALB hostname and alias zone ID, app
+instance/VPC IDs, stable a/b subnet maps, an alb/app/db security-group object,
+frontend/backend ECR URL map and private hostname-only RDS endpoint. The ALB
+hostname is not the final application domain. ECR URLs support conceptual release
+integration; the database hostname is infrastructure metadata, not a credential.
+
+EC2 public IP is omitted because it serves egress, not public application entry.
+No credential values, master-secret information, application-secret ARNs or
+unnecessary IAM/log metadata are exposed. No current consumer needs a database
+identifier output; internal metrics already reference it. Constants and deployment
+inputs are not echoed beyond the preserved foundation metadata.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting and validation passed with networking
+disabled, no AWS environment variables or credential directory and required
+AMI/certificate inputs unset. All 46 resource blocks are unchanged; there are no
+data sources/modules, topology changes or provider-lock changes. Outputs define
+interfaces only: no concrete resource values, state, AWS API/resource operation,
+plan, apply or destroy occurred. **MS8.7 COMPLETE**; MS8.8–MS8.9 and MS9 remain
+deferred, and MacroStep 8 is incomplete.
