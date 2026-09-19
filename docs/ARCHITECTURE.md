@@ -1932,8 +1932,8 @@ discovery; letters are account-relative, not physical identity guarantees.
 One IGW and a shared public route table provide the only Internet default route.
 Public subnets enable public IPv4 assignment for the later host's egress.
 Database subnets disable it and share an explicitly associated route table with
-only the implicit VPC local route. No NAT, endpoints, custom NACLs, Security Groups,
-compute or database resources are defined. Names/common tags follow MS8.2;
+only the implicit VPC local route. MS8.3 defined no NAT, endpoints, custom NACLs,
+Security Groups, compute or database resources. Names/common tags follow MS8.2;
 networking adds Name/Component/Tier tags. Foundation outputs remain unchanged.
 
 Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual dependency-graph
@@ -1942,6 +1942,31 @@ provider cache and unchanged lock. Static review confirms 13 networking instance
 one VPC, four subnets, one IGW, two route tables, one public route and four
 associations. Validation checks schema/types/references, not AWS acceptance or
 regional availability. No state or AWS resources were created; no AWS API, plan,
-apply or destroy was used. **MS8.3 COMPLETE**. MS8.4 Security and all later
-milestones remain deferred; MacroStep 8 is incomplete. See the
+apply or destroy was used. **MS8.3 COMPLETE**. Security progress is recorded below;
+MacroStep 8 is incomplete. See the
 [Terraform README](../infra/terraform/README.md#networking-ms83) for the contract.
+
+### Terraform security (MS8.4)
+
+`infra/terraform/security.tf` adds three dedicated VPC Security Groups, four
+ingress rules and three egress rules using separate direction-specific resources.
+Only ALB accepts public ingress: TCP 80 for a future HTTPS redirect and TCP 443.
+ALB egress reaches only App SG TCP 8080; App accepts 8080 only from ALB SG.
+This port represents Nginx at the host boundary; Spring Boot stays Docker-internal.
+App egress permits DB SG TCP 5432 and public HTTPS TCP 443 for AWS services and
+host/bootstrap dependencies. DB accepts 5432 only from App SG and has no explicit
+egress. SG references express owned peer boundaries; only public entry and HTTPS
+egress use Internet CIDRs. No default allow-all egress is restored.
+
+Stateful response traffic needs no additional return/ephemeral-port rules. There
+is no SSH; future administration uses SSM over outbound HTTPS. No IAM, key pair,
+secret, EC2, ALB or RDS resource is added. EC2/ALB and IAM role/instance profile
+belong to MS8.5; RDS belongs to MS8.6. Names/tags inherit the existing conventions.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual graph review
+passed with networking disabled, no AWS environment variables and no credential
+directory. The provider lock and existing Terraform files remain unchanged.
+Static inspection confirms the exact traffic matrix and no SSH, public backend/DB,
+all-protocol, self or ICMP rules. Validation checks schemas/references, not AWS
+service acceptance. No state or AWS resources were created; no AWS API, plan,
+apply or destroy was used. **MS8.4 COMPLETE**; MS8.5–MS8.9 and MS9 remain deferred.

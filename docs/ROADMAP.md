@@ -98,7 +98,7 @@ MacroStep 7 Definition of Done:
 - [x] MS8.1 — AWS architecture decision
 - [x] MS8.2 — Terraform provider/state
 - [x] MS8.3 — Terraform networking
-- [ ] MS8.4 — Terraform security
+- [x] MS8.4 — Terraform security
 - [ ] MS8.5 — Terraform compute
 - [ ] MS8.6 — Terraform database
 - [ ] MS8.7 — Terraform outputs
@@ -115,10 +115,14 @@ local state policy and a generated multi-platform dependency lock. Terraform
 network-disabled validation passed for the foundation.
 MS8.3 implements the approved VPC, two public and two isolated database subnets,
 IGW and explicit tier routing. Formatting, offline validation and static graph /
-network-invariant review passed with the unchanged provider lock. No live data
-sources, Security Groups, compute or database resources are defined.
-**MS8.1 COMPLETE. MS8.2 COMPLETE. MS8.3 COMPLETE. MacroStep 8 remains incomplete.**
-MS8.4–MS8.9 and MacroStep 9 have not started. No resources provisioned.
+network-invariant review passed with the unchanged provider lock.
+MS8.4 adds ALB/App/DB Security Groups and exactly seven dedicated traffic rules:
+public ALB entry, ALB-only Nginx ingress, app-only PostgreSQL ingress and explicit
+restricted egress. No SSH; future SSM IAM belongs to MS8.5. Formatting, offline
+validation and static security/graph review passed. No IAM, compute, database,
+secret resources or live data sources are defined.
+**MS8.1–MS8.4 COMPLETE. MacroStep 8 remains incomplete.**
+MS8.5–MS8.9 and MacroStep 9 have not started. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 

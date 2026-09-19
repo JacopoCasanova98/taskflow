@@ -2,13 +2,14 @@
 
 This single root module models the [AWS reference architecture](../../docs/AWS_ARCHITECTURE.md).
 MS8.2 establishes the provider, inputs, naming/tags and foundation outputs.
-MS8.3 adds networking resources only. There are no data sources or child modules.
+MS8.3 adds networking; MS8.4 adds three Security Groups and their dedicated rules.
+There are no data sources or child modules.
 
 ## Execution policy and validation
 
 TaskFlow never provisions AWS infrastructure. No AWS account, credentials,
 billable resources or live AWS API calls are required. Do not run `terraform apply`
-or `terraform destroy`; no plan is required or run for MS8.2–MS8.3. Public Registry and
+or `terraform destroy`; no plan is required or run for MS8.2–MS8.4. Public Registry and
 HashiCorp release downloads are permitted.
 
 With Terraform installed, run from the repository root:
@@ -141,7 +142,7 @@ public route table with one separate `aws_route`: `0.0.0.0/0` to that gateway.
 Public subnets enable automatic public IPv4 assignment for the future application
 host's egress; assignment alone does not make the application reachable.
 Future ALB placement spans both public subnets; the single host uses one.
-MS8.4 will define ingress restrictions through Security Groups.
+MS8.4 defines ingress restrictions through Security Groups.
 
 Both database subnets disable public IPv4 assignment and explicitly associate
 with a separate database route table containing only the implicit VPC local
@@ -153,7 +154,7 @@ Provider common tags are inherited. Root metadata outputs remain unchanged.
 
 Static review confirms one VPC, four subnets across two logical AZs, one IGW,
 two route tables, one public default route and four explicit associations
-(13 resource instances from nine resource blocks). No other resource types exist.
+(13 networking resource instances from nine resource blocks).
 Offline validation checks locked-provider resource schemas, argument types and
 references; the textual dependency graph checks the routing dependencies.
 These checks do not prove AWS service acceptance, available AZs or provisionability.
@@ -162,12 +163,52 @@ MS8.3 passed formatting, validation and textual graph review using Terraform
 credential directory. The existing provider cache was reused without initialization,
 upgrade or lock-file changes. No state, plan or AWS operation was produced.
 
+## Security (MS8.4)
+
+`security.tf` defines `aws_security_group.alb`, `.app` and `.db` in the VPC.
+Names use `${local.name_prefix}-alb-sg`, `-app-sg` and `-db-sg`; tags add
+Name, Component=security and Tier=edge/application/database to provider common tags.
+All rules use dedicated ingress/egress resources, never inline or legacy rules.
+
+| Group | Direction | TCP port | Peer |
+| --- | --- | --- | --- |
+| ALB | ingress | 80 | `0.0.0.0/0`, future redirect-only HTTP listener |
+| ALB | ingress | 443 | `0.0.0.0/0`, public application entry |
+| ALB | egress | 8080 | App SG |
+| App | ingress | 8080 | ALB SG only, frontend Nginx |
+| App | egress | 5432 | DB SG |
+| App | egress | 443 | `0.0.0.0/0`, HTTPS services/bootstrap |
+| DB | ingress | 5432 | App SG only |
+| DB | egress | none | No initiated outbound traffic |
+
+TaskFlow-owned peers use `referenced_security_group_id`, not subnet/VPC CIDRs.
+The provider removes AWS-created default allow-all egress when creating managed
+groups; all intended outbound paths are explicit. No allow-all rule is restored.
+Security Groups are stateful: database responses to app-established PostgreSQL
+connections and application responses to ALB-established connections need no
+extra egress or ephemeral-port return rules.
+
+Application public HTTPS egress supports future ECR pulls, SSM, Secrets Manager,
+CloudWatch and HTTPS host/bootstrap dependencies in the approved public-egress,
+no-NAT/no-endpoint design. It is not destination-restricted to AWS; no speculative
+HTTP egress is added. There is no SSH, key pair, self rule, ICMP, IPv6 or separate
+backend ingress. Spring Boot remains Docker-internal; host port 8080 is Nginx.
+The reference administration strategy is Session Manager over outbound HTTPS;
+SSM IAM permissions and instance profile belong to MS8.5, not this milestone.
+
+Static review confirms three groups, four ingress and three egress rules.
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and dependency-graph review
+passed with `--network none`, no AWS environment variables and no credential
+directory. Existing provider cache/lock were reused without initialization or
+upgrade. This verifies schema/types/references, not live AWS behavior. No AWS
+resources were created and no state, plan, apply or AWS API operation occurred.
+
 ## Milestone ownership
 
-MS8.2 owns the foundation and MS8.3 owns networking. Security (MS8.4), compute
+MS8.2 owns the foundation, MS8.3 networking and MS8.4 Security Groups. Compute
 (MS8.5), database (MS8.6), resource outputs (MS8.7), CloudFormation (MS8.8) and
 final IaC verification (MS8.9) remain deferred. Future authoring must preserve
 credential-free static validation; no live AWS data sources are introduced here.
 MS9 deployment design remains separate and unstarted.
-Security Groups belong to MS8.4, compute/ALB to MS8.5 and RDS/DB subnet groups
-to MS8.6. None is defined in MS8.3.
+EC2/ALB and IAM role/instance profile belong to MS8.5; RDS/DB subnet groups to
+MS8.6. IAM, secret resources and workload attachments are not implemented in MS8.4.
