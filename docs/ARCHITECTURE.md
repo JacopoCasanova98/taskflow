@@ -826,7 +826,7 @@ Close-out review found no ownership/security gap or outstanding feature-flow def
 
 Column and Task positions remain canonical manual ordering. Task content and placement remain separate. Search/filter/sort remain presentation projections, with dragging disabled for projected/nonmanual views. Priority remains LOW/MEDIUM/HIGH; dueDate remains LocalDate/PostgreSQL DATE and a browser-local civil date in the UI. Column is workflow state; no completed/open inference exists. No production code, dependency, migration, or browser-automation infrastructure changed in MS5.16.
 
-Final gates: **377 backend tests passed with zero failures/errors/skips**, **586 frontend tests across 38 files passed (one acceptance test added)**, and the production frontend build passed **without warnings**. Backend execution used the approved method after sandbox Mockito attachment failed; the build used the approved rerun after the sandboxed exit-134 abort without diagnostics. Diff/whitespace checks passed. This verifies application flow, routing, UI/state composition, emitted HTTP contracts, the full automated suites, and static architecture/security invariants. It does not prove live PostgreSQL/Flyway behavior (MS6.4), browser pointer geometry, real network/browser cookie integration, or deployment. The HTTP test does not simulate Set-Cookie behavior or manually manipulate cookies; this is functional acceptance, not full production/browser E2E. Broader frontend quality remains MS6.5 and deployed smoke testing remains later work.
+Final gates: **377 backend tests passed with zero failures/errors/skips**, **586 frontend tests across 38 files passed (one acceptance test added)**, and the production frontend build passed **without warnings**. Backend execution used the approved method after sandbox Mockito attachment failed; the build used the approved rerun after the sandboxed exit-134 abort without diagnostics. Diff/whitespace checks passed. This verifies application flow, routing, UI/state composition, emitted HTTP contracts, the full automated suites, and static architecture/security invariants. It does not prove live PostgreSQL/Flyway behavior (MS6.4), browser pointer geometry, real network/browser cookie integration, or deployment. The HTTP test does not simulate Set-Cookie behavior or manually manipulate cookies; this is functional acceptance, not full production/browser E2E. Broader frontend quality remains MS6.5 and production smoke-test design remains later work; no AWS execution is required.
 
 **MS5.1–MS5.16 and MacroStep 5 are complete.** The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within these explicitly recorded verification boundaries. MacroStep 6 — Software quality follows this baseline; see MS6.1 below.
 
@@ -1309,7 +1309,7 @@ former path); it is not a JWT or repository-wide secret allowlist.
 | Single HMAC JWT secret rotation | Medium | External secret is required; key-ring/rotation design deferred | No | Deployment/security |
 | HTTPS and Secure cookies | High | Production assumes HTTPS and production Secure-cookie configuration | Yes for production | Deployment |
 | CSP and hosting security headers | Medium | Final CSP belongs to the known frontend hosting topology | No | Frontend/deployment |
-| Cloud secret management | High | Configuration is externalized now; AWS Secrets Manager/SSM integration belongs to AWS deployment | Yes for AWS production | Infrastructure |
+| Cloud secret management | High | Configuration is externalized now; AWS Secrets Manager/SSM integration belongs to the reference deployment design | Yes for AWS production | Infrastructure |
 
 Search/SQL injection, XSS, open redirect, CORS, error exposure, logging
 exposure, and authorization/IDOR were reviewed as non-findings within the
@@ -1868,3 +1868,21 @@ migration or Compose change was needed. The unchanged MS6 472/593 test baseline
 was not rerun; source builds, container/API/persistence checks, secret scan and
 `git diff --check` passed. TaskFlow can be started completely with local Docker
 Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 remains unstarted.
+
+### AWS architecture decision (MS8.1)
+
+The selected AWS IaC reference target is Ireland (`eu-west-1`), ACM/ALB HTTPS in front of one
+EC2 Docker application host and isolated RDS PostgreSQL 17 Single-AZ. Same-origin
+Nginx `/api` remains the browser boundary; backend and database are not public.
+Public-IP host egress with ALB-only ingress and SSM administration avoids NAT
+cost. ECR, Secrets Manager and CloudWatch complete the operational contract.
+Single-instance downtime and ALB fixed cost are explicit portfolio trade-offs.
+See [AWS architecture](AWS_ARCHITECTURE.md) for the diagram, dated sources,
+cost uncertainty and MS9 security/runtime design, and
+[ADR 002](ADR/002-aws-deployment-architecture.md) for the decision.
+No live AWS environment is planned or authorized. AWS credentials are not
+required; static/local verification without AWS mutation is the project acceptance
+model. Terraform and CloudFormation will remain genuine, un-applied definitions.
+No IaC implementation exists yet. **MS8.1 COMPLETE**; MS8.2–MS8.9 and MacroStep 9
+remain unstarted. MacroStep 9 covers deployment design and production readiness,
+not cloud hosting. See the linked reference architecture for the hard execution policy.

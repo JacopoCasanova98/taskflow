@@ -26,7 +26,7 @@ Roadmap refinement: authentication completes the typed UUID identity foundation.
 
 ## MACROSTEP 5 — Core TaskFlow Features ✅
 
-**MS5.1–MS5.16 complete.** MS5.16 closes the roadmap functional flow with one routed frontend acceptance test using real application code and mocked HTTP. All 377 backend tests and 586 frontend tests pass; the production frontend build passes without warnings. No production fix was needed. The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within the documented automated acceptance boundaries; live PostgreSQL/Flyway, browser pointer/cookie integration, and deployed smoke verification remain later work. See [ARCHITECTURE.md](ARCHITECTURE.md#functional-acceptance-and-macrostep-5-close-out-ms516).
+**MS5.1–MS5.16 complete.** MS5.16 closes the roadmap functional flow with one routed frontend acceptance test using real application code and mocked HTTP. All 377 backend tests and 586 frontend tests pass; the production frontend build passes without warnings. No production fix was needed. The Definition of Done—TaskFlow is usable as a complete task manager—is satisfied within the documented automated acceptance boundaries; live PostgreSQL/Flyway, browser pointer/cookie integration, and production smoke-test design remain later work (no live AWS acceptance). See [ARCHITECTURE.md](ARCHITECTURE.md#functional-acceptance-and-macrostep-5-close-out-ms516).
 
 Next: **MACROSTEP 6 — SOFTWARE QUALITY**. MS6.1 close-out is recorded below.
 
@@ -91,15 +91,67 @@ MacroStep 7 Definition of Done:
 
 - [x] TaskFlow completo può essere avviato localmente tramite Docker Compose.
 
-**MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 has not started.
+**MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 progress is recorded below.
 
 ## MacroStep 8 — Infrastructure as Code
 
-- [ ] Define infrastructure as code
+- [x] MS8.1 — AWS architecture decision
+- [ ] MS8.2 — Terraform provider/state
+- [ ] MS8.3 — Terraform networking
+- [ ] MS8.4 — Terraform security
+- [ ] MS8.5 — Terraform compute
+- [ ] MS8.6 — Terraform database
+- [ ] MS8.7 — Terraform outputs
+- [ ] MS8.8 — CloudFormation equivalent
+- [ ] MS8.9 — IaC verification (static/local)
 
-## MacroStep 9 — Cloud deployment
+MS8.1 selects the [AWS reference architecture](AWS_ARCHITECTURE.md) recorded in
+[ADR 002](ADR/002-aws-deployment-architecture.md): Ireland, ALB/ACM, one EC2
+application host and private Single-AZ RDS, with explicit cost/security trade-offs.
+**MS8.1 COMPLETE. MacroStep 8 remains incomplete.** No resources provisioned;
+MS8.2–MS8.9 and MacroStep 9 have not started.
 
-- [ ] Prepare cloud deployment
+TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
+
+The hard [zero-provisioning policy](AWS_ARCHITECTURE.md#hard-project-execution-policy)
+applies to all later milestones, including CI/CD: no AWS mutation, hosting,
+image push, stack operation or billable resources. No AWS credentials, access
+keys, authenticated provider API calls, real account/hosted-zone IDs, domains or
+secret population are required for completion.
+
+MS8.2–MS8.7 implement genuine un-applied Terraform providers, variables, locals,
+networking, security/IAM, compute/ALB/ECR, database, Secrets Manager metadata,
+CloudWatch and outputs. MS8.2 designs state conventions without provisioning a
+bucket or requiring a real S3 backend; `.tfstate` remains ignored/sensitive.
+Verification uses formatting, credential-free `init -backend=false`, validate,
+static dependency/reference inspection and provider-schema checks where possible.
+No authenticated plan or apply is required; apply is prohibited. MS8.8 implements
+a genuine CloudFormation equivalent with local/static tooling, never a stack or
+AWS-backed change set. MS8.9 reviews parity and static/local validation evidence.
+
+MacroStep 8 Definition of Done:
+
+- [ ] Terraform and CloudFormation express the approved AWS reference architecture
+  and pass local/static validation without creating AWS resources.
+
+## MacroStep 9 — Deployment Design & Production Readiness
+
+Goal: prove that application and IaC contain a coherent, documented production
+deployment path without actually provisioning AWS. All steps remain unstarted.
+
+- [ ] MS9.1 — Production runtime and Docker Compose configuration design
+- [ ] MS9.2 — Container release/tagging and conceptual ECR workflow
+- [ ] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
+- [ ] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
+- [ ] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
+- [ ] MS9.6 — CloudWatch/logging and operational monitoring design
+- [ ] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
+- [ ] MS9.8 — Static production smoke-test plan and readiness review
+
+Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
+purchase, live URL, real certificate, secret population, AWS stack, cloud restore
+or public-cloud smoke test is required or authorized. Runbooks describe what an
+independent real operator could do; the project does not execute their AWS steps.
 
 ## MacroStep 10 — CI/CD and portfolio preparation
 
