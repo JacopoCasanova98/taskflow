@@ -102,7 +102,7 @@ MacroStep 7 Definition of Done:
 - [x] MS8.5 — Terraform compute
 - [x] MS8.6 — Terraform database
 - [x] MS8.7 — Terraform outputs
-- [ ] MS8.8 — CloudFormation equivalent
+- [x] MS8.8 — CloudFormation equivalent
 - [ ] MS8.9 — IaC verification (static/local)
 
 MS8.1 selects the [AWS reference architecture](AWS_ARCHITECTURE.md) recorded in
@@ -136,8 +136,16 @@ MS8.7 exposes a curated twelve-output interface: foundation metadata, ALB
 hostname/zone, operational IDs/maps, ECR URLs and private database hostname.
 No credentials/master-secret metadata or EC2 public IP are exposed. Formatting
 and offline validation passed; infrastructure inventory and lock are unchanged.
-**MS8.1–MS8.7 COMPLETE. MacroStep 8 remains incomplete.**
-MS8.8–MS8.9 and MacroStep 9 have not started. No resources provisioned.
+MS8.8 implements the [CloudFormation alternative](../infra/cloudformation/README.md):
+the same networking/security, IAM, EC2/ECR/ALB, database/secrets, observability
+and non-sensitive output semantics. Its native SG-egress suppression and
+secret/database lifecycle differences are explicit. cfn-lint 1.57.0 passed for
+eu-west-1 offline without credentials, together with static security/parity,
+bootstrap syntax and Gitleaks checks. Terraform remains unchanged.
+**MS8.1–MS8.8 COMPLETE. MacroStep 8 remains incomplete.**
+MS8.9 and MacroStep 9 have not started. No resources provisioned.
+MS8.9 should review deprecated repository-level ECR scanning across both
+implementations together; parity is intentionally preserved in MS8.8.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 

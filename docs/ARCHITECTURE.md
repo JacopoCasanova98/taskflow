@@ -2079,3 +2079,45 @@ data sources/modules, topology changes or provider-lock changes. Outputs define
 interfaces only: no concrete resource values, state, AWS API/resource operation,
 plan, apply or destroy occurred. **MS8.7 COMPLETE**; MS8.8–MS8.9 and MS9 remain
 deferred, and MacroStep 8 is incomplete.
+
+### CloudFormation equivalent (MS8.8)
+
+`infra/cloudformation/taskflow.yaml` represents the completed Terraform
+architecture as one alternative CloudFormation template. Terraform remains
+primary and unchanged; the two implementations must never concurrently manage
+the same live resources. TaskFlow deploys neither.
+
+The template includes the same VPC/four-subnet topology and isolated database
+routing, three SG boundaries and seven intended traffic rules, EC2-only
+IAM/profile with SSM and scoped ECR/telemetry/secret reads, two ECR repositories,
+one EC2 host, ALB/target/listeners, private Single-AZ PostgreSQL, two application
+secret metadata definitions, four log groups and six native alarms. AMI and
+certificate remain unresolved inputs. Bootstrap, health proxying, telemetry
+collection and external DB-role/secret population retain their MS9 boundaries.
+No ACM/Route 53 resources or application schema operations are added.
+
+CloudFormation-specific representation differences are documented in its
+[README parity matrix](../infra/cloudformation/README.md#parity-and-intentional-representation-differences):
+AWS::Region, explicit tags, standalone gateway attachment, primary network
+interface for public IPv4, embedded lifecycle/bootstrap/target/policy properties,
+and flat outputs. Three non-routable localhost egress sentinels suppress default
+allow-all SG egress; they add no architectural traffic capability. Application
+secrets use Retain rather than Terraform's seven-day recovery window; RDS uses
+Snapshot deletion/replacement policies alongside deletion protection and retained
+automated backups. Native EC2 user-data update behavior differs from Terraform's
+replace-on-change behavior and is explicitly documented, not claimed identical.
+
+Seventeen non-sensitive outputs preserve Terraform's twelve-output interface
+semantics, flattening subnet/SG/ECR maps. ALB remains the canonical entry hostname;
+EC2 public IP, master-secret information and credential values are excluded.
+Repository scan-on-push remains aligned with Terraform; its documented deprecation
+is an MS8.9 review item for both implementations together.
+
+Pinned cfn-lint **1.57.0** (stable release verified 2026-09-19) passed for
+eu-west-1 with no errors/warnings in an isolated container with networking
+disabled, no AWS environment variables and no credential directory. Intrinsic-aware
+YAML parsing, resource/security/parity inspection, matching bootstrap content,
+Bash syntax and Gitleaks checks passed. These verify local schemas and references,
+not regional orderability or runtime success. No AWS credentials, API operation,
+stack, change set, resource, Terraform state or deployment occurred.
+**MS8.8 COMPLETE**; MS8.9 and MS9 remain unstarted. MacroStep 8 remains incomplete.
