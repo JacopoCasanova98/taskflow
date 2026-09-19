@@ -1,0 +1,10 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Reserved naming convention for local plan artifacts (plans are not required).
+*.tfplan
+
+# Keep .terraform.lock.hcl versioned.

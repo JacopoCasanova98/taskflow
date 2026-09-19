@@ -96,7 +96,7 @@ MacroStep 7 Definition of Done:
 ## MacroStep 8 — Infrastructure as Code
 
 - [x] MS8.1 — AWS architecture decision
-- [ ] MS8.2 — Terraform provider/state
+- [x] MS8.2 — Terraform provider/state
 - [ ] MS8.3 — Terraform networking
 - [ ] MS8.4 — Terraform security
 - [ ] MS8.5 — Terraform compute
@@ -108,8 +108,13 @@ MacroStep 7 Definition of Done:
 MS8.1 selects the [AWS reference architecture](AWS_ARCHITECTURE.md) recorded in
 [ADR 002](ADR/002-aws-deployment-architecture.md): Ireland, ALB/ACM, one EC2
 application host and private Single-AZ RDS, with explicit cost/security trade-offs.
-**MS8.1 COMPLETE. MacroStep 8 remains incomplete.** No resources provisioned;
-MS8.2–MS8.9 and MacroStep 9 have not started.
+MS8.2 establishes the [Terraform root module](../infra/terraform/README.md):
+provider/version constraints, validated inputs, naming/tags, metadata outputs,
+local state policy and a generated multi-platform dependency lock. Terraform
+1.16.3 / AWS provider 6.65.0 initialization, formatting and credential-free,
+network-disabled validation passed. No AWS resources or data sources exist yet.
+**MS8.1 COMPLETE. MS8.2 COMPLETE. MacroStep 8 remains incomplete.**
+MS8.3–MS8.9 and MacroStep 9 have not started. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 

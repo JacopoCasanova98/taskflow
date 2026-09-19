@@ -154,7 +154,7 @@ PostgreSQL is the application's persistent data store. Its use, local configurat
 
 ### Infrastructure
 
-The `infra/` directory contains infrastructure definitions. Docker assets support local containerized development and execution. Directories for Terraform and CloudFormation are reserved for infrastructure definitions when those tools are adopted.
+The `infra/` directory contains infrastructure definitions. Docker assets support local containerized development and execution. `infra/terraform/` contains the reference root module foundation; CloudFormation remains reserved for MS8.8.
 
 ## Authentication architecture (MS4)
 
@@ -1883,6 +1883,39 @@ cost uncertainty and MS9 security/runtime design, and
 No live AWS environment is planned or authorized. AWS credentials are not
 required; static/local verification without AWS mutation is the project acceptance
 model. Terraform and CloudFormation will remain genuine, un-applied definitions.
-No IaC implementation exists yet. **MS8.1 COMPLETE**; MS8.2–MS8.9 and MacroStep 9
-remain unstarted. MacroStep 9 covers deployment design and production readiness,
+MS8.1 delivered the architecture decision only. **MS8.1 COMPLETE**; MS8.2 progress
+is recorded below. MacroStep 9 covers deployment design and production readiness,
 not cloud hosting. See the linked reference architecture for the hard execution policy.
+
+### Terraform provider/state foundation (MS8.2)
+
+`infra/terraform/` is one root module with no AWS resources, data sources or child
+modules. Terraform uses `~> 1.16.0`; `hashicorp/aws` uses `~> 6.65.0`, restricting
+automatic compatibility to the selected minor lines' patches. The generated
+`.terraform.lock.hcl` belongs in Git and pins the provider version/checksums.
+Version evidence, platform locking and state details live in the
+[Terraform README](../infra/terraform/README.md).
+
+String inputs default to `project_name = "taskflow"`, `environment = "prod"` and
+`aws_region = "eu-west-1"`. Prod identifies the model, not an existing stack.
+The canonical prefix is `<project_name>-<environment>`; provider default tags
+derive Project/Environment from inputs and set ManagedBy to Terraform.
+Component/Name tags belong to later resources. Only reference_region,
+environment and name_prefix metadata are outputs; infrastructure outputs wait
+for MS8.7.
+
+Actual state policy is default local state, ignored with cache/crash/plan artifacts;
+no active S3 backend exists. Hypothetical production would use private, encrypted,
+versioned S3 with least privilege and native `use_lockfile = true`, not deprecated
+DynamoDB locking. No state bucket, table or KMS key is provisioned.
+
+From `infra/terraform/`, run `terraform init -backend=false`,
+`terraform fmt -check -recursive` and `terraform validate`. AWS credentials,
+an account and AWS API access are unnecessary; public provider downloads are
+permitted. No plan, apply or destroy is run. MS8.3 networking and all subsequent
+milestones remain deferred; MacroStep 8 is incomplete.
+
+Verified with Terraform 1.16.3 and AWS provider 6.65.0: initialization, formatting
+and validation passed. Validation ran in an isolated container with networking
+disabled and no AWS credentials. Signed provider hashes cover macOS and Linux,
+each on ARM64 and x86_64. No state was generated. **MS8.2 COMPLETE**.
