@@ -4,13 +4,25 @@ resource "aws_ecr_repository" "app" {
   name                 = "${local.name_prefix}-${each.key}"
   image_tag_mutability = "IMMUTABLE"
 
-  image_scanning_configuration {
-    scan_on_push = true
-  }
   encryption_configuration {
     encryption_type = "AES256"
   }
   tags = { Component = each.key }
+}
+
+# Registry-wide ownership is opt-in: filters do not isolate configuration ownership.
+# Otherwise the registry operator must supply BASIC scan-on-push for this prefix.
+resource "aws_ecr_registry_scanning_configuration" "taskflow" {
+  count     = var.manage_ecr_registry_scanning ? 1 : 0
+  scan_type = "BASIC"
+
+  rule {
+    scan_frequency = "SCAN_ON_PUSH"
+    repository_filter {
+      filter      = "${local.name_prefix}-*"
+      filter_type = "WILDCARD"
+    }
+  }
 }
 
 resource "aws_ecr_lifecycle_policy" "untagged" {

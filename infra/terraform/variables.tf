@@ -1,3 +1,10 @@
+variable "manage_ecr_registry_scanning" {
+  description = "Opt in only when this stack owns the entire regional ECR scanning configuration; otherwise scanning is an external registry prerequisite."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "db_engine_version" {
   description = "PostgreSQL 17 reference major or minor; regional minor availability is not queried."
   type        = string

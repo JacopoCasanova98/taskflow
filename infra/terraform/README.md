@@ -11,7 +11,7 @@ There are no data sources or child modules.
 
 TaskFlow never provisions AWS infrastructure. No AWS account, credentials,
 billable resources or live AWS API calls are required. Do not run `terraform apply`
-or `terraform destroy`; no plan is required or run for MS8.2–MS8.7. Public Registry and
+or `terraform destroy`; no plan is required or run for MacroStep 8. Public Registry and
 HashiCorp release downloads are permitted.
 
 With Terraform installed, run from the repository root:
@@ -90,7 +90,7 @@ the variable-derived form of the architecture's TaskFlow label),
 `Environment = var.environment` and `ManagedBy = "Terraform"`.
 Later resources may add specific tags such as `Component` and `Name`.
 Outputs `reference_region`, `environment` and `name_prefix` expose only non-sensitive
-foundation metadata. Resource IDs, ALB DNS and database references belong to MS8.7.
+foundation metadata. MS8.7 adds the curated resource interface documented below.
 
 ## State
 
@@ -257,9 +257,27 @@ MS9 agent configuration must use these existing groups and namespace, without
 EC2 tag/volume discovery or remote Parameter Store configuration. The mandated
 SSM core managed policy retains its AWS-defined SSM read/channel scope.
 
-Exactly frontend/backend private repositories use immutable tags, scan-on-push
+Exactly frontend/backend private repositories use immutable tags
 and AES256 ECR-managed encryption. Lifecycle policies expire only untagged images
 after seven days; tagged active/rollback releases are retained. Nothing was pushed.
+
+MS8.9 removed deprecated repository-level scanning settings in both IaC forms.
+BASIC scan-on-push is a **regional registry prerequisite**, not a repository
+property. `manage_ecr_registry_scanning=false` is the safe default: this application
+stack does not take over an existing registry's scanning configuration.
+An independent registry owner must supply BASIC scan-on-push for the reserved
+`<project>-<environment>-*` prefix before any hypothetical release workflow.
+The default configuration alone does not establish scanning.
+
+Only when this stack is explicitly chosen as the sole owner of the entire
+regional scanning configuration may that input be true. The optional resource
+uses BASIC/SCAN_ON_PUSH and a WILDCARD prefix filter, never a catch-all or paid
+Enhanced scanning. This still replaces the registry-wide configuration:
+[unmatched repositories become manual-scan](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning-filters.html).
+Narrow filters are not an ownership boundary. Other environments/stacks must not
+independently manage the same singleton. Shared registries should leave this
+option off and have their existing owner incorporate the TaskFlow prefix into
+its complete policy. Nothing is queried, applied or scanned by TaskFlow.
 
 ### ALB and health contract
 
@@ -440,8 +458,38 @@ AMI/certificate inputs unset. No resources or state are created.
 
 MS8.2 owns the foundation, MS8.3 networking, MS8.4 Security Groups and MS8.5 compute.
 MS8.6 owns database/secret metadata and scoped access; MS8.7 owns curated outputs.
-CloudFormation (MS8.8) and
-final IaC verification (MS8.9) remain deferred. Future authoring must preserve
+CloudFormation (MS8.8) and final IaC verification (MS8.9) are complete.
+Future authoring must preserve
 credential-free static validation; no live AWS data sources are introduced here.
 MS9 deployment design remains separate and unstarted.
-RDS/DB subnet groups and secret metadata/scoped access belong to MS8.6.
+
+## Final static audit (MS8.9)
+
+Verified on 2026-09-19 with unchanged Terraform 1.16.3, AWS provider 6.65.0,
+cfn-lint 1.57.0 and Gitleaks 8.30.1. Offline `fmt -check -recursive`,
+`validate`, `validate -json` and `graph` passed; JSON reports valid=true,
+zero errors and zero warnings. No initialization, upgrade or lock change was
+needed. Required AMI/certificate inputs stayed unset. Containers used
+`--network none` with explicit absence checks for AWS environment and credentials.
+
+Inventory is 47 resource blocks (including one default-off registry-scanning
+resource), twelve outputs and no data sources/child modules. Static source
+assertions checked security/network/compute/database invariants and compared
+literal properties, alarm thresholds/dimensions and bootstrap with CloudFormation.
+Graph review confirmed actual references and justified bootstrap-routing/SSM
+and RDS-log-group dependencies; no artificial dependencies were added.
+Both bootstrap representations passed Bash syntax checks without execution.
+
+The [final parity matrix](../cloudformation/README.md#final-parity-audit-ms89)
+records matches and intentional representation differences. Gitleaks passed over
+all versioned infrastructure and the AWS/ADR/architecture/roadmap documents.
+No secret values or account-specific inputs were found. State/plan files are
+absent; cache is ignored and the dependency lock remains tracked and unchanged.
+The documented S3 backend is reference-only.
+
+The original live-plan/stack-diff expectation is superseded by static acceptance:
+no AWS account, credentials, API, Terraform plan/apply/destroy, CloudFormation
+stack/change set or state is required or produced. Validation proves local
+schema/reference consistency, not live orderability, provisionability or runtime
+success. **MS8.1–MS8.9 COMPLETE — MACROSTEP 8 COMPLETE.** MS9 Deployment Design &
+Production Readiness is **NOT STARTED** and remains non-provisioning.

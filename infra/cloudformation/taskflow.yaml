@@ -2,6 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: TaskFlow reference architecture alternative to Terraform; static validation only, never deploy.
 
 Parameters:
+  ManageEcrRegistryScanning:
+    Type: String
+    Description: Opt in only when this stack owns regional registry scanning; otherwise an external registry prerequisite.
+    Default: "false"
+    AllowedValues: ["false", "true"]
+
   ProjectName:
     Type: String
     Description: Project identifier used for naming and tags.
@@ -85,7 +91,23 @@ Parameters:
     Default: "db.t4g.micro"
     AllowedPattern: 'db[.][a-z0-9]+[.][a-z0-9]+'
 
+Conditions:
+  ManageRegistryScanning: !Equals [!Ref ManageEcrRegistryScanning, "true"]
+
 Resources:
+  # Replaces regional registry scanning configuration, not just matching repositories.
+  # Default-off ownership guard; external registry owner supplies scanning otherwise.
+  RegistryScanningConfiguration:
+    Type: AWS::ECR::RegistryScanningConfiguration
+    Condition: ManageRegistryScanning
+    Properties:
+      ScanType: BASIC
+      Rules:
+        - ScanFrequency: SCAN_ON_PUSH
+          RepositoryFilters:
+            - Filter: !Sub '${ProjectName}-${Environment}-*'
+              FilterType: WILDCARD
+
   # Networking: database route table deliberately has only the implicit local route.
   Vpc:
     Type: AWS::EC2::VPC
@@ -427,9 +449,6 @@ Resources:
     Properties:
       RepositoryName: !Sub '${ProjectName}-${Environment}-frontend'
       ImageTagMutability: IMMUTABLE
-      # Preserve Terraform scan-on-push; review registry-level scanning in MS8.9.
-      ImageScanningConfiguration:
-        ScanOnPush: true
       EncryptionConfiguration:
         EncryptionType: AES256
       LifecyclePolicy:
@@ -450,9 +469,6 @@ Resources:
     Properties:
       RepositoryName: !Sub '${ProjectName}-${Environment}-backend'
       ImageTagMutability: IMMUTABLE
-      # Preserve Terraform scan-on-push; review registry-level scanning in MS8.9.
-      ImageScanningConfiguration:
-        ScanOnPush: true
       EncryptionConfiguration:
         EncryptionType: AES256
       LifecyclePolicy:

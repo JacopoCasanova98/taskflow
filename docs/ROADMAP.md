@@ -103,7 +103,7 @@ MacroStep 7 Definition of Done:
 - [x] MS8.6 — Terraform database
 - [x] MS8.7 — Terraform outputs
 - [x] MS8.8 — CloudFormation equivalent
-- [ ] MS8.9 — IaC verification (static/local)
+- [x] MS8.9 — IaC verification (static/local)
 
 MS8.1 selects the [AWS reference architecture](AWS_ARCHITECTURE.md) recorded in
 [ADR 002](ADR/002-aws-deployment-architecture.md): Ireland, ALB/ACM, one EC2
@@ -142,10 +142,15 @@ and non-sensitive output semantics. Its native SG-egress suppression and
 secret/database lifecycle differences are explicit. cfn-lint 1.57.0 passed for
 eu-west-1 offline without credentials, together with static security/parity,
 bootstrap syntax and Gitleaks checks. Terraform remains unchanged.
-**MS8.1–MS8.8 COMPLETE. MacroStep 8 remains incomplete.**
-MS8.9 and MacroStep 9 have not started. No resources provisioned.
-MS8.9 should review deprecated repository-level ECR scanning across both
-implementations together; parity is intentionally preserved in MS8.8.
+MS8.9 completed the [final static parity audit](../infra/cloudformation/README.md#final-parity-audit-ms89).
+Terraform 1.16.3 / AWS 6.65.0 fmt, validate/JSON and graph passed; cfn-lint 1.57.0
+passed for eu-west-1. Security/parity/bootstrap assertions and Gitleaks 8.30.1
+passed without networking, AWS credentials, state or deployment inputs.
+Deprecated repository scanning was removed from both implementations: BASIC
+registry scanning is an external prerequisite by default, with guarded sole-owner
+opt-in and a TaskFlow prefix filter. Regional ownership implications are explicit.
+**MS8.1–MS8.9 COMPLETE. MACROSTEP 8 COMPLETE.**
+MacroStep 9 has not started. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 
@@ -161,19 +166,22 @@ CloudWatch and outputs. MS8.2 designs state conventions without provisioning a
 bucket or requiring a real S3 backend; `.tfstate` remains ignored/sensitive.
 Verification uses formatting, credential-free `init -backend=false`, validate,
 static dependency/reference inspection and provider-schema checks where possible.
-No authenticated plan or apply is required; apply is prohibited. MS8.8 implements
+The original live plan/stack-diff requirement is superseded: no Terraform plan,
+apply or destroy is run. MS8.8 implements
 a genuine CloudFormation equivalent with local/static tooling, never a stack or
-AWS-backed change set. MS8.9 reviews parity and static/local validation evidence.
+AWS-backed change set. MS8.9 verified parity and static/local validation evidence.
 
 MacroStep 8 Definition of Done:
 
-- [ ] Terraform and CloudFormation express the approved AWS reference architecture
-  and pass local/static validation without creating AWS resources.
+- [x] Terraform and CloudFormation express the approved AWS reference architecture,
+  remain semantically aligned, and pass local/static verification without requiring
+  AWS credentials or creating AWS resources.
 
 ## MacroStep 9 — Deployment Design & Production Readiness
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS. All steps remain unstarted.
+**Status: NOT STARTED.** This is deployment design, not live AWS deployment.
 
 - [ ] MS9.1 — Production runtime and Docker Compose configuration design
 - [ ] MS9.2 — Container release/tagging and conceptual ECR workflow

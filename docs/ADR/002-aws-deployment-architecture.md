@@ -28,8 +28,9 @@ and isolated DB subnets. EC2 uses public-IP egress with inbound frontend traffic
 only from ALB SG; no SSH, backend host port, public DB or NAT Gateway.
 
 Use ECR for release images, Secrets Manager for DB/JWT values, an instance role,
-SSM Session Manager for administration and CloudWatch for logs/alarms. Route 53
-aliases and ACM validation use hypothetical input variables, with
+SSM Session Manager for administration and CloudWatch for logs/alarms. The final
+IaC uses an external regional ACM certificate input; Route 53 and certificate
+lifecycle remain external/MS9 design boundaries, with
 `taskflow.example.com` as the placeholder. No real domain, zone or certificate
 is required or purchased. Preserve
 frontend `/api` proxying and Docker backend DNS. Production restores Secure
@@ -76,5 +77,7 @@ residency or verified pricing changes the trade-off.
 The [AWS architecture analysis](../AWS_ARCHITECTURE.md) contains the diagram,
 dated sources, cost allowances, exact boundaries and MS9 design handoff. The
 architectural rationale does not depend on a fixed monthly quote. MS8.1 is
-complete; MS8.2–MS8.9 un-applied IaC implementation/static verification and MS9
-Deployment Design & Production Readiness remain unstarted.
+complete; implemented IaC and final static-verification status are recorded in
+[ARCHITECTURE.md](../ARCHITECTURE.md). MS8.9 modernizes ECR scanning in both forms
+with default-off regional ownership; shared registries keep their existing owner.
+MS9 Deployment Design & Production Readiness remains unstarted and non-provisioning.

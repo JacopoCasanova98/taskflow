@@ -2,6 +2,9 @@
 
 ## Overview
 
+Milestone sections retain implementation-time evidence. The final MacroStep 8
+verification section records current IaC status; earlier deferrals are historical.
+
 TaskFlow is a full-stack application organized as a single repository. It separates the backend, frontend, infrastructure, and project documentation so each concern can evolve independently while remaining coordinated.
 
 ## Components and responsibilities
@@ -1867,7 +1870,7 @@ suite added. Only close-out documentation changed; no application, dependency,
 migration or Compose change was needed. The unchanged MS6 472/593 test baseline
 was not rerun; source builds, container/API/persistence checks, secret scan and
 `git diff --check` passed. TaskFlow can be started completely with local Docker
-Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 remains unstarted.
+Compose: **MS7.6 COMPLETE. MACROSTEP 7 COMPLETE.** MS8 progress is recorded below.
 
 ### AWS architecture decision (MS8.1)
 
@@ -1989,7 +1992,7 @@ plus log-stream writes to three groups and namespace-restricted telemetry.
 MS8.5 added no ECR push, broad admin or Secrets Manager grant; MS8.6 scoped
 secret access is recorded below.
 
-Frontend/backend ECR repositories have immutable tags, push scanning, AES256
+Frontend/backend ECR repositories have immutable tags, AES256
 encryption and seven-day untagged cleanup. The Internet-facing IPv4 ALB uses both
 public subnets and ALB SG, with one HTTP 8080 instance target/attachment. HTTP
 redirects to HTTPS; a required external regional ACM ARN supplies the certificate.
@@ -2077,8 +2080,8 @@ disabled, no AWS environment variables or credential directory and required
 AMI/certificate inputs unset. All 46 resource blocks are unchanged; there are no
 data sources/modules, topology changes or provider-lock changes. Outputs define
 interfaces only: no concrete resource values, state, AWS API/resource operation,
-plan, apply or destroy occurred. **MS8.7 COMPLETE**; MS8.8–MS8.9 and MS9 remain
-deferred, and MacroStep 8 is incomplete.
+plan, apply or destroy occurred. **MS8.7 COMPLETE**; CloudFormation and final
+verification are recorded below. MS9 remains unstarted.
 
 ### CloudFormation equivalent (MS8.8)
 
@@ -2110,8 +2113,8 @@ replace-on-change behavior and is explicitly documented, not claimed identical.
 Seventeen non-sensitive outputs preserve Terraform's twelve-output interface
 semantics, flattening subnet/SG/ECR maps. ALB remains the canonical entry hostname;
 EC2 public IP, master-secret information and credential values are excluded.
-Repository scan-on-push remains aligned with Terraform; its documented deprecation
-is an MS8.9 review item for both implementations together.
+Repository scan-on-push was preserved for MS8.8 parity; MS8.9 resolves its
+deprecation in both implementations as recorded below.
 
 Pinned cfn-lint **1.57.0** (stable release verified 2026-09-19) passed for
 eu-west-1 with no errors/warnings in an isolated container with networking
@@ -2120,4 +2123,60 @@ YAML parsing, resource/security/parity inspection, matching bootstrap content,
 Bash syntax and Gitleaks checks passed. These verify local schemas and references,
 not regional orderability or runtime success. No AWS credentials, API operation,
 stack, change set, resource, Terraform state or deployment occurred.
-**MS8.8 COMPLETE**; MS8.9 and MS9 remain unstarted. MacroStep 8 remains incomplete.
+**MS8.8 COMPLETE**; final verification is recorded below. MS9 remains unstarted.
+
+### Final IaC verification (MS8.9)
+
+The audit started from clean branch `feature/infrastructure-as-code`, MS8.8
+commit `4332b2b`, and inspected the actual Terraform/CloudFormation sources.
+The [final parity matrix](../infra/cloudformation/README.md#final-parity-audit-ms89)
+classifies every architectural category as MATCH or INTENTIONAL REPRESENTATION
+DIFFERENCE. No unexplained drift remains. Approved network/SG/IAM, compute,
+ALB, private database, secret-metadata, backup, observability and output boundaries
+passed static assertions; bootstrap content matches and both scripts pass Bash
+syntax checks. Graph edges follow resource references; explicit dependencies
+cover first-boot routing/HTTPS/SSM and pre-created RDS logs.
+
+One current-practice finding required coordinated remediation: deprecated
+repository-level ECR scanning was removed from both representations. BASIC
+registry scan-on-push now has an explicit default-off ownership guard and the
+reserved project/environment prefix filter. Registry settings replace the entire
+regional policy; unmatched repositories become manual-scan, so a narrow filter
+does not make ownership application-local. With the default, the existing
+registry owner must supply TaskFlow scanning. Sole-owner opt-in models the same
+policy in both IaC forms. No Enhanced scanning, release execution or runtime IAM
+expansion was added. The selected ALB TLS policy and CFN egress sentinels remain
+supported by current AWS guidance. Explicit Standard Database Insights avoids
+reliance on changing service defaults; no additional deprecation required action.
+
+IAM custom policies contain only two wildcard Resource statements per
+implementation: ECR GetAuthorizationToken is not repository-scoped, and
+CloudWatch namespace-based metric publishing uses Resource=* with StringEquals
+on TaskFlow/<environment>. Repository pull, log streams and app DB/JWT reads are
+scoped; the required SSM core managed policy retains its AWS-defined scope.
+No master-secret access, application secret values or account-specific input was
+found. Gitleaks 8.30.1 passed over versioned infra and the AWS/ADR/architecture/
+roadmap documents. No secret-value resource, random provider or SQL provisioner exists.
+
+Pinned Terraform 1.16.3 / AWS 6.65.0 fmt check, validate, JSON validate and graph
+passed; JSON reports valid=true, zero errors and zero warnings. cfn-lint 1.57.0
+passed for eu-west-1 with zero diagnostics, including a temporary opt-in-default
+template. All execution checks ran with networking disabled, no AWS environment
+or credential directory, and unresolved AMI/certificate inputs. Tools and provider
+lock were not upgraded. Final inventories are 47 Terraform resource blocks /
+12 outputs and 49 CloudFormation resource declarations / 15 parameters / 17
+outputs; each includes one default-off registry resource. CFN default count is 48.
+
+No state or plan exists; Terraform cache/state/plan patterns are ignored and the
+unchanged dependency lock is versioned. The original live plan/stack-diff
+requirement is superseded by this local/static acceptance model. No AWS account,
+credentials, API, plan/apply/destroy, stack, change set, validate-template or
+resource creation was used. IaC is deployable in principle subject to documented
+external inputs and operator checks; static verification does not prove live AWS
+acceptance, capacity, bootstrap or application runtime.
+
+**MS8.1–MS8.9 COMPLETE. MACROSTEP 8 COMPLETE.**
+MS9 Deployment Design & Production Readiness is **NOT STARTED**. Image release,
+container startup, metadata isolation, agent configuration, DB-role bootstrap,
+secret population, Nginx health proxy, JDBC TLS, trusted proxy headers, auth rate
+limiting, notifications and rollback/runbooks remain its non-provisioning scope.

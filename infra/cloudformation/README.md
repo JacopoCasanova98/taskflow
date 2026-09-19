@@ -24,6 +24,7 @@ is local/static; no concrete output values or working runtime are claimed.
 | `RootDeviceName` | `/dev/xvda`; verify against the chosen AMI before any independent real deployment |
 | `AcmCertificateArn` | Required, no default; externally managed certificate in the ALB region |
 | `DbEngineVersion`, `DbInstanceClass` | `17`, `db.t4g.micro`; orderability is not queried |
+| `ManageEcrRegistryScanning` | `false`; opt in only for sole regional registry-scanning ownership |
 
 Region comes from `AWS::Region`, with validation targeted at Ireland
 (`eu-west-1`). AZ labels append a/b to that region. Letters are account-relative,
@@ -154,10 +155,21 @@ Retained application secrets require separate operator lifecycle handling.
 [Omitting both secret-value properties](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-secretsmanager-secret.html)
 defines empty secret metadata, not a generated application credential.
 
-Repository scan-on-push intentionally matches Terraform.
-[AWS marks repository scanning configuration as deprecated](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ecr-repository.html)
-in favor of registry configuration. MS8.9 should review both implementations
-together; MS8.8 does not independently redesign scanning.
+MS8.9 removed repository-level scan configuration from both implementations
+because [AWS deprecates it](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ecr-repository.html).
+The optional RegistryScanningConfiguration uses BASIC/SCAN_ON_PUSH with the
+reserved `<ProjectName>-<Environment>-*` prefix. It is default-off in both forms:
+registry scanning is account/region-wide and replaces the entire configuration.
+[Unmatched repositories become manual-scan](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning-filters.html);
+filters limit scan selection, not ownership or side effects.
+
+With the default, BASIC scan-on-push is an external registry-owner prerequisite;
+the application stack alone does not establish scanning. Only an independent
+operator granting this stack sole regional ownership should enable the option.
+Shared registries must retain their existing owner and incorporate the TaskFlow
+prefix into that owner's full policy. Multiple stacks/environments must not
+compete for this singleton. No Enhanced/Inspector scanning or runtime IAM change
+is introduced. Immutable tags, AES256 and seven-day untagged cleanup are unchanged.
 
 ## Non-sensitive output interface
 
@@ -209,5 +221,86 @@ MS8.8 validation passed with cfn-lint 1.57.0, no warnings/errors, networking
 disabled and explicit checks confirming no AWS environment or /root/.aws.
 Intrinsic-aware parsing, static security/parity review and Bash syntax checks
 also passed. These checks do not prove service acceptance, orderability, bootstrap
-success or runtime health. Terraform remains unchanged. MS8.9 final verification
-and MS9 runtime/deployment design remain unstarted.
+success or runtime health. Terraform was unchanged during MS8.8; the coordinated
+MS8.9 ECR correction and final verification are recorded below.
+
+## Final parity audit (MS8.9)
+
+Audited from committed MS8.8 baseline `4332b2b` on 2026-09-19. Classification
+applies to final code, including the coordinated scanning correction; no DEFECT
+remains open in the audited scope.
+
+| Category | Classification | Evidence / representation |
+| --- | --- | --- |
+| Region model | INTENTIONAL REPRESENTATION DIFFERENCE | Terraform provider input / AWS::Region; Ireland validation |
+| Naming | MATCH | Project-environment prefix and resource suffixes |
+| Tags | INTENTIONAL REPRESENTATION DIFFERENCE | Default / explicit tags, tool-specific ManagedBy; profile schema lacks Tags |
+| VPC | MATCH | 10.42.0.0/16; DNS support/hostnames |
+| Public subnets | MATCH | 10.42.0.0/24 and 10.42.1.0/24; AZ a/b; public mapping |
+| Database subnets | MATCH | 10.42.10.0/24 and 10.42.11.0/24; AZ a/b; mapping off |
+| IGW | INTENTIONAL REPRESENTATION DIFFERENCE | Inline attachment / explicit GatewayAttachment |
+| Public route | MATCH | One 0.0.0.0/0 IGW route, public associations only |
+| Database isolation | MATCH | Local-only table; no NAT, endpoints or custom NACL |
+| ALB SG, App SG, DB SG | MATCH | Three VPC trust boundaries; no SSH/backend/public DB ingress |
+| Security rules/default egress | INTENTIONAL REPRESENTATION DIFFERENCE | Same seven routable rules; CFN-only non-routable sentinels |
+| EC2 | MATCH | One AL2023 x86_64 input, t3.medium default, public-a, App SG/profile |
+| Public egress IP | INTENTIONAL REPRESENTATION DIFFERENCE | Instance attribute / primary NetworkInterfaces; no direct entry |
+| IMDS | MATCH | Enabled, v2 required, hop 2, metadata tags disabled |
+| Root EBS | INTENTIONAL REPRESENTATION DIFFERENCE | Same encrypted 30 GiB gp3/delete policy; CFN device input and propagated tags |
+| User data | INTENTIONAL REPRESENTATION DIFFERENCE | Same normalized script; templatefile / embedded Base64; native update behavior differs |
+| IAM trust | MATCH | EC2-only role and instance profile |
+| SSM | MATCH | AmazonSSMManagedInstanceCore; no SSH |
+| ECR pull IAM | MATCH | Three pull actions on two repos; authorization-token wildcard only |
+| Telemetry IAM | MATCH | Exact app log streams; namespace-constrained metric writes |
+| Secret-read IAM | MATCH | GetSecretValue/DescribeSecret on app DB/JWT only; no master read |
+| ECR repositories | MATCH | Frontend/backend, immutable, AES256 |
+| ECR lifecycle | INTENTIONAL REPRESENTATION DIFFERENCE | Separate resources / repository property; untagged seven-day expiry |
+| ECR scanning | MATCH | Deprecated properties removed; same default-off ownership guard and BASIC prefix rule |
+| ALB | MATCH | Public IPv4, both public subnets, ALB SG, invalid-header drop/deletion protection |
+| Target group/attachment | INTENTIONAL REPRESENTATION DIFFERENCE | Same instance HTTP 8080; separate attachment / embedded Targets |
+| Health check | MATCH | /internal/health, 200, interval 30, timeout 5, thresholds 2/3 |
+| HTTP listener | MATCH | 301 redirect 80 → HTTPS 443 |
+| HTTPS listener | MATCH | Same external ACM input and TLS13-1-2-Res-PQ-2025-09 policy |
+| Internal health block | MATCH | Priority 1; /internal/*, /actuator, /actuator/* → 404 |
+| Application DB/JWT metadata | INTENTIONAL REPRESENTATION DIFFERENCE | Same empty secret definitions; TF recovery seven days / CFN Retain |
+| DB subnet group | MATCH | Database-a/b only |
+| RDS PostgreSQL | MATCH | 17, db.t4g.micro, taskflow, private Single-AZ a, DB SG, 5432 |
+| Master credential model | MATCH | Service-managed taskflowadmin; no password input/value/read |
+| DB storage | MATCH | Fixed encrypted 20 GiB gp3; no custom KMS |
+| Backups | MATCH | Seven-day PITR window; retain automated-backup intent; not HA |
+| Deletion safety | INTENTIONAL REPRESENTATION DIFFERENCE | Protection in both; named final snapshot / Snapshot lifecycle policies |
+| DB maintenance/monitoring | MATCH | Minor auto, major/immediate/IAM-auth/PI/Enhanced Monitoring off; Standard Insights |
+| Log groups | MATCH | Backend/nginx/host/PostgreSQL, 14 days; DB waits for log destination |
+| EC2 alarms | MATCH | Status failure and CPU; thresholds/windows/dimensions verified |
+| ALB alarms | MATCH | Healthy hosts and ALB-generated 5xx; thresholds/windows/dimensions verified |
+| RDS alarms | MATCH | CPU and <5 GiB storage; thresholds/windows/dimensions verified |
+| Outputs | INTENTIONAL REPRESENTATION DIFFERENCE | Twelve structured / seventeen flat; same non-sensitive interface |
+
+Final inventory: **49 resource declarations**, of which registry scanning is
+conditional (48 with default ownership), **15 parameters** and **17 outputs**.
+Type counts: VPC 1, Subnet 4, InternetGateway 1, VPCGatewayAttachment 1,
+RouteTable 2, Route 1, SubnetRouteTableAssociation 4, SecurityGroup 3,
+SecurityGroupIngress 4, SecurityGroupEgress 3, Instance 1, Role 1,
+InstanceProfile 1, ECR Repository 2, RegistryScanningConfiguration 1 conditional,
+LoadBalancer 1, TargetGroup 1, Listener 2, ListenerRule 1, Secret 2,
+DBSubnetGroup 1, DBInstance 1, LogGroup 4, Alarm 6.
+Terraform has 47 resource blocks and twelve outputs; counts differ by modelling.
+
+Pinned cfn-lint 1.57.0 passed with zero errors/warnings for eu-west-1, both with
+the source default and a temporary copy changing only scanning's default to true.
+AMI/certificate inputs stayed unset. Intrinsic-aware assertions checked all
+security boundaries, output exclusions and lifecycle settings; Terraform source
+assertions compared defaults, resource properties and all alarm thresholds/
+dimensions. Normalized bootstraps match and both pass Bash syntax checks.
+Terraform 1.16.3 / AWS 6.65.0 fmt, validate (including JSON) and graph passed.
+Gitleaks 8.30.1 passed for all versioned infra and the architecture/ADR/roadmap
+scope. No credential values or account-specific inputs were found.
+
+All execution checks used cached tools, `--network none`, no AWS environment or
+credential directory. No rule suppressions or tool/provider upgrades were needed.
+Current AWS docs still support the SG sentinel and selected TLS policy. Explicit
+Standard Database Insights and disabled advanced telemetry avoid relying on
+changing service defaults. No additional relevant deprecation required changes.
+The original live plan/stack-diff expectation is superseded by local/static checks.
+No AWS API, stack/change set, validate-template, state or resource was produced.
+**MS8.9 COMPLETE — MACROSTEP 8 COMPLETE. MS9 NOT STARTED.**

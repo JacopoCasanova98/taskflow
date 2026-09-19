@@ -2,7 +2,7 @@
 
 > **Scope: reference AWS architecture / hypothetical production target.**
 > This document describes the production AWS architecture represented by
-> TaskFlow's future IaC. The project does not provision this infrastructure.
+> TaskFlow's completed reference IaC. The project does not provision this infrastructure.
 > All cloud resources, prices, domains and operational workflows are reference
 > designs, deployment-ready in principle, never a planned live environment.
 
@@ -208,8 +208,9 @@ Use a current secure listener policy when implementing, not a frozen policy name
 in this decision. ALB→frontend HTTP within the restricted VPC is an accepted
 initial trust boundary; end-to-end TLS is a future compliance upgrade.
 
-Reference IaC may define Route 53 aliases, ACM certificates and DNS validation
-records using input variables for a hypothetical hosted zone and domain.
+The final Terraform/CloudFormation implementations accept a required external
+regional ACM certificate ARN. They define no ACM or Route 53 resources; DNS and
+certificate lifecycle integration remain an external/MS9 design boundary.
 `taskflow.example.com` remains the placeholder. No real domain will be purchased;
 no real hosted zone, certificate request or DNS validation is required. Locally
 verifiable examples must not resolve real zone IDs or require account access.
@@ -250,6 +251,14 @@ scan/review findings before promotion, retain the active and rollback releases.
 Expire untagged artifacts after seven days; any release-retention policy must
 protect deployed/rollback digests. No repositories or image pushes will occur in this project.
 
+MS8.9 replaces deprecated repository scan settings with BASIC registry scanning.
+Regional registry ownership is explicitly opt-in and default-off in both IaC
+forms; otherwise the registry owner must provide scan-on-push for the reserved
+`<project>-<environment>-*` prefix. Matching is narrow, but configuration ownership
+is registry-wide and unmatched repositories become manual-scan. Shared registries
+retain their existing owner rather than granting an application stack control.
+See the [final scanning ownership decision](../infra/terraform/README.md#runtime-iam-and-ecr).
+
 **Choose Secrets Manager** for DB/JWT values. Standard Parameter Store SecureString
 is a valid cheaper option with familiar IAM/KMS APIs, but application/database
 rotation coordination would still be ours. Secrets Manager gives a coherent DB
@@ -288,17 +297,19 @@ describe that model. Host patching/replacement remains the operator's responsibi
 ## Logs, monitoring and availability
 
 Docker stdout/stderr (backend request IDs and Nginx access/error logs) go to
-CloudWatch Logs through host-configured forwarding; CloudWatch Agent supplies
-host memory/disk metrics and selected system logs. Keep logs 14 days, rotate local
+CloudWatch Logs through future host-configured forwarding. The agent is installed
+but collection configuration remains MS9; no custom memory/disk metric is claimed
+by MS8. Keep logs 14 days, rotate local
 buffers, never include request bodies/auth headers/cookies/secrets. Retain SSM
 session audit logs where supported; port-forward sessions do not provide command
 content logging. RDS native metrics plus selected PostgreSQL error logs support
 diagnosis. ALB access-log S3 storage is optional, not another mandatory log pipeline.
 
-Start with a small alarm set, notifications to an operator-selected SNS destination:
-ALB healthy targets below one / sustained 5xx; EC2 status check failure; host
-disk low; sustained compute CPU or depleted burst credits; RDS free storage low
-and sustained CPU/connection pressure. Backend-dependent ALB health covers backend
+The implemented alarm set covers ALB healthy targets below one / ALB-generated
+5xx, EC2 status check failure / sustained CPU, and RDS free storage / CPU.
+Notification actions are empty; notification delivery, custom host metrics,
+connection/credit thresholds and baseline calibration remain MS9/operator design.
+Backend-dependent ALB health is intended to cover backend
 availability. MS9 documents threshold/evaluation-window assumptions and how a real operator
 would calibrate them against baseline data; no AWS measurements are required. No paid enhanced database
 monitoring tier or large dashboard stack by default.
@@ -380,23 +391,25 @@ A real operator would review a fresh regional Calculator estimate. TaskFlow has
 no estimate-approval gate and no apply. AWS Budget resources are not planned
 implementation; any future budget example could only be static reference IaC.
 
-## IaC ownership and remaining milestones
+## IaC ownership and completed verification
 
 Names follow `taskflow-<environment>-<resource>`, with an `environment` input
 (reference environment `prod`; no actual dev/prod stacks).
-Tags: `Project=TaskFlow`, `Environment`, `ManagedBy=Terraform` or `CloudFormation`,
-`Component`; optionally a public repository URL. No personal/account details.
+Tags: variable-derived `Project=taskflow` by default, `Environment`,
+`ManagedBy=Terraform` or `CloudFormation`, and resource-specific `Component`.
+No personal/account details.
 
 Terraform is primary in MS8.2–8.7. CloudFormation in MS8.8 expresses the same core:
 VPC/subnets/routes/IGW, three SG boundaries, EC2/EBS/instance role, ALB/listeners/
 target group, RDS/subnet group/protection, ECR, secret metadata/permissions,
-CloudWatch groups/alarms and notification reference, ACM/validation/DNS records
-against a hypothetical hosted-zone input. MS8.4 owns security/secret access; MS8.5 compute,
-ALB/ECR/observability definitions; MS8.6 DB; MS8.7 non-secret outputs; MS8.8 parity;
+CloudWatch groups/alarms and an external certificate input. No ACM/DNS resources
+or notification subscriptions are implemented. MS8.4 owns network security;
+MS8.5 compute/IAM/ALB/ECR/observability; MS8.6 DB/secret metadata and scoped reads;
+MS8.7 non-secret outputs; MS8.8 parity;
 MS8.9 static/local validation and review. MS9 designs runtime artifacts, conceptual
 ECR workflows, bootstrap, secret retrieval and HTTPS/observability runbooks only.
 
-Future Terraform and CloudFormation will be genuine, un-applied resource definitions, not
+Terraform and CloudFormation are genuine, un-applied resource definitions, not
 pseudocode. Terraform includes providers, variables, locals, resources and outputs.
 They model equivalent alternatives; a real operator would choose one resource
 owner rather than let both tools manage the same resources. Placeholder inputs
@@ -407,8 +420,8 @@ Allowed Terraform verification: `terraform fmt`, `terraform fmt -check`,
 `terraform validate`, static inspection, dependency/reference review and provider
 schema validation where possible without AWS credentials. Provider downloads may
 require network access, but authenticated AWS calls are not acceptance criteria.
-Do not require `terraform plan` if it needs AWS authentication/API calls; apply
-is prohibited. Any offline/mock/static mechanism must stay simple and documented.
+Do not run `terraform plan`, apply or destroy. MS8.9 explicitly supersedes the
+original live-plan/stack-diff expectation with comprehensive local/static checks.
 MS8.8 implements a genuine CloudFormation equivalent, checked with local/static
 tooling; no stack, AWS-backed change set or deployment is created for validation.
 
@@ -422,7 +435,8 @@ in the [HashiCorp S3 backend reference](https://developer.hashicorp.com/terrafor
 That production recommendation is not TaskFlow infrastructure to create. Avoid
 plaintext credentials in any state or generated artifacts, even sensitive outputs.
 
-Completion here means a selected, internally consistent reference design with
-explicit pricing/orderability uncertainty. It does not mean a live AWS environment,
-implemented Terraform/CloudFormation, tested cloud latency/capacity or production
-security acceptance. **MS8.1 COMPLETE; MS8.2–MS8.9 and MS9 not started.**
+Completion means an implemented, semantically aligned reference design passing
+local/static checks, with explicit pricing/orderability uncertainty. It does not
+mean a live AWS environment, tested cloud latency/capacity or runtime security
+acceptance. Final evidence is recorded in [ARCHITECTURE.md](ARCHITECTURE.md).
+MS9 Deployment Design & Production Readiness remains unstarted and non-provisioning.
