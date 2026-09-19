@@ -1889,8 +1889,8 @@ not cloud hosting. See the linked reference architecture for the hard execution 
 
 ### Terraform provider/state foundation (MS8.2)
 
-`infra/terraform/` is one root module with no AWS resources, data sources or child
-modules. Terraform uses `~> 1.16.0`; `hashicorp/aws` uses `~> 6.65.0`, restricting
+MS8.2 established `infra/terraform/` as one root module without AWS resources,
+data sources or child modules. Terraform uses `~> 1.16.0`; `hashicorp/aws` uses `~> 6.65.0`, restricting
 automatic compatibility to the selected minor lines' patches. The generated
 `.terraform.lock.hcl` belongs in Git and pins the provider version/checksums.
 Version evidence, platform locking and state details live in the
@@ -1912,10 +1912,36 @@ DynamoDB locking. No state bucket, table or KMS key is provisioned.
 From `infra/terraform/`, run `terraform init -backend=false`,
 `terraform fmt -check -recursive` and `terraform validate`. AWS credentials,
 an account and AWS API access are unnecessary; public provider downloads are
-permitted. No plan, apply or destroy is run. MS8.3 networking and all subsequent
-milestones remain deferred; MacroStep 8 is incomplete.
+permitted. No plan, apply or destroy is run. Networking progress is recorded
+below; MacroStep 8 is incomplete.
 
 Verified with Terraform 1.16.3 and AWS provider 6.65.0: initialization, formatting
 and validation passed. Validation ran in an isolated container with networking
 disabled and no AWS credentials. Signed provider hashes cover macOS and Linux,
 each on ARM64 and x86_64. No state was generated. **MS8.2 COMPLETE**.
+
+### Terraform networking (MS8.3)
+
+`infra/terraform/networking.tf` implements the approved network as un-applied
+reference IaC: one DNS-enabled VPC (`10.42.0.0/16`), public-a/b
+(`10.42.0.0/24`, `10.42.1.0/24`) and isolated database-a/b
+(`10.42.10.0/24`, `10.42.11.0/24`). CIDRs are validated IPv4 inputs; subnet maps
+require exactly a/b. Logical AZ names derive from region plus a/b without API
+discovery; letters are account-relative, not physical identity guarantees.
+
+One IGW and a shared public route table provide the only Internet default route.
+Public subnets enable public IPv4 assignment for the later host's egress.
+Database subnets disable it and share an explicitly associated route table with
+only the implicit VPC local route. No NAT, endpoints, custom NACLs, Security Groups,
+compute or database resources are defined. Names/common tags follow MS8.2;
+networking adds Name/Component/Tier tags. Foundation outputs remain unchanged.
+
+Terraform 1.16.3 / AWS 6.65.0 formatting, validation and textual dependency-graph
+review passed with networking disabled and no AWS credentials, using the existing
+provider cache and unchanged lock. Static review confirms 13 networking instances:
+one VPC, four subnets, one IGW, two route tables, one public route and four
+associations. Validation checks schema/types/references, not AWS acceptance or
+regional availability. No state or AWS resources were created; no AWS API, plan,
+apply or destroy was used. **MS8.3 COMPLETE**. MS8.4 Security and all later
+milestones remain deferred; MacroStep 8 is incomplete. See the
+[Terraform README](../infra/terraform/README.md#networking-ms83) for the contract.

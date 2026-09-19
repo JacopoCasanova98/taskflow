@@ -1,14 +1,14 @@
 # TaskFlow Terraform root module
 
 This single root module models the [AWS reference architecture](../../docs/AWS_ARCHITECTURE.md).
-MS8.2 establishes the provider, inputs, naming/tags and foundation outputs only.
-There are no resources, data sources or child modules yet.
+MS8.2 establishes the provider, inputs, naming/tags and foundation outputs.
+MS8.3 adds networking resources only. There are no data sources or child modules.
 
 ## Execution policy and validation
 
 TaskFlow never provisions AWS infrastructure. No AWS account, credentials,
 billable resources or live AWS API calls are required. Do not run `terraform apply`
-or `terraform destroy`; no plan is required or run for MS8.2. Public Registry and
+or `terraform destroy`; no plan is required or run for MS8.2–MS8.3. Public Registry and
 HashiCorp release downloads are permitted.
 
 With Terraform installed, run from the repository root:
@@ -119,10 +119,55 @@ terraform {
 }
 ```
 
+## Networking (MS8.3)
+
+`networking.tf` defines VPC `10.42.0.0/16` with DNS support and DNS hostnames
+enabled, and the following reference topology:
+
+| Logical AZ | Public subnet | Isolated database subnet |
+| --- | --- | --- |
+| a | `10.42.0.0/24` | `10.42.10.0/24` |
+| b | `10.42.1.0/24` | `10.42.11.0/24` |
+
+`vpc_cidr`, `public_subnet_cidrs` and `database_subnet_cidrs` are inputs with
+IPv4 CIDR syntax validation. Both maps require exactly `a` and `b`. Overrides
+must preserve non-overlapping subnets contained in the VPC; validation does not
+implement overlap/containment checks. AZ names derive from `aws_region` plus
+`a`/`b` (defaults `eu-west-1a`/`eu-west-1b`). Letters are account-relative logical
+labels, not claims about physical AZ identity or live regional availability.
+
+One Internet Gateway attaches to the VPC. Both public subnets share an explicit
+public route table with one separate `aws_route`: `0.0.0.0/0` to that gateway.
+Public subnets enable automatic public IPv4 assignment for the future application
+host's egress; assignment alone does not make the application reachable.
+Future ALB placement spans both public subnets; the single host uses one.
+MS8.4 will define ingress restrictions through Security Groups.
+
+Both database subnets disable public IPv4 assignment and explicitly associate
+with a separate database route table containing only the implicit VPC local
+route. There is no Internet/NAT route for that tier. No NAT, Elastic IP,
+VPC endpoints or custom NACLs are defined; VPC default NACLs remain in use.
+Names derive from `local.name_prefix`; taggable networking resources add `Name`,
+`Component = "networking"` and, for tier-specific resources, `Tier`.
+Provider common tags are inherited. Root metadata outputs remain unchanged.
+
+Static review confirms one VPC, four subnets across two logical AZs, one IGW,
+two route tables, one public default route and four explicit associations
+(13 resource instances from nine resource blocks). No other resource types exist.
+Offline validation checks locked-provider resource schemas, argument types and
+references; the textual dependency graph checks the routing dependencies.
+These checks do not prove AWS service acceptance, available AZs or provisionability.
+MS8.3 passed formatting, validation and textual graph review using Terraform
+1.16.3 / AWS 6.65.0 with `--network none`, no AWS environment variables and no
+credential directory. The existing provider cache was reused without initialization,
+upgrade or lock-file changes. No state, plan or AWS operation was produced.
+
 ## Milestone ownership
 
-MS8.2 owns this foundation only. Networking (MS8.3), security (MS8.4), compute
+MS8.2 owns the foundation and MS8.3 owns networking. Security (MS8.4), compute
 (MS8.5), database (MS8.6), resource outputs (MS8.7), CloudFormation (MS8.8) and
 final IaC verification (MS8.9) remain deferred. Future authoring must preserve
 credential-free static validation; no live AWS data sources are introduced here.
 MS9 deployment design remains separate and unstarted.
+Security Groups belong to MS8.4, compute/ALB to MS8.5 and RDS/DB subnet groups
+to MS8.6. None is defined in MS8.3.

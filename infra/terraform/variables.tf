@@ -1,3 +1,55 @@
+variable "vpc_cidr" {
+  description = "IPv4 CIDR for the reference VPC."
+  type        = string
+  default     = "10.42.0.0/16"
+  nullable    = false
+
+  validation {
+    condition     = can(cidrnetmask(var.vpc_cidr))
+    error_message = "Provide a valid IPv4 CIDR for the VPC."
+  }
+}
+
+variable "public_subnet_cidrs" {
+  description = "Public IPv4 subnet CIDRs for exactly the two logical AZs a and b."
+  type        = map(string)
+  default = {
+    a = "10.42.0.0/24"
+    b = "10.42.1.0/24"
+  }
+  nullable = false
+
+  validation {
+    condition     = toset(keys(var.public_subnet_cidrs)) == toset(["a", "b"])
+    error_message = "Public subnet CIDRs must have exactly the keys a and b."
+  }
+
+  validation {
+    condition     = alltrue([for cidr in values(var.public_subnet_cidrs) : can(cidrnetmask(cidr))])
+    error_message = "Each public subnet CIDR must be valid IPv4 CIDR notation."
+  }
+}
+
+variable "database_subnet_cidrs" {
+  description = "Isolated database IPv4 subnet CIDRs for exactly the two logical AZs a and b."
+  type        = map(string)
+  default = {
+    a = "10.42.10.0/24"
+    b = "10.42.11.0/24"
+  }
+  nullable = false
+
+  validation {
+    condition     = toset(keys(var.database_subnet_cidrs)) == toset(["a", "b"])
+    error_message = "Database subnet CIDRs must have exactly the keys a and b."
+  }
+
+  validation {
+    condition     = alltrue([for cidr in values(var.database_subnet_cidrs) : can(cidrnetmask(cidr))])
+    error_message = "Each database subnet CIDR must be valid IPv4 CIDR notation."
+  }
+}
+
 variable "project_name" {
   description = "Project identifier used in the naming prefix and Project tag."
   type        = string

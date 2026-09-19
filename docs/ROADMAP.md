@@ -97,7 +97,7 @@ MacroStep 7 Definition of Done:
 
 - [x] MS8.1 — AWS architecture decision
 - [x] MS8.2 — Terraform provider/state
-- [ ] MS8.3 — Terraform networking
+- [x] MS8.3 — Terraform networking
 - [ ] MS8.4 — Terraform security
 - [ ] MS8.5 — Terraform compute
 - [ ] MS8.6 — Terraform database
@@ -112,9 +112,13 @@ MS8.2 establishes the [Terraform root module](../infra/terraform/README.md):
 provider/version constraints, validated inputs, naming/tags, metadata outputs,
 local state policy and a generated multi-platform dependency lock. Terraform
 1.16.3 / AWS provider 6.65.0 initialization, formatting and credential-free,
-network-disabled validation passed. No AWS resources or data sources exist yet.
-**MS8.1 COMPLETE. MS8.2 COMPLETE. MacroStep 8 remains incomplete.**
-MS8.3–MS8.9 and MacroStep 9 have not started. No resources provisioned.
+network-disabled validation passed for the foundation.
+MS8.3 implements the approved VPC, two public and two isolated database subnets,
+IGW and explicit tier routing. Formatting, offline validation and static graph /
+network-invariant review passed with the unchanged provider lock. No live data
+sources, Security Groups, compute or database resources are defined.
+**MS8.1 COMPLETE. MS8.2 COMPLETE. MS8.3 COMPLETE. MacroStep 8 remains incomplete.**
+MS8.4–MS8.9 and MacroStep 9 have not started. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 
