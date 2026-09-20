@@ -2213,3 +2213,27 @@ MS9.5 ALB/Nginx/Spring proxy trust, forwarded headers, internal health, HTTPS,
 DNS/ACM and auth rate limits; MS9.6 CloudWatch Agent configuration; MS9.7
 deployment/rollback/DR runbooks; MS9.8 static smoke tests and readiness review.
 None of these later milestones is started by MS9.1.
+
+### Container release design (MS9.2)
+
+The [container release contract](CONTAINER_RELEASE.md) treats frontend/backend
+as one release from one reviewed full Git SHA. Both receive immutable
+`git-<full-git-sha>` tags; optional semantic versions are shared immutable aliases.
+Production consumes paired repository manifest digests through the unchanged
+image inputs. Builds explicitly target `linux/amd64` for the x86_64 EC2 host.
+A conceptual release record binds the commit, two repositories/digests, optional
+version, build timestamp and platform; partial pushes never form a deployable pair.
+
+Existing ECR repositories retain immutable tags and AES256 encryption. BASIC
+registry scan-on-push remains an external owner prerequisite unless TaskFlow owns
+the regional singleton; both scan results require review before eligibility.
+Seven-day untagged expiry does not expire tagged releases, preserving history
+while allowing storage growth. No tagged-retention policy is added.
+
+Dockerfiles remain unchanged: optional OCI labels would duplicate the release
+record without enforcing pairing; MS10 may generate consistent metadata alongside
+CI artifacts. Versioned base tags remain; byte-for-byte reproducibility is not
+claimed. Static contract/Compose checks and offline cached-image Gitleaks verify
+this documentation-only design. No AWS or registry authentication, API, image
+push/pull, real release or production startup occurs. MS10 owns CI/workload
+identity automation; MS9.7 owns rollback procedures. MS9.3–MS9.8 remain unstarted.

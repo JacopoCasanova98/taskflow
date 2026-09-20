@@ -181,11 +181,11 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.2–MS9.8 remain unstarted.
+**MS9.1–MS9.2 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.3–MS9.8 remain unstarted.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
-- [ ] MS9.2 — Container release/tagging and conceptual ECR workflow
+- [x] MS9.2 — Container release/tagging and conceptual ECR workflow
 - [ ] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
 - [ ] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
 - [ ] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
@@ -199,6 +199,13 @@ missing/empty rejection checks, forced Secure cookies and Gitleaks passed.
 Local Compose, application code and IaC remain unchanged; no AWS, registry or
 production deployment operation occurred. See the concise
 [architecture close-out](ARCHITECTURE.md#production-runtime-design-ms91).
+
+MS9.2 defines the [paired container release contract](CONTAINER_RELEASE.md):
+immutable full-Git-SHA tags, optional shared version aliases, amd64 builds and
+digest-only production selection. ECR scanning prerequisites, retention and
+partial-push failures are explicit. Static contract/Compose checks, reference
+shell syntax validation and offline Gitleaks passed. Dockerfiles, Compose and
+IaC remain unchanged; no AWS/registry operation or actual release occurred.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

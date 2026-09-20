@@ -35,12 +35,17 @@ credential values and performs no image build.
 
 | Input | Classification and ownership |
 | --- | --- |
-| `TASKFLOW_FRONTEND_IMAGE` | Non-secret image reference; MS9.2 defines release/tag/digest policy |
-| `TASKFLOW_BACKEND_IMAGE` | Non-secret image reference; MS9.2 defines release/tag/digest policy |
+| `TASKFLOW_FRONTEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 release contract |
+| `TASKFLOW_BACKEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 release contract |
 | `TASKFLOW_DB_URL` | Connection configuration; MS9.4 defines RDS hostname, TLS parameters and CA handling; never embed credentials in the URL |
 | `TASKFLOW_DB_USERNAME` | Application-role identifier; prepared with credential configuration in MS9.3/MS9.4 |
 | `TASKFLOW_DB_PASSWORD` | Secret; secure materialization belongs to MS9.3 |
 | `TASKFLOW_JWT_SECRET_BASE64` | Secret; existing contract requires a Base64-encoded 32-byte signing key; materialization belongs to MS9.3 |
+
+Production image variables must resolve to `<repository>@sha256:<digest>` for
+both artifacts of the same reviewed release. Tags remain traceability/release
+aliases. The [container release contract](CONTAINER_RELEASE.md) defines the
+MS9.2 image policy; Compose itself only checks that these inputs are non-empty.
 
 `TASKFLOW_COOKIE_SECURE` is fixed to `"true"` in production Compose, even if the
 shell supplies false. No AWS credentials or committed production env file is
@@ -61,7 +66,7 @@ the RDS CA bundle, application-role bootstrap and migration sequencing.
 The existing images run as non-root users. Both services use a read-only root
 filesystem, writable `/tmp` tmpfs, and `no-new-privileges:true`, with no host
 filesystem or Docker socket mount and no added capabilities/privileged mode.
-MS9.2 must preserve this image contract when selecting release images.
+The MS9.2 release contract preserves these image requirements.
 
 `unless-stopped` supports restarting existing containers after daemon/host
 restart; it is neither HA nor a deployment orchestrator. An unhealthy status
@@ -101,7 +106,6 @@ RDS connectivity, application startup, ALB health or deployment success.
 
 | Milestone | Deferred work |
 | --- | --- |
-| MS9.2 | Image release/tagging and conceptual ECR workflow |
 | MS9.3 | Host bootstrap, secret retrieval/materialization and metadata isolation |
 | MS9.4 | RDS TLS/CA, database-role bootstrap and migrations |
 | MS9.5 | Reverse proxy, HTTPS/DNS, trusted headers and integrated health/security |
