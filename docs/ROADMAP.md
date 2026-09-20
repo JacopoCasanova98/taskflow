@@ -150,7 +150,7 @@ Deprecated repository scanning was removed from both implementations: BASIC
 registry scanning is an external prerequisite by default, with guarded sole-owner
 opt-in and a TaskFlow prefix filter. Regional ownership implications are explicit.
 **MS8.1–MS8.9 COMPLETE. MACROSTEP 8 COMPLETE.**
-MacroStep 9 has not started. No resources provisioned.
+MacroStep 9 progress is recorded below. No resources provisioned.
 
 TaskFlow's portfolio AWS infrastructure is intentionally non-provisioned; no recurring AWS hosting cost is required to complete the project.
 
@@ -180,10 +180,11 @@ MacroStep 8 Definition of Done:
 ## MacroStep 9 — Deployment Design & Production Readiness
 
 Goal: prove that application and IaC contain a coherent, documented production
-deployment path without actually provisioning AWS. All steps remain unstarted.
-**Status: NOT STARTED.** This is deployment design, not live AWS deployment.
+deployment path without actually provisioning AWS.
+**MS9.1 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.2–MS9.8 remain unstarted.
 
-- [ ] MS9.1 — Production runtime and Docker Compose configuration design
+- [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [ ] MS9.2 — Container release/tagging and conceptual ECR workflow
 - [ ] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
 - [ ] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
@@ -191,6 +192,13 @@ deployment path without actually provisioning AWS. All steps remain unstarted.
 - [ ] MS9.6 — CloudWatch/logging and operational monitoring design
 - [ ] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
 - [ ] MS9.8 — Static production smoke-test plan and readiness review
+
+MS9.1 defines the separate [production runtime contract](PRODUCTION_RUNTIME.md)
+and frontend/backend Compose model. Static model validation, all six inputs'
+missing/empty rejection checks, forced Secure cookies and Gitleaks passed.
+Local Compose, application code and IaC remain unchanged; no AWS, registry or
+production deployment operation occurred. See the concise
+[architecture close-out](ARCHITECTURE.md#production-runtime-design-ms91).
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

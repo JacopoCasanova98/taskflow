@@ -2176,7 +2176,40 @@ external inputs and operator checks; static verification does not prove live AWS
 acceptance, capacity, bootstrap or application runtime.
 
 **MS8.1–MS8.9 COMPLETE. MACROSTEP 8 COMPLETE.**
-MS9 Deployment Design & Production Readiness is **NOT STARTED**. Image release,
+At MS8.9 close-out, MS9 was **NOT STARTED**. Image release,
 container startup, metadata isolation, agent configuration, DB-role bootstrap,
 secret population, Nginx health proxy, JDBC TLS, trusted proxy headers, auth rate
 limiting, notifications and rollback/runbooks remain its non-provisioning scope.
+
+### Production runtime design (MS9.1)
+
+The standalone [production Compose](../compose.production.yaml) defines only
+frontend and backend; PostgreSQL remains external RDS. Local `compose.yaml`
+and application/IaC sources are unchanged. Nginx publishes host TCP 8080 to
+container 8080; backend port 8080 is Docker-only on their shared bridge.
+The browser retains same-origin `/api` through Nginx to `backend:8080`.
+
+External image references and DB URL/username/password plus the JWT secret are
+six required, non-empty runtime inputs. Secure cookies are forced to true.
+Existing Spring configuration externalizes DB/JWT settings, enables Flyway and
+Hibernate `validate`; no redundant production profile is needed. Existing
+non-root image contracts, read-only roots, `/tmp` tmpfs and no-new-privileges
+define hardening. Both services use `unless-stopped`; health probes check local
+Nginx and backend `/actuator/health` status UP. Unhealthy status alone does not
+restart containers or establish ALB readiness.
+
+Static Compose validation and all twelve missing/empty-input rejection checks
+passed with ephemeral non-secret placeholders and reserved `.invalid` hosts;
+a shell cookie=false override still rendered true. Earlier isolated cached-image
+hardening checks are retained in the [runtime contract](PRODUCTION_RUNTIME.md).
+No AWS, registry or production runtime deployment operation occurred.
+Gitleaks 8.30.1 found no leaks across the four MS9.1 files using the cached
+local image with networking disabled and pulls forbidden.
+
+The zero-provisioning policy remains binding. MS9.2 owns image tags/digests and
+ECR release design; MS9.3 secret retrieval/materialization, host permissions and
+metadata isolation; MS9.4 real RDS JDBC/TLS/CA, DB roles and Flyway sequencing;
+MS9.5 ALB/Nginx/Spring proxy trust, forwarded headers, internal health, HTTPS,
+DNS/ACM and auth rate limits; MS9.6 CloudWatch Agent configuration; MS9.7
+deployment/rollback/DR runbooks; MS9.8 static smoke tests and readiness review.
+None of these later milestones is started by MS9.1.

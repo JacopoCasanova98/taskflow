@@ -1,0 +1,55 @@
+# Standalone reference runtime; see docs/PRODUCTION_RUNTIME.md. Never deployed by TaskFlow.
+services:
+  frontend:
+    image: ${TASKFLOW_FRONTEND_IMAGE:?TASKFLOW_FRONTEND_IMAGE is required}
+    ports:
+      # ALB reaches the host ENI; the App SG permits only ALB SG ingress here.
+      - "0.0.0.0:8080:8080"
+    networks:
+      - application
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    image: ${TASKFLOW_BACKEND_IMAGE:?TASKFLOW_BACKEND_IMAGE is required}
+    environment:
+      TASKFLOW_DB_URL: ${TASKFLOW_DB_URL:?TASKFLOW_DB_URL is required}
+      TASKFLOW_DB_USERNAME: ${TASKFLOW_DB_USERNAME:?TASKFLOW_DB_USERNAME is required}
+      TASKFLOW_DB_PASSWORD: ${TASKFLOW_DB_PASSWORD:?TASKFLOW_DB_PASSWORD is required}
+      TASKFLOW_JWT_SECRET_BASE64: ${TASKFLOW_JWT_SECRET_BASE64:?TASKFLOW_JWT_SECRET_BASE64 is required}
+      TASKFLOW_COOKIE_SECURE: "true"
+    networks:
+      - application
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          health=$$(curl --fail --silent --show-error --max-time 3 http://127.0.0.1:8080/actuator/health)
+          && printf '%s' "$$health" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+networks:
+  application:
+    driver: bridge
