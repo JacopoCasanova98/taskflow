@@ -263,20 +263,23 @@ See the [final scanning ownership decision](../infra/terraform/README.md#runtime
 is a valid cheaper option with familiar IAM/KMS APIs, but application/database
 rotation coordination would still be ours. Secrets Manager gives a coherent DB
 secret/rotation lifecycle for a small additional storage charge. Automatic rotation
-is not enabled blindly: the current application reads environment at startup and
-uses one JWT key. Coordinate DB password change and service restart; JWT rotation
+is not enabled blindly: production reads mounted configtree files at startup and
+uses one JWT key. Coordinate DB password change and backend recreation; JWT rotation
 invalidates outstanding access tokens until a future key-ring design exists.
 
-Separate an RDS-managed administrator secret, a dedicated `taskflow` database-role
-secret, and JWT signing secret. The application role owns only its database/schema,
-not RDS administration; initially Flyway and runtime share that role, an accepted
-DDL privilege trade-off. The MS9 controlled-bootstrap design would create roles/grants only;
-**Flyway alone creates/evolves application tables**, Hibernate stays `validate`.
-Future separation of migrator/runtime credentials reduces DDL exposure.
+MS9.4 resolves the initial shared-role DDL trade-off: the RDS-managed administrator
+is bootstrap-only, `taskflow_migrator` owns migrations, and `taskflow_app` has
+runtime DML only. The existing app/JWT secret resources remain; migration
+credentials are operator-controlled and unavailable to the long-running backend.
+[Database operations](RDS_DATABASE_OPERATIONS.md) defines verify-full/regional CA
+trust, pre-start migrations and Hibernate validation. No IAM or DB resource changes
+are required. MS9.3's file-backed secret/configtree contract supersedes the initial
+environment-file design.
 
-Host startup retrieves only app DB/JWT secrets using an instance role, writes a
-root-only ephemeral environment file under `/run` (tmpfs), starts containers and
-removes the file after consumption. Secrets remain observable to host root/Docker
+The deployment-time host materializer retrieves only app DB/JWT secrets using
+the instance role and atomically publishes protected files under `/run` (tmpfs).
+Backend alone mounts them through Compose secrets/configtree; user data never
+retrieves values. Secrets remain observable to host root/Docker
 administrators; they are not written to Git, user data, images, logs or durable
 disk. IaC defines secret metadata/resources and access references, not plaintext secret values
 or outputs. Avoid generating/reading app secret values into Terraform state;

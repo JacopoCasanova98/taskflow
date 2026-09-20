@@ -20,6 +20,15 @@ public class DatabaseCredentialsConfiguration {
 			public Object postProcessBeforeInitialization(Object bean, String beanName) {
 				if (bean instanceof DataSource) {
 					JdbcConnectionDetails details = connectionDetails.getObject();
+					if (environment.getProperty("taskflow.database.production", Boolean.class, false)) {
+						if (!"taskflow_app".equals(details.getUsername())
+								|| environment.getProperty("spring.flyway.enabled", Boolean.class, true)
+								|| !"validate".equals(environment.getProperty("spring.jpa.hibernate.ddl-auto"))) {
+							throw new IllegalStateException("Production runtime requires taskflow_app and pre-start migrations.");
+						}
+						ProductionDatabaseContract.validateUrl(details.getJdbcUrl());
+						ProductionDatabaseContract.validateTrustFile(java.nio.file.Path.of(ProductionDatabaseContract.CA_PATH));
+					}
 					for (String value : new String[] {details.getUsername(), details.getPassword()}) {
 						try {
 							if (value == null || environment.resolveRequiredPlaceholders(value).isBlank()) {

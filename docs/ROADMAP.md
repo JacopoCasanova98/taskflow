@@ -181,13 +181,13 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1–MS9.3 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.4–MS9.8 remain unstarted.
+**MS9.1–MS9.4 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.5–MS9.8 remain unstarted.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [x] MS9.2 — Container release/tagging and conceptual ECR workflow
 - [x] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
-- [ ] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
+- [x] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
 - [ ] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
 - [ ] MS9.6 — CloudWatch/logging and operational monitoring design
 - [ ] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
@@ -213,6 +213,16 @@ persistent Docker metadata isolation. All 479 backend tests pass, including seve
 focused configuration cases; fake-AWS/materializer and fake-firewall/parity tests,
 static Compose checks, offline Terraform fmt/validate/graph, cfn-lint and Gitleaks
 pass. No AWS/IMDS/registry call, secret population or production startup occurred.
+
+MS9.4 defines [RDS TLS, roles and migration preparation](RDS_DATABASE_OPERATIONS.md):
+independent administrator, migrator and runtime identities; password-free role
+bootstrap; verify-full JDBC and regional CA trust; migrations from the existing
+backend artifact before runtime startup with Flyway disabled and Hibernate validate.
+All 485 backend tests and packaging passed. Local PostgreSQL verifies non-superuser
+bootstrap, migration ownership, runtime CRUD, denied DDL and future-object grants.
+Offline helper/materializer tests, static Compose checks and Gitleaks passed.
+Local Compose, existing migrations and IaC are unchanged. No AWS/RDS connection,
+master-secret retrieval, registry operation or production startup occurred.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

@@ -29,11 +29,16 @@ CLI v1 fails the version check. CloudWatch configuration remains MS9.6 work.
 ## Secret schemas and identity
 
 The application DB SecretString is a JSON object with exactly two string fields:
-`username` and `password`. Both must be non-blank and contain no control characters.
+`username` and `password`. MS9.4 requires username `taskflow_app`; migrator/master
+identities are rejected. Both values must be non-blank and contain no control characters.
 The JWT SecretString is the raw canonical Base64 encoding of exactly 32 bytes,
 not a JSON object. The helper unwraps the AWS CLI JSON output before validation.
 No hostname, JDBC URL, master DB credentials or AWS credentials belong in either
-payload. MS9.4 owns the real DB endpoint, TLS URL, CA and DB-role preparation.
+payload. The [MS9.4 database contract](RDS_DATABASE_OPERATIONS.md) defines the
+endpoint/TLS/CA and separate role bootstrap. Master credentials remain with the
+independent privileged operator; migration credentials exist only in a protected
+ephemeral file for the controlled one-shot step. The backend materializer retrieves
+neither. No additional secret metadata or EC2 access grant is introduced.
 
 The helper accepts exactly two distinct **non-secret** identifiers (name or ARN):
 application DB secret first, JWT secret second. Both calls request `AWSCURRENT`.
@@ -175,6 +180,7 @@ Validation passed: 479 backend tests (including seven focused configuration
 cases), four materializer test methods covering the success/failure matrix,
 fake-firewall/parity tests, static Compose checks and offline Gitleaks 8.30.1.
 Terraform 1.16.3 fmt/validate/graph and cfn-lint 1.57.0 passed offline and
-credential-free; they do not prove live AL2023 bootstrap or EC2 packet behavior. MS9.4 owns
-DB/TLS/bootstrap/migrations, MS9.5 proxy/HTTPS, MS9.6 monitoring, MS9.7 deployment/
-recovery coordination and MS9.8 readiness. Those milestones remain unstarted.
+credential-free; they do not prove live AL2023 bootstrap or EC2 packet behavior.
+MS9.4 subsequently defines the database contract linked above. MS9.5 proxy/HTTPS,
+MS9.6 monitoring, MS9.7 deployment/recovery coordination and MS9.8 readiness
+remain unstarted.

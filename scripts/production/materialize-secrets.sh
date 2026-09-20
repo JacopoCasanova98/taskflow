@@ -27,7 +27,7 @@ aws secretsmanager get-secret-value --secret-id "$1" --version-stage AWSCURRENT 
 aws secretsmanager get-secret-value --secret-id "$2" --version-stage AWSCURRENT \
   --query SecretString --output json >"$stage/jwt-response" 2>"$stage/aws-error"
 # Reject controls/blank values; preserve spaces, quotes and shell punctuation verbatim.
-jq -e 'fromjson | type == "object" and (keys | sort) == ["password","username"] and
+jq -e 'fromjson | type == "object" and .username == "taskflow_app" and (keys | sort) == ["password","username"] and
   ([.username,.password] | all(type == "string" and test("[^\\s]") and
   (explode | all(. >= 32 and . != 127))))' "$stage/db-response" >/dev/null 2>/dev/null
 jq -jr 'fromjson | .username' "$stage/db-response" >"$stage/spring.datasource.username" 2>/dev/null

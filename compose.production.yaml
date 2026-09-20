@@ -28,6 +28,15 @@ services:
     environment:
       TASKFLOW_DB_URL: ${TASKFLOW_DB_URL:?TASKFLOW_DB_URL is required}
       TASKFLOW_COOKIE_SECURE: "true"
+      TASKFLOW_DATABASE_PRODUCTION: "true"
+      SPRING_FLYWAY_ENABLED: "false"
+    volumes:
+      - type: bind
+        source: ${TASKFLOW_RDS_CA_FILE:-/opt/taskflow/trust/rds-ca-bundle.pem}
+        target: /opt/taskflow/trust/rds-ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
     secrets:
       - source: database_username
         target: spring.datasource.username

@@ -36,7 +36,7 @@ sys.stdout.write((pathlib.Path(os.environ['FIXTURES']) / args[3]).read_text())
         self.runtime = self.root / 'runtime'
         self.env = {'PATH': str(self.bin) + ':' + os.environ['PATH'],
                     'TASKFLOW_RUNTIME_DIR': str(self.runtime), 'FIXTURES': str(self.root)}
-        self.db = {'username': 'fixture-user', 'password': 'NOT-A-SECRET fixture $() \\"'}
+        self.db = {'username': 'taskflow_app', 'password': 'NOT-A-SECRET fixture $() \\"'}
         self.jwt = base64.b64encode(bytes(32)).decode()
         self.payloads(self.db, self.jwt)
 
@@ -66,19 +66,20 @@ sys.stdout.write((pathlib.Path(os.environ['FIXTURES']) / args[3]).read_text())
         for p in (self.runtime / 'secrets').iterdir():
             self.assertEqual(p.stat().st_mode & 0o777, 0o400)
             self.assertEqual((p.stat().st_uid, p.stat().st_gid), (10001, 10001))
-        self.db['username'] = 'replacement-fixture-user'
+        self.db['password'] = 'NOT-A-SECRET replacement-fixture'
         self.payloads(self.db, self.jwt)
         self.run_script(True)
-        self.assertEqual(self.snapshot()[NAMES[0]], b'replacement-fixture-user')
+        self.assertEqual(self.snapshot()[NAMES[1]], b'NOT-A-SECRET replacement-fixture')
 
     def test_invalid_inputs_never_replace_existing_generation(self):
         self.run_script(True)
         before = self.snapshot()
-        cases = [({}, self.jwt), ({'password': 'NOT-A-SECRET'}, self.jwt),
-                 ({'username': 'fixture'}, self.jwt),
+        cases = [({'username': 'taskflow_migrator', 'password': 'NOT-A-SECRET'}, self.jwt),
+                 ({'username': 'taskflowadmin', 'password': 'NOT-A-SECRET'}, self.jwt), ({}, self.jwt), ({'password': 'NOT-A-SECRET'}, self.jwt),
+                 ({'username': 'taskflow_app'}, self.jwt),
                  ({'username': '', 'password': 'NOT-A-SECRET'}, self.jwt),
-                 ({'username': 'fixture', 'password': ''}, self.jwt),
-                 ({'username': 'fixture', 'password': 1}, self.jwt),
+                 ({'username': 'taskflow_app', 'password': ''}, self.jwt),
+                 ({'username': 'taskflow_app', 'password': 1}, self.jwt),
                  (self.db, ''), (self.db, 'not-base64!'),
                  (self.db, base64.b64encode(bytes(31)).decode()),
                  (self.db, base64.b64encode(bytes(33)).decode())]

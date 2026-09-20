@@ -2266,3 +2266,29 @@ lint and cached offline Gitleaks provide local evidence, not live AWS acceptance
 No real AWS/IMDS call, secret population, registry operation or production startup
 occurred. Rotation requires rematerialization and backend recreation; MS9.7 owns
 coordination and recovery. MS9.4–MS9.8 remain unstarted.
+
+### RDS TLS, roles and migration design (MS9.4)
+
+The [database contract](RDS_DATABASE_OPERATIONS.md) separates administrative
+bootstrap, ordinary `taskflow_migrator` object ownership and `taskflow_app`
+runtime DML. Existing public-schema migrations remain unchanged. Reference
+bootstrap SQL restricts database/schema rights and grants existing/future table
+DML and sequence USAGE; runtime cannot mutate Flyway history or perform DDL.
+No new secret metadata or application-role IAM access is required. Only the
+independent operator holds master/migration credentials.
+
+Production JDBC uses the actual RDS endpoint with verify-full and the official
+Ireland CA bundle, acquired by an independent operator and mounted read-only at
+`/opt/taskflow/trust/rds-ca-bundle.pem`. A production guard enforces the URL,
+app identity, disabled Flyway and Hibernate validate. A one-shot alternative main
+in the same backend JAR reuses packaged Flyway migrations as migrator; it starts
+no application server and never deploys after failure. Local Compose retains its
+single-user automatic-Flyway workflow. Expand/contract evolution and compatible
+rollback remain MS9.7 coordination concerns.
+
+Local PostgreSQL verification covers bootstrap, ownership, default privileges,
+prohibited DDL, real backend startup/Hibernate validation and CRUD as app, and
+migration-failure gating. Separate static tests cover production TLS/configuration;
+local PostgreSQL does not prove RDS certificate behavior. No RDS/AWS connection,
+master-secret retrieval, secret population or production Compose startup occurred.
+MS9.5–MS9.8 remain unstarted.

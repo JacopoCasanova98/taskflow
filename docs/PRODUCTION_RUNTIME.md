@@ -1,4 +1,4 @@
-# Production runtime contract — MS9.1–MS9.3
+# Production runtime contract — MS9.1–MS9.4
 
 TaskFlow models how the reference EC2 runtime would operate; it never deploys it.
 No AWS account, credentials, API access or recurring hosting cost is required.
@@ -37,7 +37,7 @@ secrets. Exactly three non-secret runtime inputs reject unset or empty values:
 | --- | --- |
 | `TASKFLOW_FRONTEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 |
 | `TASKFLOW_BACKEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 |
-| `TASKFLOW_DB_URL` | Connection configuration; MS9.4 owns RDS/TLS/CA; no embedded credentials |
+| `TASKFLOW_DB_URL` | Non-secret verify-full RDS JDBC URL; see MS9.4 database contract |
 
 `TASKFLOW_SECRET_DIR` is an optional non-secret path, defaulting to
 `/run/taskflow/secrets`. Backend alone receives three file-backed Compose secrets:
@@ -47,7 +47,8 @@ Production no longer interpolates DB username/password or JWT values into its
 environment. The directories are root:root 0700; files are numeric 10001:10001
 0400 for the existing backend UID. File-backed mounts preserve host permissions.
 Spring's optional configtree import maps these names directly to properties;
-local development retains its existing environment inputs. Missing/blank DB
+the username is fixed by policy to `taskflow_app`, and local development retains
+its existing environment inputs. Missing/blank DB
 credentials and missing/invalid JWT material fail configuration validation.
 
 The [bootstrap and secret-delivery contract](EC2_BOOTSTRAP_SECRETS.md) defines
@@ -70,15 +71,28 @@ already externalizes database/JWT settings, defaults Secure cookies to true,
 and keeps Hibernate validation-only with Flyway as schema authority.
 A dedicated profile is warranted only when later requirements introduce actual
 profile-specific behavior.
-The required database URL has no fallback; MS9.4 owns `sslmode=verify-full`,
-the RDS CA bundle, application-role bootstrap and migration sequencing.
+The required database URL has no fallback. MS9.4 requires the actual RDS endpoint,
+port 5432/database `taskflow`, `sslmode=verify-full` and
+`sslrootcert=/opt/taskflow/trust/rds-ca-bundle.pem`; no embedded credentials or
+TLS override parameters. Backend alone mounts the public regional CA bundle
+read-only at that path. `TASKFLOW_RDS_CA_FILE` optionally overrides the host
+source; a missing source is not auto-created. This is public trust, not a secret.
+
+Production fixes `SPRING_FLYWAY_ENABLED=false` and
+`TASKFLOW_DATABASE_PRODUCTION=true`. A successful one-shot migration as
+`taskflow_migrator` must precede backend startup; runtime uses `taskflow_app`
+with Hibernate `validate`. The guard rejects other roles, automatic schema
+changes, a nonconforming URL or missing CA file. Local Flyway remains automatic.
+See [RDS database operations](RDS_DATABASE_OPERATIONS.md) for role bootstrap,
+CA acquisition/rotation, isolated migrator credentials and the failure boundary.
 
 ## Hardening, restart and health
 
 The existing images run as non-root users. Both services use a read-only root
 filesystem, writable `/tmp` tmpfs, and `no-new-privileges:true`, with no host
 directory or Docker socket mount and no added capabilities/privileged mode.
-Only the three backend secret files are mounted from the host.
+Only the three backend secret files and the public read-only CA file are mounted
+from the host.
 The MS9.2 release contract preserves these image requirements.
 
 `unless-stopped` supports restarting existing containers after daemon/host
@@ -121,7 +135,6 @@ RDS connectivity, application startup, ALB health or deployment success.
 
 | Milestone | Deferred work |
 | --- | --- |
-| MS9.4 | RDS TLS/CA, database-role bootstrap and migrations |
 | MS9.5 | Reverse proxy, HTTPS/DNS, trusted headers and integrated health/security |
 | MS9.6 | CloudWatch Agent configuration and operational logging/monitoring |
 | MS9.7 | Deployment, rollback and recovery runbooks |
