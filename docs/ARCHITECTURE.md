@@ -2237,3 +2237,32 @@ claimed. Static contract/Compose checks and offline cached-image Gitleaks verify
 this documentation-only design. No AWS or registry authentication, API, image
 push/pull, real release or production startup occurs. MS10 owns CI/workload
 identity automation; MS9.7 owns rollback procedures. MS9.3–MS9.8 remain unstarted.
+
+### EC2 bootstrap and secret retrieval design (MS9.3)
+
+The [bootstrap/secrets contract](EC2_BOOTSTRAP_SECRETS.md) separates secret-free
+AL2023 user data from deployment-time instance-role retrieval of two AWSCURRENT
+application secrets. Existing IAM remains scoped; the RDS master secret remains
+inaccessible. No secret values or secret writes are added to IaC.
+
+Production Compose now mounts exactly three backend-only files from ephemeral
+`/run/taskflow/secrets`: DB username/password and JWT signing material. Root-only
+0700 directories and numeric 10001:10001/0400 files preserve the non-root image
+contract. The reference materializer validates protected staging before atomic
+Linux directory exchange; failures preserve the prior complete generation.
+Spring Boot 3.5.16 uses an optional native configtree import, with local environment
+compatibility and a small datasource guard against missing/blank credentials.
+No new profile, custom secret client or application AWS SDK is introduced.
+
+Aligned Terraform/CloudFormation bootstrap installs prerequisites, tmpfiles and
+Docker pre/post-start IMDS guards. Forwarded IPv4 IMDS traffic is rejected through
+DOCKER-USER while host access and IMDSv2/hop-limit settings remain unchanged.
+The iptables backend is required; native Docker nftables is rejected. IPv6 would
+require an additional metadata rule before enablement.
+
+Offline fake-AWS/materializer, fake-firewall/parity, Spring configtree and static
+Compose checks cover the contract. Terraform fmt/validate/graph, CloudFormation
+lint and cached offline Gitleaks provide local evidence, not live AWS acceptance.
+No real AWS/IMDS call, secret population, registry operation or production startup
+occurred. Rotation requires rematerialization and backend recreation; MS9.7 owns
+coordination and recovery. MS9.4–MS9.8 remain unstarted.

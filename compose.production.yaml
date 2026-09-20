@@ -27,10 +27,14 @@ services:
     image: ${TASKFLOW_BACKEND_IMAGE:?TASKFLOW_BACKEND_IMAGE is required}
     environment:
       TASKFLOW_DB_URL: ${TASKFLOW_DB_URL:?TASKFLOW_DB_URL is required}
-      TASKFLOW_DB_USERNAME: ${TASKFLOW_DB_USERNAME:?TASKFLOW_DB_USERNAME is required}
-      TASKFLOW_DB_PASSWORD: ${TASKFLOW_DB_PASSWORD:?TASKFLOW_DB_PASSWORD is required}
-      TASKFLOW_JWT_SECRET_BASE64: ${TASKFLOW_JWT_SECRET_BASE64:?TASKFLOW_JWT_SECRET_BASE64 is required}
       TASKFLOW_COOKIE_SECURE: "true"
+    secrets:
+      - source: database_username
+        target: spring.datasource.username
+      - source: database_password
+        target: spring.datasource.password
+      - source: jwt_signing
+        target: taskflow.security.jwt.secret-base64
     networks:
       - application
     restart: unless-stopped
@@ -53,3 +57,12 @@ services:
 networks:
   application:
     driver: bridge
+
+# File-backed secrets preserve host ownership/mode; see EC2_BOOTSTRAP_SECRETS.md.
+secrets:
+  database_username:
+    file: ${TASKFLOW_SECRET_DIR:-/run/taskflow/secrets}/spring.datasource.username
+  database_password:
+    file: ${TASKFLOW_SECRET_DIR:-/run/taskflow/secrets}/spring.datasource.password
+  jwt_signing:
+    file: ${TASKFLOW_SECRET_DIR:-/run/taskflow/secrets}/taskflow.security.jwt.secret-base64

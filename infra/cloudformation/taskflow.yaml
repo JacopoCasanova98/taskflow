@@ -690,13 +690,64 @@ Resources:
         Fn::Base64: |
           #!/bin/bash
           set -euo pipefail
+
           # Amazon Linux 2023 x86_64 host preparation only; no application deployment.
           dnf install -y docker amazon-ssm-agent amazon-cloudwatch-agent
-          systemctl enable --now docker
-          systemctl enable --now amazon-ssm-agent
+          command -v aws >/dev/null || dnf install -y awscli-2
+          command -v jq >/dev/null || dnf install -y jq
+          command -v python3 >/dev/null || dnf install -y python3
+          command -v iptables >/dev/null || dnf install -y iptables-nft
+          command -v flock >/dev/null || dnf install -y util-linux
+          command -v nft >/dev/null || dnf install -y nftables
+          aws --version | grep -q '^aws-cli/2\.'
+          command -v jq python3 iptables flock nft >/dev/null
           install -d -o root -g root -m 0750 /opt/taskflow /var/log/taskflow
           install -d -o root -g root -m 0700 /opt/taskflow/config
-          # CloudWatch collection configuration and application runtime belong to MS9.
+          cat >/etc/tmpfiles.d/taskflow.conf <<'TMPFILES'
+          d /run/taskflow 0700 root root -
+          d /run/taskflow/secrets 0700 root root -
+          TMPFILES
+          systemd-tmpfiles --create /etc/tmpfiles.d/taskflow.conf
+
+          # Require Docker's iptables forwarding model (including iptables-nft compatibility).
+          # Native Docker nftables backend has no DOCKER-USER chain and is not supported.
+          cat >/usr/local/sbin/taskflow-imds-guard <<'GUARD'
+          #!/bin/bash
+          set -euo pipefail
+          # Refuse native Docker nftables tables, including a migration leaving stale iptables chains.
+          tables=$(nft list tables)
+          if printf '%s\n' "$tables" | grep -Eq '^table (ip|ip6) docker-bridges$'; then
+            echo 'TaskFlow requires the Docker iptables firewall backend.' >&2
+            exit 1
+          fi
+          if [[ $* == --prepare ]]; then
+            # Protect automatically restored containers before dockerd starts. Docker reuses
+            # this user chain; the post-start pass verifies its forwarding integration.
+            iptables -w -n -L DOCKER-USER >/dev/null 2>&1 || iptables -w -N DOCKER-USER
+            iptables -w -C FORWARD -j DOCKER-USER 2>/dev/null || iptables -w -I FORWARD 1 -j DOCKER-USER
+          else
+            iptables -w -n -L DOCKER-USER >/dev/null
+            iptables -w -C FORWARD -j DOCKER-USER
+          fi
+          if ! iptables -w -C DOCKER-USER -d 169.254.169.254/32 -j REJECT 2>/dev/null; then
+            iptables -w -I DOCKER-USER 1 -d 169.254.169.254/32 -j REJECT
+          fi
+          GUARD
+          chmod 0750 /usr/local/sbin/taskflow-imds-guard
+          install -d -o root -g root -m 0755 /etc/systemd/system/docker.service.d
+          cat >/etc/systemd/system/docker.service.d/taskflow-imds.conf <<'UNIT'
+          [Service]
+          ExecStartPre=/usr/local/sbin/taskflow-imds-guard --prepare
+          ExecStartPost=/usr/local/sbin/taskflow-imds-guard
+          UNIT
+          systemctl daemon-reload
+          systemctl enable docker
+          # Restart also applies the guard when bootstrap is rerun on an existing host.
+          # A failed ExecStartPost makes Docker startup fail visibly; never ignore it.
+          systemctl restart docker
+          systemctl enable --now amazon-ssm-agent
+          # No retrieval here. MS9.7 owns controlled materialization/application sequencing;
+          # MS9.6 owns CloudWatch collection configuration.
       Tags:
         - Key: Project
           Value: !Ref ProjectName

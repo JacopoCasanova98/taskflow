@@ -493,3 +493,13 @@ stack/change set or state is required or produced. Validation proves local
 schema/reference consistency, not live orderability, provisionability or runtime
 success. **MS8.1–MS8.9 COMPLETE — MACROSTEP 8 COMPLETE.** MS9 Deployment Design &
 Production Readiness is **NOT STARTED** and remains non-provisioning.
+
+## Bootstrap extension (MS9.3)
+
+The secret-free AL2023 bootstrap now verifies CLI v2/jq/Python/firewall tools,
+creates root-only `/run/taskflow` directories through tmpfiles, and installs
+Docker pre/post-start metadata guards. The iptables backend is required; native
+Docker nftables is unsupported. Terraform and CloudFormation scripts match.
+Secret retrieval remains deployment-time reference behavior, never user data;
+IAM and secret/ECR/DB resources are unchanged. See the
+[bootstrap and secrets contract](../../docs/EC2_BOOTSTRAP_SECRETS.md).

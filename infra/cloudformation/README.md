@@ -304,3 +304,13 @@ changing service defaults. No additional relevant deprecation required changes.
 The original live plan/stack-diff expectation is superseded by local/static checks.
 No AWS API, stack/change set, validate-template, state or resource was produced.
 **MS8.9 COMPLETE — MACROSTEP 8 COMPLETE. MS9 NOT STARTED.**
+
+## Bootstrap extension (MS9.3)
+
+The secret-free AL2023 bootstrap now verifies CLI v2/jq/Python/firewall tools,
+creates root-only `/run/taskflow` directories through tmpfiles, and installs
+Docker pre/post-start metadata guards. The iptables backend is required; native
+Docker nftables is unsupported. Terraform and CloudFormation scripts match.
+Secret retrieval remains deployment-time reference behavior, never user data;
+IAM and secret/ECR/DB resources are unchanged. See the
+[bootstrap and secrets contract](../../docs/EC2_BOOTSTRAP_SECRETS.md).

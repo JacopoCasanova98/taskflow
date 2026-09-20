@@ -181,12 +181,12 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1–MS9.2 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.3–MS9.8 remain unstarted.
+**MS9.1–MS9.3 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.4–MS9.8 remain unstarted.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [x] MS9.2 — Container release/tagging and conceptual ECR workflow
-- [ ] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
+- [x] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
 - [ ] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
 - [ ] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
 - [ ] MS9.6 — CloudWatch/logging and operational monitoring design
@@ -206,6 +206,13 @@ digest-only production selection. ECR scanning prerequisites, retention and
 partial-push failures are explicit. Static contract/Compose checks, reference
 shell syntax validation and offline Gitleaks passed. Dockerfiles, Compose and
 IaC remain unchanged; no AWS/registry operation or actual release occurred.
+
+MS9.3 defines [secret-free bootstrap and protected secret delivery](EC2_BOOTSTRAP_SECRETS.md):
+backend-only Compose secrets/configtree, atomic ephemeral materialization and
+persistent Docker metadata isolation. All 479 backend tests pass, including seven
+focused configuration cases; fake-AWS/materializer and fake-firewall/parity tests,
+static Compose checks, offline Terraform fmt/validate/graph, cfn-lint and Gitleaks
+pass. No AWS/IMDS/registry call, secret population or production startup occurred.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

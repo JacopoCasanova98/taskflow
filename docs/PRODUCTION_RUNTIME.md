@@ -1,4 +1,4 @@
-# Production runtime contract — MS9.1
+# Production runtime contract — MS9.1–MS9.3
 
 TaskFlow models how the reference EC2 runtime would operate; it never deploys it.
 No AWS account, credentials, API access or recurring hosting cost is required.
@@ -30,17 +30,31 @@ same-origin refresh-cookie and XSRF behavior is preserved.
 
 ## Required inputs
 
-All six inputs reject unset or empty values. Compose contains no defaults or
-credential values and performs no image build.
+MS9.3 replaces MS9.1's intermediate environment-secret model with file-backed
+secrets. Exactly three non-secret runtime inputs reject unset or empty values:
 
 | Input | Classification and ownership |
 | --- | --- |
-| `TASKFLOW_FRONTEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 release contract |
-| `TASKFLOW_BACKEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 release contract |
-| `TASKFLOW_DB_URL` | Connection configuration; MS9.4 defines RDS hostname, TLS parameters and CA handling; never embed credentials in the URL |
-| `TASKFLOW_DB_USERNAME` | Application-role identifier; prepared with credential configuration in MS9.3/MS9.4 |
-| `TASKFLOW_DB_PASSWORD` | Secret; secure materialization belongs to MS9.3 |
-| `TASKFLOW_JWT_SECRET_BASE64` | Secret; existing contract requires a Base64-encoded 32-byte signing key; materialization belongs to MS9.3 |
+| `TASKFLOW_FRONTEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 |
+| `TASKFLOW_BACKEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 |
+| `TASKFLOW_DB_URL` | Connection configuration; MS9.4 owns RDS/TLS/CA; no embedded credentials |
+
+`TASKFLOW_SECRET_DIR` is an optional non-secret path, defaulting to
+`/run/taskflow/secrets`. Backend alone receives three file-backed Compose secrets:
+`spring.datasource.username`, `spring.datasource.password` and
+`taskflow.security.jwt.secret-base64` under `/run/secrets/`.
+Production no longer interpolates DB username/password or JWT values into its
+environment. The directories are root:root 0700; files are numeric 10001:10001
+0400 for the existing backend UID. File-backed mounts preserve host permissions.
+Spring's optional configtree import maps these names directly to properties;
+local development retains its existing environment inputs. Missing/blank DB
+credentials and missing/invalid JWT material fail configuration validation.
+
+The [bootstrap and secret-delivery contract](EC2_BOOTSTRAP_SECRETS.md) defines
+AWSCURRENT retrieval, protected ephemeral staging, atomic publication and
+recreation after rotation. User data never retrieves values. No plaintext is
+stored in the repository, persistent app directories or IaC. Frontend gets no
+secrets. Root/Docker administrators retain access to mounted files.
 
 Production image variables must resolve to `<repository>@sha256:<digest>` for
 both artifacts of the same reviewed release. Tags remain traceability/release
@@ -49,9 +63,7 @@ MS9.2 image policy; Compose itself only checks that these inputs are non-empty.
 
 `TASKFLOW_COOKIE_SECURE` is fixed to `"true"` in production Compose, even if the
 shell supplies false. No AWS credentials or committed production env file is
-used. Runtime environment variables are a consumer interface, not a secret
-storage solution: container inspection and fully rendered Compose output can
-expose them. MS9.3 owns secure retrieval, host permissions and materialization.
+used. Secret values are file-backed; do not print secret files or retrieval responses.
 
 No redundant Spring production profile is introduced. Base configuration
 already externalizes database/JWT settings, defaults Secure cookies to true,
@@ -65,7 +77,8 @@ the RDS CA bundle, application-role bootstrap and migration sequencing.
 
 The existing images run as non-root users. Both services use a read-only root
 filesystem, writable `/tmp` tmpfs, and `no-new-privileges:true`, with no host
-filesystem or Docker socket mount and no added capabilities/privileged mode.
+directory or Docker socket mount and no added capabilities/privileged mode.
+Only the three backend secret files are mounted from the host.
 The MS9.2 release contract preserves these image requirements.
 
 `unless-stopped` supports restarting existing containers after daemon/host
@@ -78,12 +91,12 @@ Container health is not ALB-integrated health. Nginx does not yet implement the
 reference `/internal/health` backend proxy. MS9.5 owns that path and its public
 blocking, HTTPS/proxy trust, forwarded-header handling and auth protections.
 Existing Nginx forwarded-header behavior is unchanged and is not claimed ready
-for the ALB → Nginx → Spring trust chain. Container metadata isolation also
-remains deferred; no-new-privileges does not implement it.
+for the ALB → Nginx → Spring trust chain. MS9.3 defines persistent container
+IMDS isolation through the Docker iptables user chain; host IMDS remains available.
 
 ## Local/static verification
 
-From the repository root, with the six inputs supplied solely for parsing:
+From the repository root, with the three required inputs and an ephemeral secret fixture directory:
 
 ```bash
 docker compose --env-file /dev/null -f compose.production.yaml config --quiet
@@ -95,7 +108,9 @@ ephemeral, non-secret validation placeholders and reserved `.invalid` image/DB
 hostnames; these are not usable runtime inputs and are not stored in this file.
 No production Compose pull or startup is part of validation.
 
-Docker Compose 5.3.1 accepted the model. Checks verified both services, the
+MS9.1 originally validated six environment inputs. MS9.3 revalidates the three
+remaining inputs and backend-only secret mounts without rendering secret values.
+Docker Compose accepted the model. Checks verified both services, the
 single bridge, port boundary, hardening, forced Secure cookies and rejection of
 each missing or empty required input. Cached non-root images passed isolated checks with
 networking disabled, read-only filesystems, tmpfs and no-new-privileges: Nginx
@@ -106,7 +121,6 @@ RDS connectivity, application startup, ALB health or deployment success.
 
 | Milestone | Deferred work |
 | --- | --- |
-| MS9.3 | Host bootstrap, secret retrieval/materialization and metadata isolation |
 | MS9.4 | RDS TLS/CA, database-role bootstrap and migrations |
 | MS9.5 | Reverse proxy, HTTPS/DNS, trusted headers and integrated health/security |
 | MS9.6 | CloudWatch Agent configuration and operational logging/monitoring |
