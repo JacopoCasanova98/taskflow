@@ -2,6 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: TaskFlow reference architecture alternative to Terraform; static validation only, never deploy.
 
 Parameters:
+  AlarmTopicArn:
+    Type: String
+    Description: Optional external standard SNS topic in the deployment Region; empty leaves alarms silent. No topic is created.
+    Default: ""
+    AllowedPattern: '^$|^arn:aws:sns:[a-z]{2}(-[a-z]+)+-[0-9]:[0-9]{12}:[A-Za-z0-9_-]{1,256}$'
+
   PublicHostname:
     Type: String
     Description: Required lowercase public DNS hostname covered by the external ACM certificate; no DNS lookup.
@@ -98,6 +104,7 @@ Parameters:
     AllowedPattern: 'db[.][a-z0-9]+[.][a-z0-9]+'
 
 Conditions:
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, ""]]
   ManageRegistryScanning: !Equals [!Ref ManageEcrRegistryScanning, "true"]
 
 Resources:
@@ -1010,7 +1017,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${ProjectName}-${Environment}-ec2-status'
-      AlarmDescription: EC2 status check failure for two minutes; notifications are not connected.
+      AlarmDescription: EC2 status check failure for two minutes; optional external notifications only.
       Namespace: AWS/EC2
       MetricName: StatusCheckFailed
       Statistic: Maximum
@@ -1019,8 +1026,8 @@ Resources:
       Period: 60
       EvaluationPeriods: 2
       TreatMissingData: missing
-      AlarmActions: []
-      OKActions: []
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
       InsufficientDataActions: []
       Dimensions:
         - Name: InstanceId
@@ -1039,7 +1046,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${ProjectName}-${Environment}-ec2-cpu'
-      AlarmDescription: EC2 CPU above 80 percent for fifteen minutes; notifications are not connected.
+      AlarmDescription: EC2 CPU above 80 percent for fifteen minutes; optional external notifications only.
       Namespace: AWS/EC2
       MetricName: CPUUtilization
       Statistic: Average
@@ -1048,8 +1055,8 @@ Resources:
       Period: 300
       EvaluationPeriods: 3
       TreatMissingData: missing
-      AlarmActions: []
-      OKActions: []
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
       InsufficientDataActions: []
       Dimensions:
         - Name: InstanceId
@@ -1068,7 +1075,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${ProjectName}-${Environment}-alb-healthy'
-      AlarmDescription: No healthy application target for two minutes; notifications are not connected.
+      AlarmDescription: No healthy application target for two minutes; optional external notifications only.
       Namespace: AWS/ApplicationELB
       MetricName: HealthyHostCount
       Statistic: Minimum
@@ -1077,8 +1084,8 @@ Resources:
       Period: 60
       EvaluationPeriods: 2
       TreatMissingData: breaching
-      AlarmActions: []
-      OKActions: []
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
       InsufficientDataActions: []
       Dimensions:
         - Name: LoadBalancer
@@ -1099,7 +1106,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${ProjectName}-${Environment}-alb-5xx'
-      AlarmDescription: At least five ALB-generated 5xx responses per five minutes twice; notifications are not connected.
+      AlarmDescription: At least five ALB-generated 5xx responses per five minutes twice; optional external notifications only.
       Namespace: AWS/ApplicationELB
       MetricName: HTTPCode_ELB_5XX_Count
       Statistic: Sum
@@ -1108,8 +1115,8 @@ Resources:
       Period: 300
       EvaluationPeriods: 2
       TreatMissingData: notBreaching
-      AlarmActions: []
-      OKActions: []
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
       InsufficientDataActions: []
       Dimensions:
         - Name: LoadBalancer
@@ -1128,7 +1135,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${ProjectName}-${Environment}-rds-cpu'
-      AlarmDescription: RDS CPU above 80 percent for fifteen minutes; notifications are not connected.
+      AlarmDescription: RDS CPU above 80 percent for fifteen minutes; optional external notifications only.
       Namespace: AWS/RDS
       MetricName: CPUUtilization
       Statistic: Average
@@ -1137,8 +1144,8 @@ Resources:
       Period: 300
       EvaluationPeriods: 3
       TreatMissingData: missing
-      AlarmActions: []
-      OKActions: []
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
       InsufficientDataActions: []
       Dimensions:
         - Name: DBInstanceIdentifier
@@ -1157,7 +1164,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${ProjectName}-${Environment}-rds-storage'
-      AlarmDescription: RDS free storage below 5 GiB for fifteen minutes; notifications are not connected.
+      AlarmDescription: RDS free storage below 5 GiB for fifteen minutes; optional external notifications only.
       Namespace: AWS/RDS
       MetricName: FreeStorageSpace
       Statistic: Minimum
@@ -1166,8 +1173,8 @@ Resources:
       Period: 300
       EvaluationPeriods: 3
       TreatMissingData: missing
-      AlarmActions: []
-      OKActions: []
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
       InsufficientDataActions: []
       Dimensions:
         - Name: DBInstanceIdentifier
@@ -1181,6 +1188,66 @@ Resources:
           Value: CloudFormation
         - Key: Component
           Value: database
+
+  HostMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${Environment}-host-memory'
+      AlarmDescription: Host memory at least 85 percent for fifteen minutes; warning only, no remediation.
+      Namespace: !Sub 'TaskFlow/${Environment}'
+      MetricName: mem_used_percent
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 85
+      Period: 300
+      EvaluationPeriods: 3
+      TreatMissingData: missing
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      InsufficientDataActions: []
+      # Agent publishes only the InstanceId rollup; root is its sole disk resource.
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppInstance
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: Component
+          Value: observability
+
+  HostRootDiskAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${Environment}-host-root-disk'
+      AlarmDescription: Root filesystem usage at least 85 percent for fifteen minutes; warning only, no remediation.
+      Namespace: !Sub 'TaskFlow/${Environment}'
+      MetricName: disk_used_percent
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 85
+      Period: 300
+      EvaluationPeriods: 3
+      TreatMissingData: missing
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      OKActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+      InsufficientDataActions: []
+      # Agent publishes only the InstanceId rollup; root is its sole disk resource.
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref AppInstance
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: Component
+          Value: observability
 
 Outputs:
   ReferenceRegion:

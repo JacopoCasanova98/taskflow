@@ -2,6 +2,14 @@
 services:
   frontend:
     image: ${TASKFLOW_FRONTEND_IMAGE:?TASKFLOW_FRONTEND_IMAGE is required}
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: eu-west-1
+        awslogs-group: /taskflow/prod/nginx
+        awslogs-create-group: "false"
+        mode: non-blocking
+        max-buffer-size: 4m
     ports:
       # ALB reaches the host ENI; the App SG permits only ALB SG ingress here.
       - "0.0.0.0:8080:8080"
@@ -25,6 +33,14 @@ services:
 
   backend:
     image: ${TASKFLOW_BACKEND_IMAGE:?TASKFLOW_BACKEND_IMAGE is required}
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: eu-west-1
+        awslogs-group: /taskflow/prod/backend
+        awslogs-create-group: "false"
+        mode: non-blocking
+        max-buffer-size: 4m
     environment:
       TASKFLOW_DB_URL: ${TASKFLOW_DB_URL:?TASKFLOW_DB_URL is required}
       TASKFLOW_COOKIE_SECURE: "true"

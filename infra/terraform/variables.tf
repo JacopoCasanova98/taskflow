@@ -157,6 +157,17 @@ variable "aws_region" {
   }
 }
 
+variable "alarm_topic_arn" {
+  description = "Optional external standard SNS topic in the deployment Region; empty leaves alarms silent. No topic is created."
+  type        = string
+  default     = ""
+  nullable    = false
+  validation {
+    condition     = can(regex("^$|^arn:aws:sns:[a-z]{2}(-[a-z]+)+-[0-9]:[0-9]{12}:[A-Za-z0-9_-]{1,256}$", var.alarm_topic_arn))
+    error_message = "Use an empty string or a standard SNS topic ARN in the deployment Region."
+  }
+}
+
 variable "public_hostname" {
   description = "Required lowercase public DNS hostname covered by the external ACM certificate; no DNS lookup."
   type        = string

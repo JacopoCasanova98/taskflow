@@ -181,15 +181,15 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1–MS9.5 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.6–MS9.8 remain unstarted.
+**MS9.1–MS9.6 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.7–MS9.8 remain unstarted.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [x] MS9.2 — Container release/tagging and conceptual ECR workflow
 - [x] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
 - [x] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
 - [x] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
-- [ ] MS9.6 — CloudWatch/logging and operational monitoring design
+- [x] MS9.6 — CloudWatch/logging and operational monitoring design
 - [ ] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
 - [ ] MS9.8 — Static production smoke-test plan and readiness review
 
@@ -233,7 +233,19 @@ tests pass, with no failures, errors or skips. Earlier 593 frontend tests and im
 build remain valid; no frontend/Nginx edits were made during the recovery.
 Cached-image edge tests, RealIP/configuration checks, offline Terraform
 fmt/validate/graph, cfn-lint, static parity and Gitleaks passed. No AWS, DNS, ACM,
-registry or production runtime operation occurred. MS9.6–MS9.8 remain deferred.
+registry or production runtime operation occurred. MS9.6 follows below.
+
+MS9.6 defines [observability and monitoring](OBSERVABILITY.md): non-blocking Docker
+awslogs for production containers, selected host journals/cloud-init through the
+CloudWatch Agent, and only memory/root-disk custom metrics at 60-second cadence.
+Two matching guest warnings complement six native alarms; optional external SNS
+ALARM/OK actions default to silent. Four log groups/14-day retention, scoped IAM,
+application logging and IMDS isolation are preserved. Focused static configuration,
+rendered Compose, metric/alarm/IAM parity, edge/bootstrap regression, offline Terraform
+fmt/validate/graph, cfn-lint and cached Gitleaks passed. No application test rerun was
+needed because application/Nginx sources and formats did not change. No AWS API,
+credentials, logs/metrics delivery, agent activation or production startup occurred.
+MS9.7–MS9.8 remain unstarted.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

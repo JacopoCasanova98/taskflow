@@ -301,8 +301,9 @@ made, and no healthy target or working deployment is claimed.
 ### Observability and verification
 
 Log groups `/<project>/<environment>/{backend,nginx,host}` retain 14 days.
-CloudWatch Agent is installed only; collection/forwarding configuration belongs
-to MS9. No disk/memory alarm pretends that a custom metric already exists.
+MS9.6 supplies host-only CloudWatch Agent configuration and production Docker
+awslogs; neither is activated here. Two guest alarms use the configured memory/root
+disk metrics. See [observability](../../docs/OBSERVABILITY.md).
 
 | Native metric alarm | Threshold / window | Missing data |
 | --- | --- | --- |
@@ -312,9 +313,10 @@ to MS9. No disk/memory alarm pretends that a custom metric already exists.
 | ALB HTTPCode_ELB_5XX_Count | sum >=5 for two 5-minute periods | not breaching |
 
 Dimensions reference the actual instance/ALB/target group. The 5xx alarm measures
-ALB-generated errors, not target-generated errors. Alarm action arrays are empty:
-no SNS topic/subscription or notification delivery is claimed. MS9/operator design
-owns notification integration and threshold calibration.
+ALB-generated errors, not target-generated errors. `alarm_topic_arn` defaults to
+empty; an optional external standard SNS topic enables ALARM/OK notifications for
+all eight alarms. No SNS topic/subscription is created. Same-Region consistency,
+topic delivery policy and threshold calibration remain operator checks.
 
 Static inventory adds 23 instances: one EC2, five IAM resources, two repositories
 and two lifecycle policies, six ALB/target/listener resources, three log groups
@@ -403,8 +405,9 @@ not EC2 CloudWatch Agent forwarding or app-role log access.
 
 Two AWS/RDS alarms use DBInstanceIdentifier: average CPU >80% and minimum
 FreeStorageSpace <5 GiB (5,368,709,120 bytes, 25% of the 20 GiB allocation), each
-for three five-minute periods. Missing data remains missing; notification arrays
-are empty. Connections are deferred pending capacity/baseline evidence.
+for three five-minute periods. Missing data remains missing; notifications default
+to silent, with optional external SNS ALARM/OK actions. Connections are deferred
+pending capacity/baseline evidence.
 Enhanced Monitoring and Performance Insights are disabled; Database Insights
 stays in [default Standard mode](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DatabaseInsights.html).
 No Advanced tier, extended telemetry retention or extra monitoring role is enabled.

@@ -297,23 +297,18 @@ describe that model. Host patching/replacement remains the operator's responsibi
 
 ## Logs, monitoring and availability
 
-Docker stdout/stderr (backend request IDs and Nginx access/error logs) go to
-CloudWatch Logs through future host-configured forwarding. The agent is installed
-but collection configuration remains MS9; no custom memory/disk metric is claimed
-by MS8. Keep logs 14 days, rotate local
-buffers, never include request bodies/auth headers/cookies/secrets. Retain SSM
-session audit logs where supported; port-forward sessions do not provide command
-content logging. RDS native metrics plus selected PostgreSQL error logs support
-diagnosis. ALB access-log S3 storage is optional, not another mandatory log pipeline.
+MS9.6 defines non-blocking Docker awslogs for backend/Nginx stdout/stderr and a
+host-only CloudWatch Agent config for selected journals/cloud-init plus memory/root
+disk metrics. Four IaC-owned log groups retain 14 days; RDS export remains native.
+The existing six native alarms are preserved, with two guest warnings at >=85%
+over three 5-minute periods. An optional external SNS ARN enables ALARM/OK actions;
+empty input leaves alarms silent. No SNS resource or telemetry is created/sent.
 
-The implemented alarm set covers ALB healthy targets below one / ALB-generated
-5xx, EC2 status check failure / sustained CPU, and RDS free storage / CPU.
-Notification actions are empty; notification delivery, custom host metrics,
-connection/credit thresholds and baseline calibration remain MS9/operator design.
-Backend-dependent ALB health is intended to cover backend
-availability. MS9 documents threshold/evaluation-window assumptions and how a real operator
-would calibrate them against baseline data; no AWS measurements are required. No paid enhanced database
-monitoring tier or large dashboard stack by default.
+See [observability](OBSERVABILITY.md) for exact dimensions, IAM, local log-cache and
+log-loss limits, sensitive-log review, costs and triage. Nginx does not see listener
+rejections: ALB access logs need a separate S3 ownership/cost decision. No tracing,
+dashboard or enhanced database telemetry is added. MS9.7 owns activation and response;
+real threshold calibration remains an independent operator task.
 
 | Accepted trade-off | Reason and risk | Upgrade trigger / path |
 | --- | --- | --- |

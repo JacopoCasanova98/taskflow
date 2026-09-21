@@ -123,7 +123,11 @@ alarms mirror Terraform exactly:
 | RDS FreeStorageSpace | Minimum <5 GiB (one quarter of 20 GiB), 3 × 300s; missing |
 
 Dimensions reference the instance ID, ALB/target-group full names and DB
-identifier. No notification actions, SNS/email or custom agent metric is claimed.
+identifier. MS9.6 adds memory/root-disk warnings (>=85%, 3 × 300s, missing) with
+InstanceId-only dimensions matching the agent rollup. Optional `AlarmTopicArn`
+enables ALARM/OK actions on all eight alarms; empty input leaves them silent.
+No SNS resource, subscription or actual metric delivery is created. See
+[observability](../../docs/OBSERVABILITY.md).
 
 ## Parity and intentional representation differences
 
@@ -142,7 +146,7 @@ identifier. No notification actions, SNS/email or custom agent metric is claimed
 | ALB/target attachment | TargetGroup embeds Targets; listeners, health checks and public health-path block match |
 | RDS lifecycle | DeletionPolicy/UpdateReplacePolicy Snapshot replace Terraform's named final snapshot; deletion protection and DeleteAutomatedBackups=false match |
 | Application secret recovery | Retain on deletion/replacement preserves metadata; not an exact seven-day recovery window |
-| Observability | Same four log groups, retention, six alarms, thresholds and dimensions |
+| Observability | Same four log groups, retention, eight alarms, thresholds, dimensions and optional external SNS actions |
 | Output maps | Explicit flat outputs preserve each logical key without transforms/serialization |
 
 CloudFormation [retention and snapshot policies](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-deletionpolicy.html)

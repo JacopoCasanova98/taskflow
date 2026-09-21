@@ -1,4 +1,4 @@
-# Production runtime contract — MS9.1–MS9.5
+# Production runtime contract — MS9.1–MS9.6
 
 TaskFlow models how the reference EC2 runtime would operate; it never deploys it.
 No AWS account, credentials, API access or recurring hosting cost is required.
@@ -111,6 +111,25 @@ rate limiting; local direct HTTP remains usable. See [edge security](EDGE_SECURI
 for the SG/RealIP trust boundary, external ACM/DNS contract and local proof limits.
 MS9.3 retains persistent Docker container IMDS isolation; host IMDS remains available.
 
+## Observability
+
+Production containers use Docker `awslogs` in eu-west-1, writing backend and Nginx
+stdout/stderr to their existing IaC-owned 14-day log groups. Streams use Docker's
+unique container identity; group creation is disabled. Non-blocking delivery with
+a 4 MiB buffer favors application availability but can drop logs under backpressure;
+driver initialization can still fail startup. The bounded local dual-logging cache
+remains enabled, not a durable outage spool. No duplicate application files are added.
+
+The host-only [CloudWatch Agent config](../ops/cloudwatch/amazon-cloudwatch-agent.json)
+collects selected service journals/cloud-init output and only guest memory/root-disk
+usage every 60 seconds. Both collectors use the host instance profile; containers
+receive no AWS credentials and retain IMDS isolation. Two custom-metric warnings
+complement the six native alarms. Optional external SNS enables alarm/recovery
+notifications; absent that input alarms are silent. See [observability](OBSERVABILITY.md)
+for dimensions, prerequisites, log safety, costs and delivery limitations.
+MS9.7 owns activation ordering and exact operational response; no agent or production
+Compose is started by project validation.
+
 ## Local/static verification
 
 From the repository root, with the three required inputs and an ephemeral secret fixture directory:
@@ -138,7 +157,6 @@ RDS connectivity, application startup, ALB health or deployment success.
 
 | Milestone | Deferred work |
 | --- | --- |
-| MS9.6 | CloudWatch Agent configuration and operational logging/monitoring |
 | MS9.7 | Deployment, rollback and recovery runbooks |
 | MS9.8 | Static smoke-test plan and readiness review |
 

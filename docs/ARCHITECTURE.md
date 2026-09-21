@@ -2319,4 +2319,37 @@ RealIP and nginx -t, offline Terraform fmt/validate/graph, cfn-lint, static pari
 and cached read-only Gitleaks pass. No AWS credentials/API, ACM/DNS operation,
 ECR interaction, public deployment or production Compose startup occurred.
 
-**MS9.1–MS9.5 COMPLETE. MacroStep 9 remains incomplete.** MS9.6–MS9.8 are deferred.
+MS9.1–MS9.5 are complete; MS9.6 observability is described below.
+
+### Observability and operational monitoring (MS9.6)
+
+Production Compose sends backend/Nginx stdout/stderr through Docker awslogs to the
+existing 14-day groups. Unique container streams avoid concurrent generation writers;
+non-blocking 4 MiB delivery favors availability with explicit log-loss and startup
+limitations. Local dual-logging cache is retained. Application logging formats,
+request correlation, secrets and IMDS isolation are unchanged.
+
+The host-only agent JSON collects three selected service journals and cloud-init
+output, plus memory/root-disk usage every 60 seconds. Only InstanceId rollups are
+published in TaskFlow/prod, with original series suppressed and root `/` as the sole
+disk resource. Terraform/CloudFormation add matching >=85% warnings over three
+5-minute averages. Six native alarms and four log groups remain; optional external
+SNS ALARM/OK actions default to silent. IAM remains scoped, without group creation,
+retention mutation or new read permissions. RDS logging stays native.
+
+[Observability](OBSERVABILITY.md) records agent compatibility/activation prerequisites,
+all thresholds, log safety and correlation limits, ALB access-log/S3 gap, triage,
+custom metric/log/notification costs and the zero-AWS execution boundary. There is
+no tracing, dashboard, sidecar, broad metric collection or automatic remediation.
+
+Focused static JSON/Compose/metric-dimension/eight-alarm/IAM/retention assertions,
+existing edge/bootstrap parity, offline Terraform fmt/validate/graph and eu-west-1
+cfn-lint pass. Compose was rendered with ephemeral inputs but never started; no
+awslogs container or agent was activated. No cached agent binary was available, so
+agent validation is static. Backend/Nginx source and formats are unchanged; application
+test suites/builds were not rerun for these configuration and documentation changes.
+Cached Gitleaks over all changed/new files found no leaks with networking disabled,
+pulls forbidden and read-only input. No AWS credentials/API, telemetry, SNS resource,
+ECR/RDS interaction, Terraform plan/apply or CloudFormation operation occurred.
+
+**MS9.1–MS9.6 COMPLETE. MacroStep 9 remains incomplete.** MS9.7–MS9.8 are unstarted.

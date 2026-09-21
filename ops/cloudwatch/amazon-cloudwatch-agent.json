@@ -1,0 +1,61 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "region": "eu-west-1",
+    "omit_hostname": true,
+    "usage_data": false,
+    "logfile": ""
+  },
+  "metrics": {
+    "namespace": "TaskFlow/prod",
+    "append_dimensions": {"InstanceId": "${aws:InstanceId}"},
+    "aggregation_dimensions": [["InstanceId"]],
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_used_percent"],
+        "drop_original_metrics": ["mem_used_percent"]
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "resources": ["/"],
+        "drop_device": true,
+        "drop_original_metrics": ["disk_used_percent"]
+      }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "journald": {
+        "collect_list": [
+          {
+            "units": ["docker.service"],
+            "priority": "info",
+            "log_group_name": "/taskflow/prod/host",
+            "log_stream_name": "{instance_id}/docker"
+          },
+          {
+            "units": ["amazon-ssm-agent.service"],
+            "priority": "info",
+            "log_group_name": "/taskflow/prod/host",
+            "log_stream_name": "{instance_id}/ssm"
+          },
+          {
+            "units": ["amazon-cloudwatch-agent.service"],
+            "priority": "info",
+            "log_group_name": "/taskflow/prod/host",
+            "log_stream_name": "{instance_id}/cloudwatch-agent"
+          }
+        ]
+      },
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/cloud-init-output.log",
+            "log_group_name": "/taskflow/prod/host",
+            "log_stream_name": "{instance_id}/cloud-init"
+          }
+        ]
+      }
+    }
+  }
+}
