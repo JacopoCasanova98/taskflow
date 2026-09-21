@@ -181,14 +181,14 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1–MS9.4 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.5–MS9.8 remain unstarted.
+**MS9.1–MS9.5 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.6–MS9.8 remain unstarted.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [x] MS9.2 — Container release/tagging and conceptual ECR workflow
 - [x] MS9.3 — EC2 bootstrap/user-data and Secrets Manager retrieval design
 - [x] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
-- [ ] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
+- [x] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
 - [ ] MS9.6 — CloudWatch/logging and operational monitoring design
 - [ ] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
 - [ ] MS9.8 — Static production smoke-test plan and readiness review
@@ -223,6 +223,17 @@ bootstrap, migration ownership, runtime CRUD, denied DDL and future-object grant
 Offline helper/materializer tests, static Compose checks and Gitleaks passed.
 Local Compose, existing migrations and IaC are unchanged. No AWS/RDS connection,
 master-secret retrieval, registry operation or production startup occurred.
+
+MS9.5 defines the [edge security contract](EDGE_SECURITY.md): trusted ALB/Nginx
+forwarding, production-only Spring NATIVE processing, approved-host HTTPS routing,
+backend-aware internal health, operational-path blocks and login/register limits.
+The interrupted backend failure was a test-context defect; the embedded Tomcat
+harness now loads the actual Boot customizer. All 38 focused and 487 full backend
+tests pass, with no failures, errors or skips. Earlier 593 frontend tests and image
+build remain valid; no frontend/Nginx edits were made during the recovery.
+Cached-image edge tests, RealIP/configuration checks, offline Terraform
+fmt/validate/graph, cfn-lint, static parity and Gitleaks passed. No AWS, DNS, ACM,
+registry or production runtime operation occurred. MS9.6–MS9.8 remain deferred.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

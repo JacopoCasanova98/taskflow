@@ -1,4 +1,4 @@
-# Production runtime contract — MS9.1–MS9.4
+# Production runtime contract — MS9.1–MS9.5
 
 TaskFlow models how the reference EC2 runtime would operate; it never deploys it.
 No AWS account, credentials, API access or recurring hosting cost is required.
@@ -101,12 +101,15 @@ alone does not trigger that restart policy. Frontend initially waits for backend
 health. Backend probes `/actuator/health` and requires status UP; frontend probes
 its local Nginx root response. Timing matches the verified local Compose checks.
 
-Container health is not ALB-integrated health. Nginx does not yet implement the
-reference `/internal/health` backend proxy. MS9.5 owns that path and its public
-blocking, HTTPS/proxy trust, forwarded-header handling and auth protections.
-Existing Nginx forwarded-header behavior is unchanged and is not claimed ready
-for the ALB → Nginx → Spring trust chain. MS9.3 defines persistent container
-IMDS isolation through the Docker iptables user chain; host IMDS remains available.
+MS9.5 adds backend-aware ALB health: exact `/internal/health` from an approved
+ALB subnet proxies `/actuator/health`; public listener requests are blocked.
+Production uses Spring NATIVE forwarding with sanitized Nginx proto/port/host/client
+headers. Approved ALB peers alone can represent HTTPS/443 and receive HSTS.
+HTTPS forwarding requires the externally configured public hostname; other hosts,
+Actuator and OpenAPI/Swagger requests receive 404. Login/register have per-client
+rate limiting; local direct HTTP remains usable. See [edge security](EDGE_SECURITY.md)
+for the SG/RealIP trust boundary, external ACM/DNS contract and local proof limits.
+MS9.3 retains persistent Docker container IMDS isolation; host IMDS remains available.
 
 ## Local/static verification
 
@@ -135,7 +138,6 @@ RDS connectivity, application startup, ALB health or deployment success.
 
 | Milestone | Deferred work |
 | --- | --- |
-| MS9.5 | Reverse proxy, HTTPS/DNS, trusted headers and integrated health/security |
 | MS9.6 | CloudWatch Agent configuration and operational logging/monitoring |
 | MS9.7 | Deployment, rollback and recovery runbooks |
 | MS9.8 | Static smoke-test plan and readiness review |

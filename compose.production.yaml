@@ -30,6 +30,9 @@ services:
       TASKFLOW_COOKIE_SECURE: "true"
       TASKFLOW_DATABASE_PRODUCTION: "true"
       SPRING_FLYWAY_ENABLED: "false"
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SERVER_TOMCAT_REMOTEIP_HOST_HEADER: X-Forwarded-Host
+      SERVER_TOMCAT_REMOTEIP_PORT_HEADER: X-Forwarded-Port
     volumes:
       - type: bind
         source: ${TASKFLOW_RDS_CA_FILE:-/opt/taskflow/trust/rds-ca-bundle.pem}

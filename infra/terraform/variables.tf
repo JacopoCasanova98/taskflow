@@ -156,3 +156,13 @@ variable "aws_region" {
     error_message = "Use an AWS region identifier such as eu-west-1."
   }
 }
+
+variable "public_hostname" {
+  description = "Required lowercase public DNS hostname covered by the external ACM certificate; no DNS lookup."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = length(var.public_hostname) <= 128 && can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]{2,63}$", var.public_hostname))
+    error_message = "Provide a lowercase DNS hostname only, without scheme, port, path or trailing dot."
+  }
+}

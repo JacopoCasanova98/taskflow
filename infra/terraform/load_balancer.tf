@@ -5,6 +5,7 @@ resource "aws_lb" "app" {
   ip_address_type            = "ipv4"
   subnets                    = [aws_subnet.public["a"].id, aws_subnet.public["b"].id]
   security_groups            = [aws_security_group.alb.id]
+  xff_header_processing_mode = "append"
   drop_invalid_header_fields = true
   enable_deletion_protection = true
   tags                       = { Component = "compute", Tier = "edge" }
@@ -57,8 +58,12 @@ resource "aws_lb_listener" "https" {
   certificate_arn   = var.acm_certificate_arn
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09"
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      status_code  = "404"
+      message_body = "Not found"
+    }
   }
 }
 
@@ -77,5 +82,34 @@ resource "aws_lb_listener_rule" "internal_health" {
     path_pattern {
       values = ["/internal/*", "/actuator", "/actuator/*"]
     }
+  }
+}
+
+# Separate rule: ALB permits at most three comparisons per path condition.
+resource "aws_lb_listener_rule" "documentation" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 2
+  action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      status_code  = "404"
+      message_body = "Not found"
+    }
+  }
+  condition {
+    path_pattern { values = ["/swagger-ui*", "/v3/api-docs*"] }
+  }
+}
+
+resource "aws_lb_listener_rule" "public_host" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 10
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+  condition {
+    host_header { values = [var.public_hostname] }
   }
 }

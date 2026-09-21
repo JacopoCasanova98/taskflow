@@ -2291,4 +2291,32 @@ prohibited DDL, real backend startup/Hibernate validation and CRUD as app, and
 migration-failure gating. Separate static tests cover production TLS/configuration;
 local PostgreSQL does not prove RDS certificate behavior. No RDS/AWS connection,
 master-secret retrieval, secret population or production Compose startup occurred.
-MS9.5–MS9.8 remain unstarted.
+MS9.5 subsequently defines the edge contract below; MS9.6–MS9.8 remain unstarted.
+
+### Edge trust and HTTPS design (MS9.5)
+
+The [edge security contract](EDGE_SECURITY.md) preserves HTTPS termination at ALB
+and restricted HTTP to Nginx and Spring. Only approved ALB subnet peers supply
+external HTTPS/443 context; Nginx RealIP reduces appended XFF to one client address
+and overwrites upstream forwarding headers. Production Compose alone enables
+Spring NATIVE processing; local HTTP remains HTTP. The private backend has no host
+port and depends on the Nginx/network boundary, not arbitrary client headers.
+
+Terraform and CloudFormation require the same public hostname syntax, explicitly
+append XFF, block operational/documentation paths before host routing, and default
+HTTPS to 404. ACM certificate coverage/Region and the external Route 53 A alias
+remain operator contracts, with no resources provisioned. Internal target health
+proxies backend health; ALB fail-open behavior does not bypass the security controls.
+Conditional HSTS, coherent browser headers, login/register limits and the 1 MiB
+body cap are verified. Strict Angular CSP needs future nonce/hash integration.
+
+The recovery corrected only the embedded Tomcat test harness: its mock context
+excluded Boot's native-proxy customizer. Production security was not weakened.
+All 38 focused tests and all 487 full backend tests pass without failures, errors
+or skips. The earlier 593 frontend tests and image build are retained; image
+configuration hashes match the unchanged Nginx files. Isolated edge/429/health tests,
+RealIP and nginx -t, offline Terraform fmt/validate/graph, cfn-lint, static parity
+and cached read-only Gitleaks pass. No AWS credentials/API, ACM/DNS operation,
+ECR interaction, public deployment or production Compose startup occurred.
+
+**MS9.1–MS9.5 COMPLETE. MacroStep 9 remains incomplete.** MS9.6–MS9.8 are deferred.

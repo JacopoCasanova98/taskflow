@@ -204,13 +204,14 @@ ALB HTTPS listener uses a regional **non-exportable ACM public certificate**;
 HTTP redirects to HTTPS. DNS-validated certificates renew while in use and their
 validation records remain. See [ACM DNS validation](https://docs.aws.amazon.com/acm/latest/userguide/dns-validation.html)
 and [renewal](https://docs.aws.amazon.com/acm/latest/userguide/renew-publicly-trusted.html).
-Use a current secure listener policy when implementing, not a frozen policy name
-in this decision. ALB→frontend HTTP within the restricted VPC is an accepted
+The audited listener policy remains `ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09`. ALB→frontend HTTP within the restricted VPC is an accepted
 initial trust boundary; end-to-end TLS is a future compliance upgrade.
 
 The final Terraform/CloudFormation implementations accept a required external
-regional ACM certificate ARN. They define no ACM or Route 53 resources; DNS and
-certificate lifecycle integration remain an external/MS9 design boundary.
+regional ACM certificate ARN and public hostname. They define no ACM or Route 53
+resources. MS9.5 defines their external consistency checks in [edge security](EDGE_SECURITY.md).
+HTTPS defaults to 404; only the configured host forwards after operational-path
+blocks. Both implementations explicitly select XFF append mode.
 `taskflow.example.com` remains the placeholder. No real domain will be purchased;
 no real hosted zone, certificate request or DNS validation is required. Locally
 verifiable examples must not resolve real zone IDs or require account access.
@@ -224,21 +225,18 @@ if provisioned, not instructions to execute against AWS:
 2. Replace local loopback host binding with ALB-reachable host/private-interface
    port 8080, guarded by app SG. Do not reuse local DB service/dependencies or
    `TASKFLOW_COOKIE_SECURE=false`; production sets it to **true**.
-3. Preserve trusted ALB `X-Forwarded-Proto` instead of current Nginx `$scheme`
-   (which would say HTTP after TLS termination). Establish/test trusted client-IP
-   extraction from ALB before rate limiting; never trust arbitrary client headers.
-4. Add an internal Nginx health path proxying backend `/actuator/health`, used by
-   ALB target checks on frontend 8080 (200 matcher). Block that path with a public
-   ALB listener fixed response; target probes bypass listener rules. Static `/`
-   alone does not prove backend/DB readiness. No direct backend host port is needed.
+3. MS9.5 normalizes HTTPS/443 only from approved ALB peers and derives one client
+   IP through RealIP; Spring production NATIVE forwarding consumes sanitized headers.
+4. Exact internal Nginx health proxies backend health for ALB target checks, with
+   public listener blocking and direct-peer restrictions. Health is availability,
+   not authorization: ALB can fail open when all targets are unhealthy.
 5. Use the RDS DNS endpoint and TLS `sslmode=verify-full` with the AWS CA bundle
    available read-only to JDBC. Never disable certificate verification. See
    [RDS PostgreSQL TLS](https://docs.aws.amazon.com/us_en/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html).
-6. Satisfy the existing MS6 public-exposure blocker: Nginx auth endpoint rate limits,
-   trustworthy client IPs, explicit limits/bursts and a local 429 test design.
-   This bounds per-IP abuse, not distributed attacks; WAF becomes a costed upgrade
-   if needed. Review enumeration risk, hosting CSP compatibility and public API-doc
-   policy; do not accidentally proxy Swagger/Actuator through SPA fallback.
+6. MS9.5 supplies per-client login/register limits (30/minute, burst 20, 429), HSTS
+   for trusted HTTPS and operational/documentation-path blocks. This is modest
+   abuse protection, not account lockout/DDoS protection. Strict Angular CSP needs
+   future nonce/hash integration; no WAF or permissive placeholder CSP is added.
 7. Document a static production smoke-test plan for HTTPS login/refresh/logout/
    XSRF, Secure cookies, migrations, backup restore and logging. No live cloud
    smoke test or public production URL is a project acceptance criterion.

@@ -314,3 +314,12 @@ Docker nftables is unsupported. Terraform and CloudFormation scripts match.
 Secret retrieval remains deployment-time reference behavior, never user data;
 IAM and secret/ECR/DB resources are unchanged. See the
 [bootstrap and secrets contract](../../docs/EC2_BOOTSTRAP_SECRETS.md).
+
+## MS9.5 edge contract
+
+The required public hostname input has no default and must match the external
+ACM certificate and Route 53 A alias. HTTPS defaults to 404, priorities 1/2 block
+operational/documentation paths, and priority 10 forwards only the approved host.
+ALB XFF append mode is explicit. ACM/DNS remain external; no provisioning occurs.
+Nginx trusts the reference ALB subnet CIDRs; any subnet override requires reviewing
+and rebuilding that image allowlist. See [edge security](../../docs/EDGE_SECURITY.md).
