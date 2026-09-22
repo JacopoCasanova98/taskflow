@@ -301,8 +301,9 @@ made, and no healthy target or working deployment is claimed.
 ### Observability and verification
 
 Log groups `/<project>/<environment>/{backend,nginx,host}` retain 14 days.
-CloudWatch Agent is installed only; collection/forwarding configuration belongs
-to MS9. No disk/memory alarm pretends that a custom metric already exists.
+MS9.6 supplies host-only CloudWatch Agent configuration and production Docker
+awslogs; neither is activated here. Two guest alarms use the configured memory/root
+disk metrics. See [observability](../../docs/OBSERVABILITY.md).
 
 | Native metric alarm | Threshold / window | Missing data |
 | --- | --- | --- |
@@ -312,9 +313,10 @@ to MS9. No disk/memory alarm pretends that a custom metric already exists.
 | ALB HTTPCode_ELB_5XX_Count | sum >=5 for two 5-minute periods | not breaching |
 
 Dimensions reference the actual instance/ALB/target group. The 5xx alarm measures
-ALB-generated errors, not target-generated errors. Alarm action arrays are empty:
-no SNS topic/subscription or notification delivery is claimed. MS9/operator design
-owns notification integration and threshold calibration.
+ALB-generated errors, not target-generated errors. `alarm_topic_arn` defaults to
+empty; an optional external standard SNS topic enables ALARM/OK notifications for
+all eight alarms. No SNS topic/subscription is created. Same-Region consistency,
+topic delivery policy and threshold calibration remain operator checks.
 
 Static inventory adds 23 instances: one EC2, five IAM resources, two repositories
 and two lifecycle policies, six ALB/target/listener resources, three log groups
@@ -403,8 +405,9 @@ not EC2 CloudWatch Agent forwarding or app-role log access.
 
 Two AWS/RDS alarms use DBInstanceIdentifier: average CPU >80% and minimum
 FreeStorageSpace <5 GiB (5,368,709,120 bytes, 25% of the 20 GiB allocation), each
-for three five-minute periods. Missing data remains missing; notification arrays
-are empty. Connections are deferred pending capacity/baseline evidence.
+for three five-minute periods. Missing data remains missing; notifications default
+to silent, with optional external SNS ALARM/OK actions. Connections are deferred
+pending capacity/baseline evidence.
 Enhanced Monitoring and Performance Insights are disabled; Database Insights
 stays in [default Standard mode](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DatabaseInsights.html).
 No Advanced tier, extended telemetry retention or extra monitoring role is enabled.
@@ -493,3 +496,22 @@ stack/change set or state is required or produced. Validation proves local
 schema/reference consistency, not live orderability, provisionability or runtime
 success. **MS8.1–MS8.9 COMPLETE — MACROSTEP 8 COMPLETE.** MS9 Deployment Design &
 Production Readiness is **NOT STARTED** and remains non-provisioning.
+
+## Bootstrap extension (MS9.3)
+
+The secret-free AL2023 bootstrap now verifies CLI v2/jq/Python/firewall tools,
+creates root-only `/run/taskflow` directories through tmpfiles, and installs
+Docker pre/post-start metadata guards. The iptables backend is required; native
+Docker nftables is unsupported. Terraform and CloudFormation scripts match.
+Secret retrieval remains deployment-time reference behavior, never user data;
+IAM and secret/ECR/DB resources are unchanged. See the
+[bootstrap and secrets contract](../../docs/EC2_BOOTSTRAP_SECRETS.md).
+
+## MS9.5 edge contract
+
+The required public hostname input has no default and must match the external
+ACM certificate and Route 53 A alias. HTTPS defaults to 404, priorities 1/2 block
+operational/documentation paths, and priority 10 forwards only the approved host.
+ALB XFF append mode is explicit. ACM/DNS remain external; no provisioning occurs.
+Nginx trusts the reference ALB subnet CIDRs; any subnet override requires reviewing
+and rebuilding that image allowlist. See [edge security](../../docs/EDGE_SECURITY.md).

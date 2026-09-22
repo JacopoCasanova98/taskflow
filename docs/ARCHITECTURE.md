@@ -2176,7 +2176,258 @@ external inputs and operator checks; static verification does not prove live AWS
 acceptance, capacity, bootstrap or application runtime.
 
 **MS8.1–MS8.9 COMPLETE. MACROSTEP 8 COMPLETE.**
-MS9 Deployment Design & Production Readiness is **NOT STARTED**. Image release,
+At MS8.9 close-out, MS9 was **NOT STARTED**. Image release,
 container startup, metadata isolation, agent configuration, DB-role bootstrap,
 secret population, Nginx health proxy, JDBC TLS, trusted proxy headers, auth rate
 limiting, notifications and rollback/runbooks remain its non-provisioning scope.
+
+### Production runtime design (MS9.1)
+
+The standalone [production Compose](../compose.production.yaml) defines only
+frontend and backend; PostgreSQL remains external RDS. Local `compose.yaml`
+and application/IaC sources are unchanged. Nginx publishes host TCP 8080 to
+container 8080; backend port 8080 is Docker-only on their shared bridge.
+The browser retains same-origin `/api` through Nginx to `backend:8080`.
+
+External image references and DB URL/username/password plus the JWT secret are
+six required, non-empty runtime inputs. Secure cookies are forced to true.
+Existing Spring configuration externalizes DB/JWT settings, enables Flyway and
+Hibernate `validate`; no redundant production profile is needed. Existing
+non-root image contracts, read-only roots, `/tmp` tmpfs and no-new-privileges
+define hardening. Both services use `unless-stopped`; health probes check local
+Nginx and backend `/actuator/health` status UP. Unhealthy status alone does not
+restart containers or establish ALB readiness.
+
+Static Compose validation and all twelve missing/empty-input rejection checks
+passed with ephemeral non-secret placeholders and reserved `.invalid` hosts;
+a shell cookie=false override still rendered true. Earlier isolated cached-image
+hardening checks are retained in the [runtime contract](PRODUCTION_RUNTIME.md).
+No AWS, registry or production runtime deployment operation occurred.
+Gitleaks 8.30.1 found no leaks across the four MS9.1 files using the cached
+local image with networking disabled and pulls forbidden.
+
+The zero-provisioning policy remains binding. MS9.2 owns image tags/digests and
+ECR release design; MS9.3 secret retrieval/materialization, host permissions and
+metadata isolation; MS9.4 real RDS JDBC/TLS/CA, DB roles and Flyway sequencing;
+MS9.5 ALB/Nginx/Spring proxy trust, forwarded headers, internal health, HTTPS,
+DNS/ACM and auth rate limits; MS9.6 CloudWatch Agent configuration; MS9.7
+deployment/rollback/DR runbooks; MS9.8 static smoke tests and readiness review.
+None of these later milestones is started by MS9.1.
+
+### Container release design (MS9.2)
+
+The [container release contract](CONTAINER_RELEASE.md) treats frontend/backend
+as one release from one reviewed full Git SHA. Both receive immutable
+`git-<full-git-sha>` tags; optional semantic versions are shared immutable aliases.
+Production consumes paired repository manifest digests through the unchanged
+image inputs. Builds explicitly target `linux/amd64` for the x86_64 EC2 host.
+A conceptual release record binds the commit, two repositories/digests, optional
+version, build timestamp and platform; partial pushes never form a deployable pair.
+
+Existing ECR repositories retain immutable tags and AES256 encryption. BASIC
+registry scan-on-push remains an external owner prerequisite unless TaskFlow owns
+the regional singleton; both scan results require review before eligibility.
+Seven-day untagged expiry does not expire tagged releases, preserving history
+while allowing storage growth. No tagged-retention policy is added.
+
+Dockerfiles remain unchanged: optional OCI labels would duplicate the release
+record without enforcing pairing; MS10 may generate consistent metadata alongside
+CI artifacts. Versioned base tags remain; byte-for-byte reproducibility is not
+claimed. Static contract/Compose checks and offline cached-image Gitleaks verify
+this documentation-only design. No AWS or registry authentication, API, image
+push/pull, real release or production startup occurs. MS10 owns CI/workload
+identity automation; MS9.7 owns rollback procedures. MS9.3–MS9.8 remain unstarted.
+
+### EC2 bootstrap and secret retrieval design (MS9.3)
+
+The [bootstrap/secrets contract](EC2_BOOTSTRAP_SECRETS.md) separates secret-free
+AL2023 user data from deployment-time instance-role retrieval of two AWSCURRENT
+application secrets. Existing IAM remains scoped; the RDS master secret remains
+inaccessible. No secret values or secret writes are added to IaC.
+
+Production Compose now mounts exactly three backend-only files from ephemeral
+`/run/taskflow/secrets`: DB username/password and JWT signing material. Root-only
+0700 directories and numeric 10001:10001/0400 files preserve the non-root image
+contract. The reference materializer validates protected staging before atomic
+Linux directory exchange; failures preserve the prior complete generation.
+Spring Boot 3.5.16 uses an optional native configtree import, with local environment
+compatibility and a small datasource guard against missing/blank credentials.
+No new profile, custom secret client or application AWS SDK is introduced.
+
+Aligned Terraform/CloudFormation bootstrap installs prerequisites, tmpfiles and
+Docker pre/post-start IMDS guards. Forwarded IPv4 IMDS traffic is rejected through
+DOCKER-USER while host access and IMDSv2/hop-limit settings remain unchanged.
+The iptables backend is required; native Docker nftables is rejected. IPv6 would
+require an additional metadata rule before enablement.
+
+Offline fake-AWS/materializer, fake-firewall/parity, Spring configtree and static
+Compose checks cover the contract. Terraform fmt/validate/graph, CloudFormation
+lint and cached offline Gitleaks provide local evidence, not live AWS acceptance.
+No real AWS/IMDS call, secret population, registry operation or production startup
+occurred. Rotation requires rematerialization and backend recreation; MS9.7 owns
+coordination and recovery. MS9.4–MS9.8 remain unstarted.
+
+### RDS TLS, roles and migration design (MS9.4)
+
+The [database contract](RDS_DATABASE_OPERATIONS.md) separates administrative
+bootstrap, ordinary `taskflow_migrator` object ownership and `taskflow_app`
+runtime DML. Existing public-schema migrations remain unchanged. Reference
+bootstrap SQL restricts database/schema rights and grants existing/future table
+DML and sequence USAGE; runtime cannot mutate Flyway history or perform DDL.
+No new secret metadata or application-role IAM access is required. Only the
+independent operator holds master/migration credentials.
+
+Production JDBC uses the actual RDS endpoint with verify-full and the official
+Ireland CA bundle, acquired by an independent operator and mounted read-only at
+`/opt/taskflow/trust/rds-ca-bundle.pem`. A production guard enforces the URL,
+app identity, disabled Flyway and Hibernate validate. A one-shot alternative main
+in the same backend JAR reuses packaged Flyway migrations as migrator; it starts
+no application server and never deploys after failure. Local Compose retains its
+single-user automatic-Flyway workflow. Expand/contract evolution and compatible
+rollback remain MS9.7 coordination concerns.
+
+Local PostgreSQL verification covers bootstrap, ownership, default privileges,
+prohibited DDL, real backend startup/Hibernate validation and CRUD as app, and
+migration-failure gating. Separate static tests cover production TLS/configuration;
+local PostgreSQL does not prove RDS certificate behavior. No RDS/AWS connection,
+master-secret retrieval, secret population or production Compose startup occurred.
+MS9.5 subsequently defines the edge contract below; MS9.6–MS9.8 remain unstarted.
+
+### Edge trust and HTTPS design (MS9.5)
+
+The [edge security contract](EDGE_SECURITY.md) preserves HTTPS termination at ALB
+and restricted HTTP to Nginx and Spring. Only approved ALB subnet peers supply
+external HTTPS/443 context; Nginx RealIP reduces appended XFF to one client address
+and overwrites upstream forwarding headers. Production Compose alone enables
+Spring NATIVE processing; local HTTP remains HTTP. The private backend has no host
+port and depends on the Nginx/network boundary, not arbitrary client headers.
+
+Terraform and CloudFormation require the same public hostname syntax, explicitly
+append XFF, block operational/documentation paths before host routing, and default
+HTTPS to 404. ACM certificate coverage/Region and the external Route 53 A alias
+remain operator contracts, with no resources provisioned. Internal target health
+proxies backend health; ALB fail-open behavior does not bypass the security controls.
+Conditional HSTS, coherent browser headers, login/register limits and the 1 MiB
+body cap are verified. Strict Angular CSP needs future nonce/hash integration.
+
+The recovery corrected only the embedded Tomcat test harness: its mock context
+excluded Boot's native-proxy customizer. Production security was not weakened.
+All 38 focused tests and all 487 full backend tests pass without failures, errors
+or skips. The earlier 593 frontend tests and image build are retained; image
+configuration hashes match the unchanged Nginx files. Isolated edge/429/health tests,
+RealIP and nginx -t, offline Terraform fmt/validate/graph, cfn-lint, static parity
+and cached read-only Gitleaks pass. No AWS credentials/API, ACM/DNS operation,
+ECR interaction, public deployment or production Compose startup occurred.
+
+MS9.1–MS9.5 are complete; MS9.6 observability is described below.
+
+### Observability and operational monitoring (MS9.6)
+
+Production Compose sends backend/Nginx stdout/stderr through Docker awslogs to the
+existing 14-day groups. Unique container streams avoid concurrent generation writers;
+non-blocking 4 MiB delivery favors availability with explicit log-loss and startup
+limitations. Local dual-logging cache is retained. Application logging formats,
+request correlation, secrets and IMDS isolation are unchanged.
+
+The host-only agent JSON collects three selected service journals and cloud-init
+output, plus memory/root-disk usage every 60 seconds. Only InstanceId rollups are
+published in TaskFlow/prod, with original series suppressed and root `/` as the sole
+disk resource. Terraform/CloudFormation add matching >=85% warnings over three
+5-minute averages. Six native alarms and four log groups remain; optional external
+SNS ALARM/OK actions default to silent. IAM remains scoped, without group creation,
+retention mutation or new read permissions. RDS logging stays native.
+
+[Observability](OBSERVABILITY.md) records agent compatibility/activation prerequisites,
+all thresholds, log safety and correlation limits, ALB access-log/S3 gap, triage,
+custom metric/log/notification costs and the zero-AWS execution boundary. There is
+no tracing, dashboard, sidecar, broad metric collection or automatic remediation.
+
+Focused static JSON/Compose/metric-dimension/eight-alarm/IAM/retention assertions,
+existing edge/bootstrap parity, offline Terraform fmt/validate/graph and eu-west-1
+cfn-lint pass. Compose was rendered with ephemeral inputs but never started; no
+awslogs container or agent was activated. No cached agent binary was available, so
+agent validation is static. Backend/Nginx source and formats are unchanged; application
+test suites/builds were not rerun for these configuration and documentation changes.
+Cached Gitleaks over all changed/new files found no leaks with networking disabled,
+pulls forbidden and read-only input. No AWS credentials/API, telemetry, SNS resource,
+ECR/RDS interaction, Terraform plan/apply or CloudFormation operation occurred.
+
+At MS9.6 close-out, MS9.1–MS9.6 were complete; MS9.7 is recorded below.
+
+### Deployment, rollback and disaster recovery (MS9.7)
+
+The [deployment runbook](DEPLOYMENT_RUNBOOK.md) defines operator-guided immutable
+frontend/backend digest-pair deployment: preflight → pull both images before mutation
+→ CA/config/secret preparation → observability prerequisites → successful one-shot
+migration as `taskflow_migrator` → runtime recreation as `taskflow_app` → acceptance.
+There is no normal Compose-down pre-step or broad executable deployment automation.
+Rollback uses the previous pair only when compatible with the current schema; earlier
+migrations can remain committed after a later failure. No automatic down migration
+or ECR retagging is provided.
+
+DB password rotation reconciles PostgreSQL and Secrets Manager before
+rematerialization/recreation. JWT rotation invalidates prior access tokens but does
+not itself revoke refresh sessions; compromised values must not be restored.
+Application secret and public RDS CA replacement require backend recreation to
+remount files and establish fresh verify-full connections. Reboot requires secret
+reacquisition; EC2 is replaceable and stores no authoritative business data.
+
+The [disaster-recovery runbook](DISASTER_RECOVERY.md) keeps RDS as data authority.
+PITR/snapshot restore creates a new instance, followed by private data/schema/TLS,
+credential and resurrected-session review. Quiesce all writes before endpoint
+cutover, fence old writers and reconcile alarm/log identities through the independent
+IaC owner. Automated backup retention is 7 days; retained automated backups and
+final/manual snapshots have distinct lifecycles. No AWS Backup or EC2/EBS application
+data backup is introduced. RPO depends on the actual restorable window and
+`LatestRestorableTime`, not zero or an exact five-minute guarantee. RTO is neither
+guaranteed nor measured. Single-AZ RDS, one application host and one Region remain;
+regional DR is NOT PROVIDED.
+
+Verification is static-only for runbook contracts and repository links, supplemented
+by existing offline tests using fake helper dependencies. No AWS, deployment or
+recovery operation is executed. Application/runtime/IaC implementation is unchanged.
+The runbook, observability, edge, bootstrap and migration-helper contracts pass.
+Materializer regression was not rerun: cached Linux tooling lacks real jq; no network
+download or substitute parser was used. Its unchanged implementation was reviewed
+statically. Cached Gitleaks found no leaks with network disabled and read-only input.
+MS9.8 remains deferred and owns the final static smoke/readiness specification.
+
+### Final production readiness review (MS9.8)
+
+[Production readiness](PRODUCTION_READINESS.md) is the final acceptance record,
+separating PROVEN LOCALLY / STATICALLY, REQUIRES REAL DEPLOYMENT and KNOWN ACCEPTED
+LIMITATION. The [production smoke specification](PRODUCTION_SMOKE_TEST.md) preserves
+open site → register → login → create Board → Task operations → logout, with
+infrastructure prechecks, Column operations, ownership isolation, edge negatives,
+telemetry, safe evidence and cleanup. No account-delete API or live result is invented.
+
+The new static readiness contract audits production Compose, security-rule parity,
+IMDS, DB/release/secrets, telemetry inventory, operational ownership and generated
+execution-artifact hygiene. Production Compose renders with harmless reserved
+fixtures only. Readiness/runbook/observability/edge/bootstrap/migration-helper tests
+pass; isolated Nginx edge fixtures pass with the current local image. Cached offline
+Terraform 1.16.3/AWS 6.65.0 fmt/validate/validate-json/graph pass with valid=true,
+zero errors/warnings; cfn-lint 1.57.0 reports zero eu-west-1 diagnostics.
+
+Current-source images and an isolated local Compose HTTP/API rehearsal passed
+registration/login/refresh/logout, CSRF rejection, Board/Column/Task operations,
+placement/search, ownership isolation, statistics and deletion. Renamed/reordered/
+edited state survived full container recreation. Only the disposable rehearsal
+containers/networks/volume and credentials were removed; existing developer data
+was untouched. UI filtering and pointer geometry were not rehearsed in a browser.
+Earlier 487 backend/593 frontend test results are retained, not claimed rerun.
+Materializer evidence preserves MS9.3/MS9.4 successes, unchanged implementation
+since MS9.4 and the MS9.7/MS9.8 lack of cached real jq; no substitute parser/download.
+
+Single host/AZ/Region, no regional DR, recreation interruption, no WAF/ALB access
+logs/tracing/dashboard, optional silent alarms and unmeasured recovery objectives
+remain accepted limitations. Real cloud provisioning, service behavior, TLS/DNS,
+agent delivery and public browser smoke remain independent-operator gates. A stale
+shared-DB-role statement in the AWS architecture summary was corrected; runtime,
+application source, IaC and migrations did not change. No AWS credentials/API,
+ECR, RDS, Secrets Manager, ACM/DNS, CloudWatch, Terraform plan/apply/destroy,
+CloudFormation deployment or production Compose startup occurred. MS10 is not started.
+Cached read-only Gitleaks scanned all 78 Git commits and final relevant working-tree
+files with networking disabled and pulls forbidden: no leaks found. No unresolved
+repository blocker remains. **MS9.8 COMPLETE — MACROSTEP 9 COMPLETE**, under the
+adapted local/static Definition of Done; no live production acceptance is claimed.

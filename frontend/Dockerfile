@@ -13,6 +13,7 @@ RUN npm run build \
 
 FROM nginx:1.30.5-alpine3.24 AS runtime
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/proxy.conf /etc/nginx/taskflow-proxy.conf
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /build/dist/taskflow/browser/ /usr/share/nginx/html/

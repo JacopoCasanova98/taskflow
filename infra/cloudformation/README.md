@@ -123,7 +123,11 @@ alarms mirror Terraform exactly:
 | RDS FreeStorageSpace | Minimum <5 GiB (one quarter of 20 GiB), 3 × 300s; missing |
 
 Dimensions reference the instance ID, ALB/target-group full names and DB
-identifier. No notification actions, SNS/email or custom agent metric is claimed.
+identifier. MS9.6 adds memory/root-disk warnings (>=85%, 3 × 300s, missing) with
+InstanceId-only dimensions matching the agent rollup. Optional `AlarmTopicArn`
+enables ALARM/OK actions on all eight alarms; empty input leaves them silent.
+No SNS resource, subscription or actual metric delivery is created. See
+[observability](../../docs/OBSERVABILITY.md).
 
 ## Parity and intentional representation differences
 
@@ -142,7 +146,7 @@ identifier. No notification actions, SNS/email or custom agent metric is claimed
 | ALB/target attachment | TargetGroup embeds Targets; listeners, health checks and public health-path block match |
 | RDS lifecycle | DeletionPolicy/UpdateReplacePolicy Snapshot replace Terraform's named final snapshot; deletion protection and DeleteAutomatedBackups=false match |
 | Application secret recovery | Retain on deletion/replacement preserves metadata; not an exact seven-day recovery window |
-| Observability | Same four log groups, retention, six alarms, thresholds and dimensions |
+| Observability | Same four log groups, retention, eight alarms, thresholds, dimensions and optional external SNS actions |
 | Output maps | Explicit flat outputs preserve each logical key without transforms/serialization |
 
 CloudFormation [retention and snapshot policies](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-deletionpolicy.html)
@@ -304,3 +308,22 @@ changing service defaults. No additional relevant deprecation required changes.
 The original live plan/stack-diff expectation is superseded by local/static checks.
 No AWS API, stack/change set, validate-template, state or resource was produced.
 **MS8.9 COMPLETE — MACROSTEP 8 COMPLETE. MS9 NOT STARTED.**
+
+## Bootstrap extension (MS9.3)
+
+The secret-free AL2023 bootstrap now verifies CLI v2/jq/Python/firewall tools,
+creates root-only `/run/taskflow` directories through tmpfiles, and installs
+Docker pre/post-start metadata guards. The iptables backend is required; native
+Docker nftables is unsupported. Terraform and CloudFormation scripts match.
+Secret retrieval remains deployment-time reference behavior, never user data;
+IAM and secret/ECR/DB resources are unchanged. See the
+[bootstrap and secrets contract](../../docs/EC2_BOOTSTRAP_SECRETS.md).
+
+## MS9.5 edge contract
+
+The required public hostname input has no default and must match the external
+ACM certificate and Route 53 A alias. HTTPS defaults to 404, priorities 1/2 block
+operational/documentation paths, and priority 10 forwards only the approved host.
+ALB XFF append mode is explicit. ACM/DNS remain external; no provisioning occurs.
+Nginx trusts the reference ALB subnet CIDRs; any subnet override requires reviewing
+and rebuilding that image allowlist. See [edge security](../../docs/EDGE_SECURITY.md).

@@ -1,0 +1,165 @@
+# Production runtime contract — MS9.1–MS9.7
+
+TaskFlow models how the reference EC2 runtime would operate; it never deploys it.
+No AWS account, credentials, API access or recurring hosting cost is required.
+This is a container configuration contract, not a deployment runbook or a claim
+that production runtime security is complete.
+
+## Topology and Compose ownership
+
+`compose.yaml` remains the verified local frontend/backend/PostgreSQL stack,
+with loopback publication and local generated credentials. The standalone
+`compose.production.yaml` contains only frontend and backend; do not merge it
+with the local file. PostgreSQL is external RDS.
+
+The reference request path is ALB → EC2 IPv4 port 8080 → frontend Nginx port
+8080 → `backend:8080` on one Compose bridge network. Frontend publishes
+`0.0.0.0:8080:8080` so the ALB can reach the host ENI. The MS8 App security
+group permits that ingress only from the ALB security group. This binding relies
+on that boundary; the file must not be started on an unprotected public host.
+Backend has no host-published port. There is no direct Internet-to-Spring path.
+
+Both services share the `application` bridge with Docker DNS and dynamic
+addresses. It is not an internal-only network: backend connections to RDS leave
+through the host and remain subject to the approved App SG egress rules.
+There is no PostgreSQL container, host networking or extra data network.
+
+Angular retains relative `/api`, proxied by Nginx to backend. No browser-visible
+backend hostname, `TASKFLOW_API_URL` or new CORS configuration is introduced;
+same-origin refresh-cookie and XSRF behavior is preserved.
+
+## Required inputs
+
+MS9.3 replaces MS9.1's intermediate environment-secret model with file-backed
+secrets. Exactly three non-secret runtime inputs reject unset or empty values:
+
+| Input | Classification and ownership |
+| --- | --- |
+| `TASKFLOW_FRONTEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 |
+| `TASKFLOW_BACKEND_IMAGE` | Non-secret digest-pinned image reference; MS9.2 |
+| `TASKFLOW_DB_URL` | Non-secret verify-full RDS JDBC URL; see MS9.4 database contract |
+
+`TASKFLOW_SECRET_DIR` is an optional non-secret path, defaulting to
+`/run/taskflow/secrets`. Backend alone receives three file-backed Compose secrets:
+`spring.datasource.username`, `spring.datasource.password` and
+`taskflow.security.jwt.secret-base64` under `/run/secrets/`.
+Production no longer interpolates DB username/password or JWT values into its
+environment. The directories are root:root 0700; files are numeric 10001:10001
+0400 for the existing backend UID. File-backed mounts preserve host permissions.
+Spring's optional configtree import maps these names directly to properties;
+the username is fixed by policy to `taskflow_app`, and local development retains
+its existing environment inputs. Missing/blank DB
+credentials and missing/invalid JWT material fail configuration validation.
+
+The [bootstrap and secret-delivery contract](EC2_BOOTSTRAP_SECRETS.md) defines
+AWSCURRENT retrieval, protected ephemeral staging, atomic publication and
+recreation after rotation. User data never retrieves values. No plaintext is
+stored in the repository, persistent app directories or IaC. Frontend gets no
+secrets. Root/Docker administrators retain access to mounted files.
+
+Production image variables must resolve to `<repository>@sha256:<digest>` for
+both artifacts of the same reviewed release. Tags remain traceability/release
+aliases. The [container release contract](CONTAINER_RELEASE.md) defines the
+MS9.2 image policy; Compose itself only checks that these inputs are non-empty.
+
+`TASKFLOW_COOKIE_SECURE` is fixed to `"true"` in production Compose, even if the
+shell supplies false. No AWS credentials or committed production env file is
+used. Secret values are file-backed; do not print secret files or retrieval responses.
+
+No redundant Spring production profile is introduced. Base configuration
+already externalizes database/JWT settings, defaults Secure cookies to true,
+and keeps Hibernate validation-only with Flyway as schema authority.
+A dedicated profile is warranted only when later requirements introduce actual
+profile-specific behavior.
+The required database URL has no fallback. MS9.4 requires the actual RDS endpoint,
+port 5432/database `taskflow`, `sslmode=verify-full` and
+`sslrootcert=/opt/taskflow/trust/rds-ca-bundle.pem`; no embedded credentials or
+TLS override parameters. Backend alone mounts the public regional CA bundle
+read-only at that path. `TASKFLOW_RDS_CA_FILE` optionally overrides the host
+source; a missing source is not auto-created. This is public trust, not a secret.
+
+Production fixes `SPRING_FLYWAY_ENABLED=false` and
+`TASKFLOW_DATABASE_PRODUCTION=true`. A successful one-shot migration as
+`taskflow_migrator` must precede backend startup; runtime uses `taskflow_app`
+with Hibernate `validate`. The guard rejects other roles, automatic schema
+changes, a nonconforming URL or missing CA file. Local Flyway remains automatic.
+See [RDS database operations](RDS_DATABASE_OPERATIONS.md) for role bootstrap,
+CA acquisition/rotation, isolated migrator credentials and the failure boundary.
+
+## Hardening, restart and health
+
+The existing images run as non-root users. Both services use a read-only root
+filesystem, writable `/tmp` tmpfs, and `no-new-privileges:true`, with no host
+directory or Docker socket mount and no added capabilities/privileged mode.
+Only the three backend secret files and the public read-only CA file are mounted
+from the host.
+The MS9.2 release contract preserves these image requirements.
+
+`unless-stopped` supports restarting existing containers after daemon/host
+restart; it is neither HA nor a deployment orchestrator. An unhealthy status
+alone does not trigger that restart policy. Frontend initially waits for backend
+health. Backend probes `/actuator/health` and requires status UP; frontend probes
+its local Nginx root response. Timing matches the verified local Compose checks.
+
+MS9.5 adds backend-aware ALB health: exact `/internal/health` from an approved
+ALB subnet proxies `/actuator/health`; public listener requests are blocked.
+Production uses Spring NATIVE forwarding with sanitized Nginx proto/port/host/client
+headers. Approved ALB peers alone can represent HTTPS/443 and receive HSTS.
+HTTPS forwarding requires the externally configured public hostname; other hosts,
+Actuator and OpenAPI/Swagger requests receive 404. Login/register have per-client
+rate limiting; local direct HTTP remains usable. See [edge security](EDGE_SECURITY.md)
+for the SG/RealIP trust boundary, external ACM/DNS contract and local proof limits.
+MS9.3 retains persistent Docker container IMDS isolation; host IMDS remains available.
+
+## Observability
+
+Production containers use Docker `awslogs` in eu-west-1, writing backend and Nginx
+stdout/stderr to their existing IaC-owned 14-day log groups. Streams use Docker's
+unique container identity; group creation is disabled. Non-blocking delivery with
+a 4 MiB buffer favors application availability but can drop logs under backpressure;
+driver initialization can still fail startup. The bounded local dual-logging cache
+remains enabled, not a durable outage spool. No duplicate application files are added.
+
+The host-only [CloudWatch Agent config](../ops/cloudwatch/amazon-cloudwatch-agent.json)
+collects selected service journals/cloud-init output and only guest memory/root-disk
+usage every 60 seconds. Both collectors use the host instance profile; containers
+receive no AWS credentials and retain IMDS isolation. Two custom-metric warnings
+complement the six native alarms. Optional external SNS enables alarm/recovery
+notifications; absent that input alarms are silent. See [observability](OBSERVABILITY.md)
+for dimensions, prerequisites, log safety, costs and delivery limitations.
+MS9.7 owns activation ordering and exact operational response; no agent or production
+Compose is started by project validation.
+
+## Local/static verification
+
+From the repository root, with the three required inputs and an ephemeral secret fixture directory:
+
+```bash
+docker compose --env-file /dev/null -f compose.production.yaml config --quiet
+```
+
+The explicit empty env file avoids loading local development `.env`. Do not
+print a fully rendered configuration containing real secrets. MS9.1 used only
+ephemeral, non-secret validation placeholders and reserved `.invalid` image/DB
+hostnames; these are not usable runtime inputs and are not stored in this file.
+No production Compose pull or startup is part of validation.
+
+MS9.1 originally validated six environment inputs. MS9.3 revalidates the three
+remaining inputs and backend-only secret mounts without rendering secret values.
+Docker Compose accepted the model. Checks verified both services, the
+single bridge, port boundary, hardening, forced Secure cookies and rejection of
+each missing or empty required input. Cached non-root images passed isolated checks with
+networking disabled, read-only filesystems, tmpfs and no-new-privileges: Nginx
+configuration validation and Java/tool availability. These checks do not prove
+RDS connectivity, application startup, ALB health or deployment success.
+
+## Operational ownership
+
+MS9.7's [deployment runbook](DEPLOYMENT_RUNBOOK.md) owns deployment sequencing,
+rollback decisions and secret/CA rotation operations. The companion
+[disaster-recovery runbook](DISASTER_RECOVERY.md) owns host replacement and DB
+recovery coordination. These operator-guided procedures preserve this runtime
+contract and the zero-provisioning policy; no deployment is executed here.
+
+MS9.8 supplies the [final static readiness review](PRODUCTION_READINESS.md) and
+[production smoke specification](PRODUCTION_SMOKE_TEST.md); live execution remains prohibited.

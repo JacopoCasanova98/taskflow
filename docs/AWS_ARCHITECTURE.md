@@ -204,13 +204,14 @@ ALB HTTPS listener uses a regional **non-exportable ACM public certificate**;
 HTTP redirects to HTTPS. DNS-validated certificates renew while in use and their
 validation records remain. See [ACM DNS validation](https://docs.aws.amazon.com/acm/latest/userguide/dns-validation.html)
 and [renewal](https://docs.aws.amazon.com/acm/latest/userguide/renew-publicly-trusted.html).
-Use a current secure listener policy when implementing, not a frozen policy name
-in this decision. ALB→frontend HTTP within the restricted VPC is an accepted
+The audited listener policy remains `ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09`. ALB→frontend HTTP within the restricted VPC is an accepted
 initial trust boundary; end-to-end TLS is a future compliance upgrade.
 
 The final Terraform/CloudFormation implementations accept a required external
-regional ACM certificate ARN. They define no ACM or Route 53 resources; DNS and
-certificate lifecycle integration remain an external/MS9 design boundary.
+regional ACM certificate ARN and public hostname. They define no ACM or Route 53
+resources. MS9.5 defines their external consistency checks in [edge security](EDGE_SECURITY.md).
+HTTPS defaults to 404; only the configured host forwards after operational-path
+blocks. Both implementations explicitly select XFF append mode.
 `taskflow.example.com` remains the placeholder. No real domain will be purchased;
 no real hosted zone, certificate request or DNS validation is required. Locally
 verifiable examples must not resolve real zone IDs or require account access.
@@ -224,21 +225,18 @@ if provisioned, not instructions to execute against AWS:
 2. Replace local loopback host binding with ALB-reachable host/private-interface
    port 8080, guarded by app SG. Do not reuse local DB service/dependencies or
    `TASKFLOW_COOKIE_SECURE=false`; production sets it to **true**.
-3. Preserve trusted ALB `X-Forwarded-Proto` instead of current Nginx `$scheme`
-   (which would say HTTP after TLS termination). Establish/test trusted client-IP
-   extraction from ALB before rate limiting; never trust arbitrary client headers.
-4. Add an internal Nginx health path proxying backend `/actuator/health`, used by
-   ALB target checks on frontend 8080 (200 matcher). Block that path with a public
-   ALB listener fixed response; target probes bypass listener rules. Static `/`
-   alone does not prove backend/DB readiness. No direct backend host port is needed.
+3. MS9.5 normalizes HTTPS/443 only from approved ALB peers and derives one client
+   IP through RealIP; Spring production NATIVE forwarding consumes sanitized headers.
+4. Exact internal Nginx health proxies backend health for ALB target checks, with
+   public listener blocking and direct-peer restrictions. Health is availability,
+   not authorization: ALB can fail open when all targets are unhealthy.
 5. Use the RDS DNS endpoint and TLS `sslmode=verify-full` with the AWS CA bundle
    available read-only to JDBC. Never disable certificate verification. See
    [RDS PostgreSQL TLS](https://docs.aws.amazon.com/us_en/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html).
-6. Satisfy the existing MS6 public-exposure blocker: Nginx auth endpoint rate limits,
-   trustworthy client IPs, explicit limits/bursts and a local 429 test design.
-   This bounds per-IP abuse, not distributed attacks; WAF becomes a costed upgrade
-   if needed. Review enumeration risk, hosting CSP compatibility and public API-doc
-   policy; do not accidentally proxy Swagger/Actuator through SPA fallback.
+6. MS9.5 supplies per-client login/register limits (30/minute, burst 20, 429), HSTS
+   for trusted HTTPS and operational/documentation-path blocks. This is modest
+   abuse protection, not account lockout/DDoS protection. Strict Angular CSP needs
+   future nonce/hash integration; no WAF or permissive placeholder CSP is added.
 7. Document a static production smoke-test plan for HTTPS login/refresh/logout/
    XSRF, Secure cookies, migrations, backup restore and logging. No live cloud
    smoke test or public production URL is a project acceptance criterion.
@@ -263,20 +261,23 @@ See the [final scanning ownership decision](../infra/terraform/README.md#runtime
 is a valid cheaper option with familiar IAM/KMS APIs, but application/database
 rotation coordination would still be ours. Secrets Manager gives a coherent DB
 secret/rotation lifecycle for a small additional storage charge. Automatic rotation
-is not enabled blindly: the current application reads environment at startup and
-uses one JWT key. Coordinate DB password change and service restart; JWT rotation
+is not enabled blindly: production reads mounted configtree files at startup and
+uses one JWT key. Coordinate DB password change and backend recreation; JWT rotation
 invalidates outstanding access tokens until a future key-ring design exists.
 
-Separate an RDS-managed administrator secret, a dedicated `taskflow` database-role
-secret, and JWT signing secret. The application role owns only its database/schema,
-not RDS administration; initially Flyway and runtime share that role, an accepted
-DDL privilege trade-off. The MS9 controlled-bootstrap design would create roles/grants only;
-**Flyway alone creates/evolves application tables**, Hibernate stays `validate`.
-Future separation of migrator/runtime credentials reduces DDL exposure.
+MS9.4 resolves the initial shared-role DDL trade-off: the RDS-managed administrator
+is bootstrap-only, `taskflow_migrator` owns migrations, and `taskflow_app` has
+runtime DML only. The existing app/JWT secret resources remain; migration
+credentials are operator-controlled and unavailable to the long-running backend.
+[Database operations](RDS_DATABASE_OPERATIONS.md) defines verify-full/regional CA
+trust, pre-start migrations and Hibernate validation. No IAM or DB resource changes
+are required. MS9.3's file-backed secret/configtree contract supersedes the initial
+environment-file design.
 
-Host startup retrieves only app DB/JWT secrets using an instance role, writes a
-root-only ephemeral environment file under `/run` (tmpfs), starts containers and
-removes the file after consumption. Secrets remain observable to host root/Docker
+The deployment-time host materializer retrieves only app DB/JWT secrets using
+the instance role and atomically publishes protected files under `/run` (tmpfs).
+Backend alone mounts them through Compose secrets/configtree; user data never
+retrieves values. Secrets remain observable to host root/Docker
 administrators; they are not written to Git, user data, images, logs or durable
 disk. IaC defines secret metadata/resources and access references, not plaintext secret values
 or outputs. Avoid generating/reading app secret values into Terraform state;
@@ -296,23 +297,18 @@ describe that model. Host patching/replacement remains the operator's responsibi
 
 ## Logs, monitoring and availability
 
-Docker stdout/stderr (backend request IDs and Nginx access/error logs) go to
-CloudWatch Logs through future host-configured forwarding. The agent is installed
-but collection configuration remains MS9; no custom memory/disk metric is claimed
-by MS8. Keep logs 14 days, rotate local
-buffers, never include request bodies/auth headers/cookies/secrets. Retain SSM
-session audit logs where supported; port-forward sessions do not provide command
-content logging. RDS native metrics plus selected PostgreSQL error logs support
-diagnosis. ALB access-log S3 storage is optional, not another mandatory log pipeline.
+MS9.6 defines non-blocking Docker awslogs for backend/Nginx stdout/stderr and a
+host-only CloudWatch Agent config for selected journals/cloud-init plus memory/root
+disk metrics. Four IaC-owned log groups retain 14 days; RDS export remains native.
+The existing six native alarms are preserved, with two guest warnings at >=85%
+over three 5-minute periods. An optional external SNS ARN enables ALARM/OK actions;
+empty input leaves alarms silent. No SNS resource or telemetry is created/sent.
 
-The implemented alarm set covers ALB healthy targets below one / ALB-generated
-5xx, EC2 status check failure / sustained CPU, and RDS free storage / CPU.
-Notification actions are empty; notification delivery, custom host metrics,
-connection/credit thresholds and baseline calibration remain MS9/operator design.
-Backend-dependent ALB health is intended to cover backend
-availability. MS9 documents threshold/evaluation-window assumptions and how a real operator
-would calibrate them against baseline data; no AWS measurements are required. No paid enhanced database
-monitoring tier or large dashboard stack by default.
+See [observability](OBSERVABILITY.md) for exact dimensions, IAM, local log-cache and
+log-loss limits, sensitive-log review, costs and triage. Nginx does not see listener
+rejections: ALB access logs need a separate S3 ownership/cost decision. No tracing,
+dashboard or enhanced database telemetry is added. MS9.7 owns activation and response;
+real threshold calibration remains an independent operator task.
 
 | Accepted trade-off | Reason and risk | Upgrade trigger / path |
 | --- | --- | --- |
@@ -321,7 +317,7 @@ monitoring tier or large dashboard stack by default.
 | Two-AZ network is not HA | ALB spans AZs but application and DB do not | Add actual redundant compute/DB, not just subnets |
 | Public egress IP, no NAT | Avoid fixed egress appliance bill; SG/host security must remain correct | Restrictive egress/compliance → private compute + costed NAT/endpoints |
 | ALB fixed cost | Managed TLS/entry and learning justify it at low traffic | If budget is unacceptable, revisit ADR rather than hide the cost |
-| HTTP ALB-to-host, shared host/DB role | Small trusted boundary; compromise can reach app data/schema | TLS targets, separate runtime/migration roles |
+| HTTP ALB-to-host, trusted host administrators | Restricted VPC boundary; host compromise can reach application data through runtime credentials | TLS targets and stronger host isolation; MS9.4 already separates runtime/migration DB roles |
 | Short logs/manual operations | Costs bounded; limited forensics/history and operator dependency | Incident/support needs → longer retention, tested automation |
 
 Backups do not make the service HA. No zero-downtime, automatic failover for the
@@ -439,4 +435,7 @@ Completion means an implemented, semantically aligned reference design passing
 local/static checks, with explicit pricing/orderability uncertainty. It does not
 mean a live AWS environment, tested cloud latency/capacity or runtime security
 acceptance. Final evidence is recorded in [ARCHITECTURE.md](ARCHITECTURE.md).
-MS9 Deployment Design & Production Readiness remains unstarted and non-provisioning.
+MS9 final evidence and live-only boundaries are recorded in
+[Production readiness](PRODUCTION_READINESS.md), with the independent-operator
+[smoke specification](PRODUCTION_SMOKE_TEST.md). The zero-provisioning policy
+is unchanged; no live AWS deployment or public production test is claimed.

@@ -1,0 +1,96 @@
+# Standalone reference runtime; see docs/PRODUCTION_RUNTIME.md. Never deployed by TaskFlow.
+services:
+  frontend:
+    image: ${TASKFLOW_FRONTEND_IMAGE:?TASKFLOW_FRONTEND_IMAGE is required}
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: eu-west-1
+        awslogs-group: /taskflow/prod/nginx
+        awslogs-create-group: "false"
+        mode: non-blocking
+        max-buffer-size: 4m
+    ports:
+      # ALB reaches the host ENI; the App SG permits only ALB SG ingress here.
+      - "0.0.0.0:8080:8080"
+    networks:
+      - application
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    image: ${TASKFLOW_BACKEND_IMAGE:?TASKFLOW_BACKEND_IMAGE is required}
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: eu-west-1
+        awslogs-group: /taskflow/prod/backend
+        awslogs-create-group: "false"
+        mode: non-blocking
+        max-buffer-size: 4m
+    environment:
+      TASKFLOW_DB_URL: ${TASKFLOW_DB_URL:?TASKFLOW_DB_URL is required}
+      TASKFLOW_COOKIE_SECURE: "true"
+      TASKFLOW_DATABASE_PRODUCTION: "true"
+      SPRING_FLYWAY_ENABLED: "false"
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SERVER_TOMCAT_REMOTEIP_HOST_HEADER: X-Forwarded-Host
+      SERVER_TOMCAT_REMOTEIP_PORT_HEADER: X-Forwarded-Port
+    volumes:
+      - type: bind
+        source: ${TASKFLOW_RDS_CA_FILE:-/opt/taskflow/trust/rds-ca-bundle.pem}
+        target: /opt/taskflow/trust/rds-ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    secrets:
+      - source: database_username
+        target: spring.datasource.username
+      - source: database_password
+        target: spring.datasource.password
+      - source: jwt_signing
+        target: taskflow.security.jwt.secret-base64
+    networks:
+      - application
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          health=$$(curl --fail --silent --show-error --max-time 3 http://127.0.0.1:8080/actuator/health)
+          && printf '%s' "$$health" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+networks:
+  application:
+    driver: bridge
+
+# File-backed secrets preserve host ownership/mode; see EC2_BOOTSTRAP_SECRETS.md.
+secrets:
+  database_username:
+    file: ${TASKFLOW_SECRET_DIR:-/run/taskflow/secrets}/spring.datasource.username
+  database_password:
+    file: ${TASKFLOW_SECRET_DIR:-/run/taskflow/secrets}/spring.datasource.password
+  jwt_signing:
+    file: ${TASKFLOW_SECRET_DIR:-/run/taskflow/secrets}/taskflow.security.jwt.secret-base64

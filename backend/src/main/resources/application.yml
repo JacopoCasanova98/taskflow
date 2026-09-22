@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:configtree:/run/secrets/
   application:
     name: taskflow-backend
   datasource:

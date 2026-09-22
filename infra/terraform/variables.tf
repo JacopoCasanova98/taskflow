@@ -156,3 +156,24 @@ variable "aws_region" {
     error_message = "Use an AWS region identifier such as eu-west-1."
   }
 }
+
+variable "alarm_topic_arn" {
+  description = "Optional external standard SNS topic in the deployment Region; empty leaves alarms silent. No topic is created."
+  type        = string
+  default     = ""
+  nullable    = false
+  validation {
+    condition     = can(regex("^$|^arn:aws:sns:[a-z]{2}(-[a-z]+)+-[0-9]:[0-9]{12}:[A-Za-z0-9_-]{1,256}$", var.alarm_topic_arn))
+    error_message = "Use an empty string or a standard SNS topic ARN in the deployment Region."
+  }
+}
+
+variable "public_hostname" {
+  description = "Required lowercase public DNS hostname covered by the external ACM certificate; no DNS lookup."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = length(var.public_hostname) <= 128 && can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]{2,63}$", var.public_hostname))
+    error_message = "Provide a lowercase DNS hostname only, without scheme, port, path or trailing dot."
+  }
+}
