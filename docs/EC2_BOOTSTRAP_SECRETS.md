@@ -14,7 +14,8 @@ the persistent metadata guard. It never retrieves secrets, pulls application
 images or starts Compose. This avoids boot-time secret-availability races and
 secret values entering user data or cloud-init logs. The reference helper is
 installed from a reviewed project checkout by an independent operator; user data
-does not download or execute it. MS9.7 owns that installation and exact startup
+does not download or execute it. The [MS9.7 deployment runbook](DEPLOYMENT_RUNBOOK.md)
+owns that installation and exact startup
 sequencing after the external operator has populated the two application secrets.
 
 AL2023 [ships AWS CLI v2](https://docs.aws.amazon.com/linux/al2023/ug/awscli2.html);
@@ -24,7 +25,8 @@ also includes jq. Bootstrap verifies tool availability and installs missing
 OS package manager. Python's standard library provides strict Base64 validation
 and Linux atomic directory exchange; flock serializes materializers. No ad-hoc
 AWS CLI installer or arbitrary binary download is embedded in bootstrap.
-CLI v1 fails the version check. CloudWatch configuration remains MS9.6 work.
+CLI v1 fails the version check. [MS9.6 observability](OBSERVABILITY.md) defines
+CloudWatch configuration.
 
 ## Secret schemas and identity
 
@@ -181,6 +183,7 @@ cases), four materializer test methods covering the success/failure matrix,
 fake-firewall/parity tests, static Compose checks and offline Gitleaks 8.30.1.
 Terraform 1.16.3 fmt/validate/graph and cfn-lint 1.57.0 passed offline and
 credential-free; they do not prove live AL2023 bootstrap or EC2 packet behavior.
-MS9.4 subsequently defines the database contract linked above. MS9.5 proxy/HTTPS,
-MS9.6 monitoring, MS9.7 deployment/recovery coordination and MS9.8 readiness
-remain unstarted.
+MS9.7 defines [secret rotation, rematerialization and backend recreation](DEPLOYMENT_RUNBOOK.md#credential-and-ca-rotation),
+[host replacement/reboot](DEPLOYMENT_RUNBOOK.md#reboot-and-host-replacement), and
+[restored DB credential reconciliation](DISASTER_RECOVERY.md#pitr-to-a-new-database).
+The MS9.3 materialization/security model is unchanged. MS9.8 readiness remains deferred.

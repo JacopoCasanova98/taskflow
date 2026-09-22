@@ -76,7 +76,8 @@ Inside that privileged interactive session, set `password_encryption` to
 history/server logs; see [psql password handling](https://www.postgresql.org/docs/17/app-psql.html).
 New roles cannot authenticate by password until assigned one. Never write literal
 password placeholders into bootstrap SQL. Disconnect the master when finished.
-Real credential source, custody, recovery and exact operator sequencing remain MS9.7.
+Credential custody and exact operator sequencing follow the
+[MS9.7 deployment runbook](DEPLOYMENT_RUNBOOK.md#credential-and-ca-rotation).
 
 The existing application SecretString must now contain username `taskflow_app`
 and its password. MS9.3's materializer rejects other usernames and still retrieves
@@ -198,13 +199,16 @@ runtime override, not a new Spring profile. Local Compose is unchanged: its sing
 local user retains automatic Flyway and requires neither role bootstrap nor RDS CA.
 
 Migration failure means **do not start or recreate backend**. The migration helper
-never launches application containers; MS9.7 must gate deployment on its exit
-status and leave an existing healthy version untouched. Schema changes already
+never launches application containers; MS9.7 gates deployment on its exit
+status. Keep an existing healthy version only while schema-compatible; otherwise
+contain the incident. Schema changes already
 committed by earlier migrations may remain after a later failure. Immutability
 of image digests alone therefore does not make rollback safe. Future migrations
 should expand first, deploy mutually compatible code, then contract/destructively
 clean up later. Existing migrations remain immutable. Rollback target selection,
-DB compatibility analysis and recovery procedures belong to MS9.7.
+schema/application compatibility analysis and migration-failure decisions follow
+the [MS9.7 rollback gates](DEPLOYMENT_RUNBOOK.md#rollback-and-failure-decisions).
+DB PITR/snapshot recovery follows the [disaster-recovery runbook](DISASTER_RECOVERY.md).
 
 ## Local verification boundary
 
@@ -227,4 +231,5 @@ Focused tests separately validate URL parsing, weak-mode/override rejection,
 CA path/readability requirements and production-role/Flyway guards. Local PG
 uses its isolated test connection; these tests do not claim RDS certificate or
 hostname behavior. No real endpoint, account identifier, master credential or
-certificate is required. MS9.5–MS9.8 remain unstarted.
+certificate is required. MS9.5–MS9.7 are documented in their respective
+contracts/runbooks; MS9.8 remains deferred.

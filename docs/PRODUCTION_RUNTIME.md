@@ -1,4 +1,4 @@
-# Production runtime contract — MS9.1–MS9.6
+# Production runtime contract — MS9.1–MS9.7
 
 TaskFlow models how the reference EC2 runtime would operate; it never deploys it.
 No AWS account, credentials, API access or recurring hosting cost is required.
@@ -153,12 +153,12 @@ networking disabled, read-only filesystems, tmpfs and no-new-privileges: Nginx
 configuration validation and Java/tool availability. These checks do not prove
 RDS connectivity, application startup, ALB health or deployment success.
 
-## Remaining milestone ownership
+## Operational ownership
 
-| Milestone | Deferred work |
-| --- | --- |
-| MS9.7 | Deployment, rollback and recovery runbooks |
-| MS9.8 | Static smoke-test plan and readiness review |
+MS9.7's [deployment runbook](DEPLOYMENT_RUNBOOK.md) owns deployment sequencing,
+rollback decisions and secret/CA rotation operations. The companion
+[disaster-recovery runbook](DISASTER_RECOVERY.md) owns host replacement and DB
+recovery coordination. These operator-guided procedures preserve this runtime
+contract and the zero-provisioning policy; no deployment is executed here.
 
-These remain design tasks under the zero-provisioning policy. MS9.1 introduces
-no release execution, secret population, runtime deployment or AWS operation.
+MS9.8 remains deferred: it owns the final static smoke/readiness specification.

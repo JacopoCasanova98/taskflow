@@ -3,8 +3,9 @@
 This is a production reference design, verified locally without AWS credentials,
 AWS API calls, telemetry delivery or provisioning. Actual TaskFlow AWS infrastructure
 cost remains **€0**. Do not start production Compose or the agent as a project test.
-MS9.7 owns deployment ordering and operator response; this document is a triage map,
-not an incident or deployment runbook.
+The MS9.7 [deployment runbook](DEPLOYMENT_RUNBOOK.md) owns deployment ordering
+and rollback response; [disaster recovery](DISASTER_RECOVERY.md) owns incident
+containment and recovery decisions. Use these after the first-response map below.
 
 ## One path per telemetry source
 
@@ -210,4 +211,5 @@ fmt/validate/graph and cfn-lint run in cached network-disabled containers; exist
 edge/bootstrap checks guard earlier contracts. Agent binary validation is optional;
 no cached agent binary is present, so validation here is static, not a real-host
 journald, IMDS, metric-delivery or notification test. Consult the installed official
-agent schema on a real host before activation. MS9.7–MS9.8 remain unstarted.
+agent schema on a real host before activation. MS9.7 supplies operator procedures;
+MS9.8 final smoke/readiness design remains deferred.

@@ -181,8 +181,8 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1–MS9.6 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.7–MS9.8 remain unstarted.
+**MS9.1–MS9.7 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
+not live AWS deployment. MS9.8 remains deferred and unstarted.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [x] MS9.2 — Container release/tagging and conceptual ECR workflow
@@ -190,7 +190,7 @@ not live AWS deployment. MS9.7–MS9.8 remain unstarted.
 - [x] MS9.4 — RDS connection/TLS, database-role bootstrap and migration design
 - [x] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
 - [x] MS9.6 — CloudWatch/logging and operational monitoring design
-- [ ] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
+- [x] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
 - [ ] MS9.8 — Static production smoke-test plan and readiness review
 
 MS9.1 defines the separate [production runtime contract](PRODUCTION_RUNTIME.md)
@@ -245,7 +245,19 @@ rendered Compose, metric/alarm/IAM parity, edge/bootstrap regression, offline Te
 fmt/validate/graph, cfn-lint and cached Gitleaks passed. No application test rerun was
 needed because application/Nginx sources and formats did not change. No AWS API,
 credentials, logs/metrics delivery, agent activation or production startup occurred.
-MS9.7–MS9.8 remain unstarted.
+MS9.7 follows below; MS9.8 remains deferred.
+
+MS9.7 defines the operator-guided [deployment/rollback](DEPLOYMENT_RUNBOOK.md) and
+[disaster-recovery/backup](DISASTER_RECOVERY.md) runbooks. Immutable digest pairs,
+pull-before-mutate, migration-before-runtime, schema-compatible rollback, secret/CA
+rotation, replaceable hosts and new-instance RDS recovery preserve the existing
+architecture. Write quiescence, restored credentials/sessions, monitoring identity
+reconciliation and unmeasured recovery objectives are explicit. Static runbook/link,
+observability, edge, bootstrap and migration-helper contracts pass; cached read-only,
+network-disabled Gitleaks found no leaks. Materializer regression was not rerun because
+cached tooling lacks real jq; the unchanged helper was reviewed statically. Only
+documentation and the static runbook test change. No AWS/deployment/recovery operation
+occurred. MS9.8 final static smoke/readiness specification remains unstarted.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

@@ -2352,4 +2352,42 @@ Cached Gitleaks over all changed/new files found no leaks with networking disabl
 pulls forbidden and read-only input. No AWS credentials/API, telemetry, SNS resource,
 ECR/RDS interaction, Terraform plan/apply or CloudFormation operation occurred.
 
-**MS9.1–MS9.6 COMPLETE. MacroStep 9 remains incomplete.** MS9.7–MS9.8 are unstarted.
+At MS9.6 close-out, MS9.1–MS9.6 were complete; MS9.7 is recorded below.
+
+### Deployment, rollback and disaster recovery (MS9.7)
+
+The [deployment runbook](DEPLOYMENT_RUNBOOK.md) defines operator-guided immutable
+frontend/backend digest-pair deployment: preflight → pull both images before mutation
+→ CA/config/secret preparation → observability prerequisites → successful one-shot
+migration as `taskflow_migrator` → runtime recreation as `taskflow_app` → acceptance.
+There is no normal Compose-down pre-step or broad executable deployment automation.
+Rollback uses the previous pair only when compatible with the current schema; earlier
+migrations can remain committed after a later failure. No automatic down migration
+or ECR retagging is provided.
+
+DB password rotation reconciles PostgreSQL and Secrets Manager before
+rematerialization/recreation. JWT rotation invalidates prior access tokens but does
+not itself revoke refresh sessions; compromised values must not be restored.
+Application secret and public RDS CA replacement require backend recreation to
+remount files and establish fresh verify-full connections. Reboot requires secret
+reacquisition; EC2 is replaceable and stores no authoritative business data.
+
+The [disaster-recovery runbook](DISASTER_RECOVERY.md) keeps RDS as data authority.
+PITR/snapshot restore creates a new instance, followed by private data/schema/TLS,
+credential and resurrected-session review. Quiesce all writes before endpoint
+cutover, fence old writers and reconcile alarm/log identities through the independent
+IaC owner. Automated backup retention is 7 days; retained automated backups and
+final/manual snapshots have distinct lifecycles. No AWS Backup or EC2/EBS application
+data backup is introduced. RPO depends on the actual restorable window and
+`LatestRestorableTime`, not zero or an exact five-minute guarantee. RTO is neither
+guaranteed nor measured. Single-AZ RDS, one application host and one Region remain;
+regional DR is NOT PROVIDED.
+
+Verification is static-only for runbook contracts and repository links, supplemented
+by existing offline tests using fake helper dependencies. No AWS, deployment or
+recovery operation is executed. Application/runtime/IaC implementation is unchanged.
+The runbook, observability, edge, bootstrap and migration-helper contracts pass.
+Materializer regression was not rerun: cached Linux tooling lacks real jq; no network
+download or substitute parser was used. Its unchanged implementation was reviewed
+statically. Cached Gitleaks found no leaks with network disabled and read-only input.
+MS9.8 remains deferred and owns the final static smoke/readiness specification.
