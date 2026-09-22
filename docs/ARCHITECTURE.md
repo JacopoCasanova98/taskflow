@@ -2391,3 +2391,43 @@ Materializer regression was not rerun: cached Linux tooling lacks real jq; no ne
 download or substitute parser was used. Its unchanged implementation was reviewed
 statically. Cached Gitleaks found no leaks with network disabled and read-only input.
 MS9.8 remains deferred and owns the final static smoke/readiness specification.
+
+### Final production readiness review (MS9.8)
+
+[Production readiness](PRODUCTION_READINESS.md) is the final acceptance record,
+separating PROVEN LOCALLY / STATICALLY, REQUIRES REAL DEPLOYMENT and KNOWN ACCEPTED
+LIMITATION. The [production smoke specification](PRODUCTION_SMOKE_TEST.md) preserves
+open site → register → login → create Board → Task operations → logout, with
+infrastructure prechecks, Column operations, ownership isolation, edge negatives,
+telemetry, safe evidence and cleanup. No account-delete API or live result is invented.
+
+The new static readiness contract audits production Compose, security-rule parity,
+IMDS, DB/release/secrets, telemetry inventory, operational ownership and generated
+execution-artifact hygiene. Production Compose renders with harmless reserved
+fixtures only. Readiness/runbook/observability/edge/bootstrap/migration-helper tests
+pass; isolated Nginx edge fixtures pass with the current local image. Cached offline
+Terraform 1.16.3/AWS 6.65.0 fmt/validate/validate-json/graph pass with valid=true,
+zero errors/warnings; cfn-lint 1.57.0 reports zero eu-west-1 diagnostics.
+
+Current-source images and an isolated local Compose HTTP/API rehearsal passed
+registration/login/refresh/logout, CSRF rejection, Board/Column/Task operations,
+placement/search, ownership isolation, statistics and deletion. Renamed/reordered/
+edited state survived full container recreation. Only the disposable rehearsal
+containers/networks/volume and credentials were removed; existing developer data
+was untouched. UI filtering and pointer geometry were not rehearsed in a browser.
+Earlier 487 backend/593 frontend test results are retained, not claimed rerun.
+Materializer evidence preserves MS9.3/MS9.4 successes, unchanged implementation
+since MS9.4 and the MS9.7/MS9.8 lack of cached real jq; no substitute parser/download.
+
+Single host/AZ/Region, no regional DR, recreation interruption, no WAF/ALB access
+logs/tracing/dashboard, optional silent alarms and unmeasured recovery objectives
+remain accepted limitations. Real cloud provisioning, service behavior, TLS/DNS,
+agent delivery and public browser smoke remain independent-operator gates. A stale
+shared-DB-role statement in the AWS architecture summary was corrected; runtime,
+application source, IaC and migrations did not change. No AWS credentials/API,
+ECR, RDS, Secrets Manager, ACM/DNS, CloudWatch, Terraform plan/apply/destroy,
+CloudFormation deployment or production Compose startup occurred. MS10 is not started.
+Cached read-only Gitleaks scanned all 78 Git commits and final relevant working-tree
+files with networking disabled and pulls forbidden: no leaks found. No unresolved
+repository blocker remains. **MS9.8 COMPLETE — MACROSTEP 9 COMPLETE**, under the
+adapted local/static Definition of Done; no live production acceptance is claimed.

@@ -186,4 +186,5 @@ credential-free; they do not prove live AL2023 bootstrap or EC2 packet behavior.
 MS9.7 defines [secret rotation, rematerialization and backend recreation](DEPLOYMENT_RUNBOOK.md#credential-and-ca-rotation),
 [host replacement/reboot](DEPLOYMENT_RUNBOOK.md#reboot-and-host-replacement), and
 [restored DB credential reconciliation](DISASTER_RECOVERY.md#pitr-to-a-new-database).
-The MS9.3 materialization/security model is unchanged. MS9.8 readiness remains deferred.
+The MS9.3 materialization/security model is unchanged. See the
+[MS9.8 readiness review](PRODUCTION_READINESS.md) for final evidence and live-only gaps.

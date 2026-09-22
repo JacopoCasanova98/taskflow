@@ -317,7 +317,7 @@ real threshold calibration remains an independent operator task.
 | Two-AZ network is not HA | ALB spans AZs but application and DB do not | Add actual redundant compute/DB, not just subnets |
 | Public egress IP, no NAT | Avoid fixed egress appliance bill; SG/host security must remain correct | Restrictive egress/compliance → private compute + costed NAT/endpoints |
 | ALB fixed cost | Managed TLS/entry and learning justify it at low traffic | If budget is unacceptable, revisit ADR rather than hide the cost |
-| HTTP ALB-to-host, shared host/DB role | Small trusted boundary; compromise can reach app data/schema | TLS targets, separate runtime/migration roles |
+| HTTP ALB-to-host, trusted host administrators | Restricted VPC boundary; host compromise can reach application data through runtime credentials | TLS targets and stronger host isolation; MS9.4 already separates runtime/migration DB roles |
 | Short logs/manual operations | Costs bounded; limited forensics/history and operator dependency | Incident/support needs → longer retention, tested automation |
 
 Backups do not make the service HA. No zero-downtime, automatic failover for the
@@ -435,4 +435,7 @@ Completion means an implemented, semantically aligned reference design passing
 local/static checks, with explicit pricing/orderability uncertainty. It does not
 mean a live AWS environment, tested cloud latency/capacity or runtime security
 acceptance. Final evidence is recorded in [ARCHITECTURE.md](ARCHITECTURE.md).
-MS9 Deployment Design & Production Readiness remains unstarted and non-provisioning.
+MS9 final evidence and live-only boundaries are recorded in
+[Production readiness](PRODUCTION_READINESS.md), with the independent-operator
+[smoke specification](PRODUCTION_SMOKE_TEST.md). The zero-provisioning policy
+is unchanged; no live AWS deployment or public production test is claimed.

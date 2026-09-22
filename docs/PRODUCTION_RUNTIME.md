@@ -161,4 +161,5 @@ rollback decisions and secret/CA rotation operations. The companion
 recovery coordination. These operator-guided procedures preserve this runtime
 contract and the zero-provisioning policy; no deployment is executed here.
 
-MS9.8 remains deferred: it owns the final static smoke/readiness specification.
+MS9.8 supplies the [final static readiness review](PRODUCTION_READINESS.md) and
+[production smoke specification](PRODUCTION_SMOKE_TEST.md); live execution remains prohibited.

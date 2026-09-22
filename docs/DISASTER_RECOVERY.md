@@ -8,7 +8,8 @@ All procedures below are reference decisions for an independently authorized
 operator. TaskFlow performs no backup, snapshot, restore, secret retrieval, host
 replacement, endpoint switch, AWS query or deployment. See the
 [zero-provisioning policy](AWS_ARCHITECTURE.md#hard-project-execution-policy) and
-[deployment runbook](DEPLOYMENT_RUNBOOK.md). MS9.8 remains deferred.
+[deployment runbook](DEPLOYMENT_RUNBOOK.md). MS9.8 supplies the
+[final smoke/readiness specification](PRODUCTION_READINESS.md), without live execution.
 
 **Regional disaster recovery is NOT provided.** This is one Region (`eu-west-1`),
 one application host and Single-AZ RDS. There is no cross-Region RDS backup
@@ -250,4 +251,5 @@ and links against current repository contracts without interpreting or executing
 runbook commands. Existing helper tests use fake AWS/Java/firewall programs in
 network-disabled containers. No `deploy.sh`, `rollback.sh` or `restore-rds.sh` is
 introduced. A static pass is not evidence of a real backup, successful restore,
-measured RPO/RTO or live recovery drill. MS9.8 final smoke/readiness design is deferred.
+measured RPO/RTO or live recovery drill. MS9.8's [final smoke/readiness review](PRODUCTION_READINESS.md)
+preserves this live-only boundary.

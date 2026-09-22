@@ -212,4 +212,4 @@ edge/bootstrap checks guard earlier contracts. Agent binary validation is option
 no cached agent binary is present, so validation here is static, not a real-host
 journald, IMDS, metric-delivery or notification test. Consult the installed official
 agent schema on a real host before activation. MS9.7 supplies operator procedures;
-MS9.8 final smoke/readiness design remains deferred.
+MS9.8's [final smoke/readiness review](PRODUCTION_READINESS.md) records the live-only gaps.

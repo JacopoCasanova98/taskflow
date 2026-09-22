@@ -232,4 +232,4 @@ CA path/readability requirements and production-role/Flyway guards. Local PG
 uses its isolated test connection; these tests do not claim RDS certificate or
 hostname behavior. No real endpoint, account identifier, master credential or
 certificate is required. MS9.5–MS9.7 are documented in their respective
-contracts/runbooks; MS9.8 remains deferred.
+contracts/runbooks; [MS9.8 readiness](PRODUCTION_READINESS.md) records final evidence and live-only gaps.

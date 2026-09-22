@@ -70,9 +70,9 @@ class RunbookContractTest(unittest.TestCase):
                       'resurrect.*revoked refresh sessions',
                       'new instance identifier.*dimensions.*log-group path.*iac owner.*reconcile')
         for text in (self.deployment, self.recovery):
-            self.contains(text, 'ms9.8.*deferred')
+            self.contains(text, 'ms9.8.*smoke/readiness')
         ending = self.recovery.split('## Validation boundary')[1]
-        self.contains(ending, 'static.*not evidence.*restore', 'ms9.8.*deferred')
+        self.contains(ending, 'static.*not evidence.*restore', 'ms9.8.*smoke/readiness')
 
     def test_implementation_contracts(self):
         compose = read('compose.production.yaml')

@@ -181,8 +181,8 @@ MacroStep 8 Definition of Done:
 
 Goal: prove that application and IaC contain a coherent, documented production
 deployment path without actually provisioning AWS.
-**MS9.1–MS9.7 COMPLETE. MacroStep 9 remains incomplete.** This is deployment design,
-not live AWS deployment. MS9.8 remains deferred and unstarted.
+**MS9.1–MS9.8 COMPLETE. MACROSTEP 9 COMPLETE.** This is validated deployment design,
+not live AWS deployment or a claim of public reachability.
 
 - [x] MS9.1 — Production runtime and Docker Compose configuration design
 - [x] MS9.2 — Container release/tagging and conceptual ECR workflow
@@ -191,7 +191,7 @@ not live AWS deployment. MS9.8 remains deferred and unstarted.
 - [x] MS9.5 — Reverse-proxy, HTTPS/ACM/Route 53 and security checklist
 - [x] MS9.6 — CloudWatch/logging and operational monitoring design
 - [x] MS9.7 — Deployment, rollback and disaster-recovery/backup runbooks
-- [ ] MS9.8 — Static production smoke-test plan and readiness review
+- [x] MS9.8 — Static production smoke-test plan and readiness review
 
 MS9.1 defines the separate [production runtime contract](PRODUCTION_RUNTIME.md)
 and frontend/backend Compose model. Static model validation, all six inputs'
@@ -245,7 +245,7 @@ rendered Compose, metric/alarm/IAM parity, edge/bootstrap regression, offline Te
 fmt/validate/graph, cfn-lint and cached Gitleaks passed. No application test rerun was
 needed because application/Nginx sources and formats did not change. No AWS API,
 credentials, logs/metrics delivery, agent activation or production startup occurred.
-MS9.7 follows below; MS9.8 remains deferred.
+MS9.7 and MS9.8 follow below.
 
 MS9.7 defines the operator-guided [deployment/rollback](DEPLOYMENT_RUNBOOK.md) and
 [disaster-recovery/backup](DISASTER_RECOVERY.md) runbooks. Immutable digest pairs,
@@ -257,7 +257,35 @@ observability, edge, bootstrap and migration-helper contracts pass; cached read-
 network-disabled Gitleaks found no leaks. Materializer regression was not rerun because
 cached tooling lacks real jq; the unchanged helper was reviewed statically. Only
 documentation and the static runbook test change. No AWS/deployment/recovery operation
-occurred. MS9.8 final static smoke/readiness specification remains unstarted.
+occurred. MS9.8 final verification follows below.
+
+MS9.8 adds the [production smoke specification](PRODUCTION_SMOKE_TEST.md) and
+[final readiness record](PRODUCTION_READINESS.md), separating proven local/static
+invariants, live-only operator checks and accepted limitations. The original
+open site → register → login → create Board → Task operations → logout intent is
+preserved. Static readiness/runbook/observability/edge/bootstrap/migration-helper
+tests, fixture-only production Compose render, isolated Nginx edge tests, offline
+Terraform fmt/validate/validate-json/graph (valid=true, zero errors/warnings) and
+eu-west-1 cfn-lint pass. Cached Gitleaks found no leaks in all 78 Git commits and
+final production artifacts. Prior 487 backend/593 frontend suite evidence is
+retained; no full-suite rerun claimed. Materializer remains unchanged since its
+MS9.4 validation; no MS9.7/MS9.8 rerun without cached real jq.
+
+An isolated local Compose HTTP/API rehearsal passed auth, CSRF, Board/Column/Task
+operations, move/search, ownership isolation, statistics, persistence across full
+container recreation, deletion and logout. Its containers/networks/volume and
+credentials were removed without touching developer data. Browser pointer/filter
+interaction and all cloud/public-HTTPS behavior remain outside that local evidence.
+No runtime/application/IaC implementation changed and no AWS operation occurred.
+
+MacroStep 9 Definition of Done under the adapted zero-provisioning policy:
+
+- [x] Production architecture + runtime + release + security + operations + recovery
+  + smoke/readiness procedure are coherent and locally/statically validated without
+  provisioning AWS.
+
+**MS9.8 COMPLETE — MACROSTEP 9 COMPLETE.** Live-only checks remain deliberately
+unchecked in the readiness record. MS10 is not started.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore

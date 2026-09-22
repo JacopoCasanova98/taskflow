@@ -9,7 +9,8 @@ authorized environment. TaskFlow executes none of them: no AWS identity/API, SSM
 session, ECR login/pull, secret retrieval, production Compose, agent activation,
 public test or infrastructure change. Placeholders must not be populated in Git.
 The [zero-provisioning policy](AWS_ARCHITECTURE.md#hard-project-execution-policy)
-is authoritative. MS9.8 remains deferred; it owns the detailed smoke/readiness matrix.
+is authoritative. MS9.8 supplies the [smoke/readiness matrix](PRODUCTION_SMOKE_TEST.md)
+and [final static review](PRODUCTION_READINESS.md); live execution remains prohibited.
 
 This runbook joins the existing [runtime](PRODUCTION_RUNTIME.md),
 [release](CONTAINER_RELEASE.md), [bootstrap/secrets](EC2_BOOTSTRAP_SECRETS.md),
@@ -240,7 +241,7 @@ rejection, blocked Actuator/internal/OpenAPI paths, authentication and represent
 application flow. Verify container/host/RDS log destinations and expected metric/alarm
 identities; guest metrics need collection time and missing data is not health.
 SNS delivery is conditional on an external topic/subscriptions, not assumed.
-These checks occur before acceptance; their detailed test matrix remains MS9.8.
+These checks occur before acceptance; use the [MS9.8 test matrix](PRODUCTION_SMOKE_TEST.md).
 
 Record the Git SHA, frontend/backend digests, migration version, UTC deployment
 timestamp, operator and evidence/decision in the independent deployment record.
