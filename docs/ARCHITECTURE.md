@@ -2431,3 +2431,37 @@ Cached read-only Gitleaks scanned all 78 Git commits and final relevant working-
 files with networking disabled and pulls forbidden: no leaks found. No unresolved
 repository blocker remains. **MS9.8 COMPLETE — MACROSTEP 9 COMPLETE**, under the
 adapted local/static Definition of Done; no live production acceptance is claimed.
+
+### GitHub Actions baseline (MS10.1)
+
+[CI/CD](CI_CD.md) defines two independent Ubuntu 24.04 jobs in
+[ci.yml](../.github/workflows/ci.yml): Temurin Java 21 with Maven Wrapper `verify`,
+and Node 22.23.1 with `npm ci` followed by the existing frontend `quality` gate.
+PRs to main, main/feature pushes and manual dispatch trigger CI; concurrency
+cancels superseded runs per PR/ref. Official actions use verified full commit
+pins, dependency-only caches, finite 30/20-minute timeouts and read-only contents
+permission. Checkout credentials are not persisted. PostgreSQL integration tests
+retain Testcontainers; the hosted Docker daemon is checked before verification.
+
+The existing MS10.1 working-tree corrections address three SpotBugs findings in
+the MS9 CA contract. The trust-file catch now names IOException/RuntimeException;
+two class/method-scoped exclusions document deliberately absolute CA mount paths.
+No path, TLS behavior, security threshold or scanner invocation was changed.
+
+The repository-owned [static CI contract](../scripts/ci/test_ci_workflow.py)
+passes with cached offline PyYAML; actionlint is unavailable locally. This checks
+workflow structure and allowed commands without emulating GitHub Actions.
+On 2026-09-25, the complete `./scripts/quality.sh` regression passed: 487 backend
+tests (zero failures/errors/skips), JaCoCo gates, zero SpotBugs/FindSecBugs findings,
+and 593 frontend tests across 38 files, formatting, lint, coverage and production
+build. Maven took 2m04s; the frontend test phase took 15.08s, excluding its build
+and other gates. The 30/20-minute job limits allow cold caches and runner variance.
+An initial local attempt failed because Docker was unavailable; the full rerun
+passed after Docker Desktop startup and granting local daemon access.
+The workflow is implemented and locally validated; first GitHub-hosted execution
+is pending. MS10.1 remains unchecked until both hosted jobs pass.
+
+No AWS credentials/API, OIDC role, registry publication, container image build,
+deployment, Terraform/CloudFormation operation or repository secret is involved.
+The network-dependent security audit remains unchanged and is not invoked.
+MS10.2–MS10.11 remain deferred; no commit or push was performed.

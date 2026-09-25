@@ -1,5 +1,6 @@
 package com.taskflow.shared.config;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -45,7 +46,7 @@ public final class ProductionDatabaseContract {
 			if (!Files.isRegularFile(path) || !Files.isReadable(path) || Files.size(path) == 0) {
 				throw new IllegalArgumentException();
 			}
-		} catch (Exception exception) {
+		} catch (IOException | RuntimeException exception) {
 			throw new IllegalArgumentException("Production database CA file must be present, readable and non-empty.");
 		}
 	}

@@ -285,7 +285,7 @@ MacroStep 9 Definition of Done under the adapted zero-provisioning policy:
   provisioning AWS.
 
 **MS9.8 COMPLETE — MACROSTEP 9 COMPLETE.** Live-only checks remain deliberately
-unchecked in the readiness record. MS10 is not started.
+unchecked in the readiness record. MS10 had not started at the MS9 close-out.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore
@@ -294,5 +294,25 @@ independent real operator could do; the project does not execute their AWS steps
 
 ## MacroStep 10 — CI/CD and portfolio preparation
 
-- [ ] Establish continuous integration and delivery
-- [ ] Prepare portfolio materials
+- [ ] MS10.1 — GitHub Actions baseline
+- [ ] MS10.2 — Docker CI
+- [ ] MS10.3 — Registry delivery design
+- [ ] MS10.4 — Automated deployment design / dry-run contract
+- [ ] MS10.5 — CI/CD identity and secrets security design
+- [ ] MS10.6 — Branch / PR quality gate
+- [ ] MS10.7 — Professional README
+- [ ] MS10.8 — Diagrams
+- [ ] MS10.9 — Portfolio assets
+- [ ] MS10.10 — GitHub release
+- [ ] MS10.11 — Final repository cleanup
+
+**MS10.1 IMPLEMENTED — first GitHub-hosted run pending.** The checklist remains
+unchecked until both quality jobs pass on GitHub after commit/push. See
+[CI/CD](CI_CD.md). MS10.2–MS10.11 are deferred.
+
+GitHub CI is real and executable; local/Docker build automation may also be real.
+ECR delivery and AWS deployment remain reference/design only, with no AWS
+credentials required. No deployed-app URL will be fabricated: MS10.9 uses
+screenshots, demo and local evidence instead. GitHub Releases may be real because
+they do not require AWS provisioning. These adaptations do not authorize any
+later milestone's implementation during MS10.1.
