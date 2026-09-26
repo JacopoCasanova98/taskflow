@@ -70,8 +70,9 @@ Environment review availability varies by repository visibility/plan. Before
 live enablement, verify required review/source controls are available and cannot
 be bypassed under the agreed policy; prevent self-approval where supported.
 If the required protection cannot be enforced, leave federation disabled pending
-an independently reviewed alternative. MS10.6 branch/PR gate implementation
-remains deferred. [GitHub environment protection](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
+an independently reviewed alternative. [GitHub environment protection](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
+The [MS10.6 branch/PR gate](REPOSITORY_GOVERNANCE.md) is implemented locally;
+hosted and live-policy verification remain pending.
 
 Ordinary `.github/workflows/ci.yml` stays `contents: read`, with no OIDC, AWS
 action, secrets, registry login or deployment job. The future publisher would

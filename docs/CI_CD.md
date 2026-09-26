@@ -288,7 +288,8 @@ MS10.3 registry delivery and MS10.4 deployment remain non-live designs with loca
 validation tooling. The planner is implemented; a deployment executor and AWS
 interaction are not. No publish/deploy job, environment, OIDC permission or secret
 is added to normal CI. MS9.7 remains the operational authority, including failure
-and rollback decisions. MS10.6–MS10.11 remain deferred.
+and rollback decisions.
+MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
 
 **MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair tests, four CI checks,
 five readiness checks and five runbook checks passed locally with cached tooling
@@ -312,9 +313,24 @@ no privileged AWS CI/CD operation is implemented or executed.
 **MS10.5 COMPLETE:** 14 identity tests and all 38 requested regression checks
 passed with cached, network-disabled tooling. No AWS identity was used.
 
+## Branch / PR quality gate (MS10.6)
+
+The existing backend/frontend quality gates feed the Docker matrix and a final
+stable `ci-gate` check. Its direct dependencies include both quality jobs and
+`docker-build`; `always()` runs the aggregate after upstream failure/skip, and
+only all-success results pass. No quality work is repeated. Current triggers,
+read-only permissions and credential-free/no-publish behavior remain intact.
+
+[Repository governance](REPOSITORY_GOVERNANCE.md) defines the PR template and
+desired main ruleset: PR required, zero approvals for the solo maintainer, required
+`ci-gate`, strict up-to-date checks, resolved conversations, blocked force pushes
+and deletion, no bypasses and merge commits preserved. The reference is not live
+GitHub configuration. Hosted gate and live ruleset verification remain pending.
+
+**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
+
 ## Later ownership
 
-MS10.6 owns branch/PR quality gates and further quality/security automation
-decisions. MS10.6–MS10.11 remain unimplemented.
+MS10.7–MS10.11 remain deferred.
 GitHub CI is real executable automation. AWS registry delivery and deployment
 remain reference/design only under the zero-AWS policy.

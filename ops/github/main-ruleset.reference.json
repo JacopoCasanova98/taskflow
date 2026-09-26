@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "status": "REFERENCE TARGET — NOT PROOF OF LIVE GITHUB CONFIGURATION",
+  "repository": "JacopoCasanova98/taskflow",
+  "target": "refs/heads/main",
+  "desired_enforcement": "active",
+  "bypass_actors": [],
+  "pull_request": {
+    "required": true,
+    "required_approving_review_count": 0,
+    "require_code_owner_review": false,
+    "require_last_push_approval": false,
+    "require_conversation_resolution": true
+  },
+  "status_checks": {
+    "required": ["ci-gate"],
+    "strict_up_to_date": true,
+    "expected_source": "GitHub Actions; verify live app identity before configuration"
+  },
+  "block_force_pushes": true,
+  "block_deletion": true,
+  "require_linear_history": false,
+  "require_signed_commits": false,
+  "require_merge_queue": false,
+  "require_deployments": false,
+  "preserve_merge_commits": true
+}

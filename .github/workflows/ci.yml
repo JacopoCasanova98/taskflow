@@ -133,3 +133,25 @@ jobs:
                   "Forbidden secret variable present in image configuration")
           print(os.environ["COMPONENT"] + ": linux/amd64 runtime, OCI labels and config hygiene passed")
           PYTHON
+
+  ci-gate:
+    name: ci-gate
+    needs: [backend-quality, frontend-quality, docker-build]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every upstream gate to succeed
+        shell: bash
+        env:
+          BACKEND_RESULT: ${{ needs.backend-quality.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-quality.result }}
+          DOCKER_RESULT: ${{ needs.docker-build.result }}
+        run: |
+          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$DOCKER_RESULT"; do
+            if [ "$result" != "success" ]; then
+              echo "Required upstream job did not succeed."
+              exit 1
+            fi
+          done
+          echo "All required quality and Docker gates succeeded."

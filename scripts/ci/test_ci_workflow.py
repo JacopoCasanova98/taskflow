@@ -38,7 +38,7 @@ class CiWorkflowContract(unittest.TestCase):
 
     def test_independent_quality_jobs(self):
         jobs = self.workflow["jobs"]
-        self.assertEqual(set(jobs), {"backend-quality", "frontend-quality", "docker-build"})
+        self.assertEqual(set(jobs), {"backend-quality", "frontend-quality", "docker-build", "ci-gate"})
         expected = {
             "backend-quality": ("backend", ["docker info", "./mvnw -B -ntp verify"],
                 "actions/setup-java", {"distribution": "temurin", "java-version": "21",

@@ -341,7 +341,8 @@ mandatory migration, preflight/compatibility and acceptance boundaries. No live
 executor or automatic rollback is introduced. All 13 deployment-plan tests,
 11 release-pair tests, four CI checks, five readiness checks and five runbook
 checks passed with cached, network-disabled tooling. CI, application, Compose
-and IaC remain unchanged. MS10.6–MS10.11 are deferred.
+and IaC remain unchanged.
+MS10.6 acceptance remains pending; MS10.7–MS10.11 are deferred.
 
 **MS10.5 COMPLETE — CI/CD identity and secret boundaries validated offline; no AWS identity used.**
 [CI/CD security](CI_CD_SECURITY.md) defines separate runtime, publisher, deployment
@@ -350,11 +351,21 @@ and protected secret flows. The closed v1 reference contract and offline validat
 reject privilege expansion and unsafe deployment authority. All 14 identity tests,
 11 release-pair tests, 13 deployment-plan tests, four CI checks, five readiness
 checks and five runbook checks passed with cached, network-disabled tooling.
-Current CI and runtime/IaC remain unchanged. MS10.6–MS10.11 remain deferred.
+Current CI and runtime/IaC remain unchanged.
+MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
+
+**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
+[Repository governance](REPOSITORY_GOVERNANCE.md) adds one stable all-success
+aggregate check, a concise PR template and an offline-validated main-ruleset
+reference. Desired policy requires PRs, zero approvals, strict `ci-gate`, resolved
+conversations, blocked force pushes/deletion and no bypasses, preserving merge
+commits. The reference does not activate GitHub protection. MS10.6 stays unchecked
+until the five hosted checks and live ruleset are verified after manual push.
+MS10.7–MS10.11 remain unchecked and deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.
 ECR delivery and AWS deployment remain reference/design only, with no AWS
 credentials required. No deployed-app URL will be fabricated: MS10.9 uses
 screenshots, demo and local evidence instead. GitHub Releases may be real because
 they do not require AWS provisioning. These adaptations do not authorize any
-later milestone's implementation during MS10.5.
+later milestone's implementation during MS10.6.

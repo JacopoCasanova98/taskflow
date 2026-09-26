@@ -2583,7 +2583,8 @@ approval. No automatic rollback is generated.
 The planner only reads, validates, derives and serializes local data. It has no
 process execution, network client or AWS capability and adds no workflow job.
 No production Compose, migration, registry operation or deployment occurs. The
-future live executor is not implemented; MS10.6–MS10.11 remain deferred.
+future live executor is not implemented.
+MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
 
 **MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair regressions, four CI
 contract tests, five readiness checks and five runbook checks passed with cached,
@@ -2600,4 +2601,17 @@ subject verification before enablement. No long-lived AWS keys are permitted.
 Current CI remains read-only without federation; application secrets never flow
 through GitHub. Deployment remote execution is intentionally unimplemented and
 blocked on a constrained host interface and independent migration credential path.
-No live identity or IaC change is introduced. MS10.6–MS10.11 remain deferred.
+No live identity or IaC change is introduced.
+MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
+
+### Branch / PR quality gate (MS10.6)
+
+The unchanged application quality jobs and Docker matrix feed one stable
+`ci-gate` check. It uses `always()` and requires every dependency to succeed;
+no checkout, tooling setup or quality rerun occurs in the aggregate.
+[Repository governance](REPOSITORY_GOVERNANCE.md) separates this repository
+implementation from the desired PR-oriented main policy and verified live
+enforcement. Zero approvals support the solo maintainer; strict `ci-gate`,
+conversation resolution, force-push/deletion blocks and no bypasses are desired.
+Merge-commit history and MS10.5 credential-free CI remain unchanged.
+**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
