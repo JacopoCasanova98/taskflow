@@ -2490,11 +2490,19 @@ The subsequent root quality gate passed the same 490 backend tests plus all 593
 frontend tests across 38 files, coverage, formatting, lint and production build.
 The static CI contract also passed; workflow YAML and frontend remain unchanged.
 
-**MS10.1 HOSTED VALIDATION IN PROGRESS — first run exposed backend portability defects.**
-MS10.1 remains unchecked until a new pushed commit passes both hosted jobs.
+**MS10.1 COMPLETE.**
+[CI #2, run 36240871848](https://github.com/JacopoCasanova98/taskflow/actions/runs/36240871848)
+executed workflow `CI` on GitHub-hosted Ubuntu 24.04 following a `push` of
+`28c95b20028d4b1ebd01f0ff64c32f44da32232c`. The supplied hosted evidence records
+overall conclusion **success**, with `backend-quality` **SUCCESS** and
+`frontend-quality` **SUCCESS**. Backend checkout, Java 21 setup, Docker verification
+and Maven quality including PostgreSQL Testcontainers succeeded; frontend checkout,
+Node setup, locked `npm ci` and its quality gate succeeded. This clean Linux hosted
+execution validated backend/Testcontainers portability after the first run exposed
+and led to correction of the CSRF test-order and timestamp-precision defects.
 
 No AWS credentials/API, OIDC role, registry publication, container image build,
 deployment, Terraform/CloudFormation operation or repository secret is involved.
 The network-dependent security audit remains unchanged and is not invoked.
-MS10.2–MS10.11 remain deferred; this correction is uncommitted for manual review,
-and no commit or push was performed during this follow-up.
+MS10.2–MS10.11 remain deferred. This documentation close-out adds no deployment/CD
+capability and is left uncommitted for manual review.

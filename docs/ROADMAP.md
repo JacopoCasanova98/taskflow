@@ -294,7 +294,7 @@ independent real operator could do; the project does not execute their AWS steps
 
 ## MacroStep 10 — CI/CD and portfolio preparation
 
-- [ ] MS10.1 — GitHub Actions baseline
+- [x] MS10.1 — GitHub Actions baseline
 - [ ] MS10.2 — Docker CI
 - [ ] MS10.3 — Registry delivery design
 - [ ] MS10.4 — Automated deployment design / dry-run contract
@@ -306,11 +306,12 @@ independent real operator could do; the project does not execute their AWS steps
 - [ ] MS10.10 — GitHub release
 - [ ] MS10.11 — Final repository cleanup
 
-**MS10.1 HOSTED VALIDATION IN PROGRESS — first run exposed backend portability defects.**
+**MS10.1 COMPLETE — GitHub-hosted CI run #2 passed on Ubuntu 24.04 with both backend-quality and frontend-quality successful.**
 CI #1 passed frontend quality and failed backend quality (CSRF test-context
-pollution and audit timestamp precision). Corrections remain uncommitted for
-manual review; a second hosted run is pending. The checklist remains
-unchecked until both quality jobs pass on GitHub on a new pushed commit. See
+pollution and audit timestamp precision). After deterministic CSRF tests and
+PostgreSQL microsecond-precision audit timestamp corrections, push-triggered
+[CI #2, run 36240871848](https://github.com/JacopoCasanova98/taskflow/actions/runs/36240871848)
+passed on commit `28c95b20028d4b1ebd01f0ff64c32f44da32232c`. See
 [CI/CD](CI_CD.md). MS10.2–MS10.11 are deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.

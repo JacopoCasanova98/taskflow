@@ -49,8 +49,9 @@ and commit targets were checked against the official repositories on 2026-09-25:
 | setup-java | [v6.0.1](https://github.com/actions/setup-java/releases/tag/v6.0.1) | `de7274f081f381c8f8158605e0321c36c376e2e6` |
 | setup-node | [v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0) | `820762786026740c76f36085b0efc47a31fe5020` |
 
-CI performs no container image build, registry publishing, deployment or AWS
-operation. Testcontainers starts disposable local test containers only.
+CI performs no container image build, image publishing, ECR/GHCR interaction,
+deployment or AWS operation. No AWS credentials, AWS OIDC or repository secret
+is required. Testcontainers starts disposable local test containers only.
 `security-audit.sh`, OWASP Dependency-Check and `npm audit` are excluded from this
 baseline because their vulnerability-feed automation needs separate decisions.
 Their existing local security contract is unchanged.
@@ -73,8 +74,7 @@ docker run --rm --pull never --network none \
   --entrypoint python taskflow-cfn-lint:1.57.0 scripts/ci/test_ci_workflow.py
 ```
 
-**MS10.1 HOSTED VALIDATION IN PROGRESS — first run exposed backend portability defects.**
-Both hosted jobs must succeed on a new pushed commit before MS10.1 is complete.
+**MS10.1 COMPLETE — GitHub-hosted CI run #2 passed on Ubuntu 24.04 with both backend-quality and frontend-quality successful.**
 
 ### First hosted execution and portability corrections
 
@@ -119,8 +119,9 @@ Two independent defects were exposed:
    The existing cross-user equality assertions remain intact. No schema migration,
    timezone workaround, production clock replacement or assertion tolerance is used.
 
-Workflow YAML, quality thresholds and the frontend job are unchanged. This
-correction is left uncommitted for manual review; a second hosted run is pending.
+Workflow YAML, quality thresholds and the frontend job are unchanged. The
+corrections were committed as `28c95b20028d4b1ebd01f0ff64c32f44da32232c` and
+pushed for the second hosted execution.
 
 Local clean validation on 2026-09-26: `cd backend && ./mvnw clean verify` passed
 490 tests with 0 failures, 0 errors and 0 skipped in 1m56s. PostgreSQL 17.11
@@ -133,6 +134,25 @@ The subsequent complete `./scripts/quality.sh` passed: 490 backend tests and
 lint and production build. Frontend coverage was 98.36% statements, 96.85%
 branches, 98.82% functions and 100% lines. The cached offline static CI contract passed both
 tests. No quality gate was removed or weakened.
+
+### Second hosted execution and acceptance
+
+[CI #2, run 36240871848](https://github.com/JacopoCasanova98/taskflow/actions/runs/36240871848)
+executed workflow `CI` on GitHub-hosted Ubuntu 24.04, triggered by a `push` of
+`28c95b20028d4b1ebd01f0ff64c32f44da32232c` on `feature/ci-portfolio-preparation`.
+The supplied hosted run evidence records overall conclusion **success**:
+
+- `backend-quality` **SUCCESS**: checkout, Java 21 setup, Docker availability
+  verification and the Maven quality gate including PostgreSQL Testcontainers.
+- `frontend-quality` **SUCCESS**: checkout, Node setup, locked `npm ci` and the
+  frontend quality gate.
+
+CI #1 passed frontend but exposed CSRF test-order contamination and PostgreSQL
+timestamp-precision portability defects in backend tests. Deterministic CSRF tests
+and audit timestamps aligned to PostgreSQL microsecond precision corrected them.
+CI #2 passed both jobs, validating backend/Testcontainers portability in a clean
+Linux hosted environment. **MS10.1 accepted.** This is CI validation; it performs
+no deployment or CD delivery.
 
 ## Later ownership
 
