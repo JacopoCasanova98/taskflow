@@ -249,11 +249,34 @@ operation or production Compose execution occurred; no repository secret was
 required. Successful build/load inspection establishes Docker buildability and
 the packaging contract, not a registry release or production deployment identity.
 Production deployment identity remains the registry digest contract defined by
-[MS9.2](CONTAINER_RELEASE.md). MS10.3–MS10.11 remain deferred.
+[MS9.2](CONTAINER_RELEASE.md).
+
+## Registry delivery design (MS10.3)
+
+[REGISTRY_DELIVERY.md](REGISTRY_DELIVERY.md) defines the reviewed-commit → gated
+image pair → reference-only ECR publication/scan review/digest capture → validated
+pair-record interface. The version `1.0` JSON Schema and standard-library offline
+validator reject partial pairs, mismatched repository identities and malformed
+Git SHA/digest/platform/timestamp/version fields. They derive immutable Git tags
+and repository-qualified digest references. Scan approval remains separate future
+eligibility evidence; structural validation cannot prove registry provenance.
+
+Application CI and Docker build CI are executable and proven by hosted runs.
+Registry delivery is designed, not executed. AWS deployment remains reference
+design, not executed; MS10.4 automation is not started. MS10.5 owns the future
+short-lived identity interface, and MS10.10 owns any actual GitHub Release asset.
+Normal CI remains unchanged with `push: false`; no AWS/OIDC, registry login,
+digest lookup, publication, secrets or artifact upload is introduced.
+
+MS10.3 acceptance is offline validator tests, static ECR/IaC/runtime alignment
+and documentation review under the zero-AWS policy, not a hosted ECR execution.
+**MS10.3 COMPLETE:** all 11 release-contract tests, five existing readiness checks,
+five runbook checks and four CI contract tests passed using cached tooling with
+networking disabled. MS10.4–MS10.11 remain deferred.
 
 ## Later ownership
 
-MS10.3 owns registry delivery design; MS10.4 deployment design
+MS10.4 owns deployment design
 and dry-run contracts; MS10.5 CI/CD identity/secrets; MS10.6 branch/PR quality
 gates and further quality/security automation decisions. These are unimplemented.
 GitHub CI is real executable automation. AWS registry delivery and deployment

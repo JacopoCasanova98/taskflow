@@ -39,13 +39,14 @@ natively or through emulation. Neither arm64 nor a multi-architecture manifest i
 required. Preserve the existing non-root users, port/tool availability and
 read-only-root compatibility specified by [the runtime contract](PRODUCTION_RUNTIME.md).
 
-Dockerfiles deliberately remain unchanged. OCI `source`, `revision`, `version`
-and `created` labels were considered: they aid inspection, but cannot establish
-that both artifacts belong to an approved pair. The required release record below
-already owns that information; adding optional build arguments/default labels
-now would duplicate it without an automated producer/verifier. MS10 may generate
-matching OCI metadata with the release record. Local builds require no release
-arguments; no credentials, tokens or personal paths enter image metadata.
+Dockerfiles deliberately remain unchanged. MS10.2 CI now applies and inspects
+`org.opencontainers.image.source` and `org.opencontainers.image.revision` labels
+on both locally built images. This completes the CI metadata work deferred by
+MS9.2 without publishing images. No semantic version or creation-time label is
+fabricated. These labels aid inspection but do not independently establish an
+approved release pair. Local builds require no release arguments; no credentials,
+tokens or personal paths enter image metadata. MS10.3 defines the separate
+[registry delivery design and offline pair contract](REGISTRY_DELIVERY.md).
 
 Current base images use versioned tags. Published application images are pinned
 by digest for deployment, but this does **not** promise byte-for-byte reproducible
@@ -64,7 +65,7 @@ platform, gates and artifact identity repeatable, not identical rebuild bytes.
    for that checkout. Docker packaging is not a substitute for these gates.
 3. Resolve the full Git SHA and record one UTC build-start timestamp for the pair.
 4. Build both images with Buildx for `linux/amd64`, loading the results locally.
-5. Record release metadata; OCI labels are not implemented in this milestone.
+5. Record release metadata and verify OCI source/revision labels as implemented by MS10.2 CI.
 6. Obtain short-lived AWS identity and authenticate to the intended ECR registry.
 7. Tag both already-built artifacts with their immutable Git-SHA repository tags.
 8. Push frontend and backend to their respective authorized repositories.
@@ -154,22 +155,29 @@ the successful artifact to repair the pair. An interrupted retry must reconcile
 existing published identities rather than blindly repushing an immutable tag.
 Production requires both verified digests from the same commit.
 
-Conceptual schema only; no actual manifest with invented digests is created:
+MS10.3 implements the [versioned schema](../ops/release/release-pair.schema.json)
+and [offline validator](../scripts/release/validate_release_pair.py) for these
+concepts. No actual manifest with invented digests is created:
 
 | Field | Required meaning |
 | --- | --- |
+| `schema_version` | Explicit supported contract version `1.0` |
 | `git_commit` | Full reviewed Git commit SHA shared by both artifacts |
 | `frontend_repository` | Full frontend repository URI, without tag/digest |
 | `frontend_digest` | Verified published manifest digest, `sha256:<digest>` |
 | `backend_repository` | Full backend repository URI, without tag/digest |
 | `backend_digest` | Verified published manifest digest, `sha256:<digest>` |
-| `semantic_version` | Optional immutable `vX.Y.Z`, identical for both images |
+| `digest_source` | Required `ecr-registry-manifest` assertion for both digests, not proof of provenance |
+| `semantic_version` | Optional immutable `vX.Y.Z` or prerelease alias, identical for both images |
 | `build_timestamp` | Pair build-start time in UTC RFC 3339 format |
 | `platform` | `linux/amd64` for both artifacts |
 
 The record becomes eligible only after both image identities and scan decisions
-are verified. MS10 may generate and retain it as a CI artifact with gate evidence;
-this table is neither an actual release nor an implemented schema validator.
+are verified. The MS10.3 validator checks structure, not registry provenance or
+scan acceptance: local image/config digests can share registry digest syntax.
+[REGISTRY_DELIVERY.md](REGISTRY_DELIVERY.md) defines the separate future eligibility
+evidence and artifact interface. Neither registry publication nor release-record
+upload is implemented; MS10.10 retains ownership of actual GitHub Releases.
 
 Previous verified digest pairs supply rollback identities only. MS9.7 owns target
 selection, runtime-input updates, container restarts, database compatibility and

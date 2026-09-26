@@ -296,7 +296,7 @@ independent real operator could do; the project does not execute their AWS steps
 
 - [x] MS10.1 — GitHub Actions baseline
 - [x] MS10.2 — Docker CI
-- [ ] MS10.3 — Registry delivery design
+- [x] MS10.3 — Registry delivery design
 - [ ] MS10.4 — Automated deployment design / dry-run contract
 - [ ] MS10.5 — CI/CD identity and secrets security design
 - [ ] MS10.6 — Branch / PR quality gate
@@ -322,11 +322,20 @@ passed on commit `ee084993fe14c07c19557049f3f367deb9b05a07`.
 Both Docker jobs successfully completed Buildx setup, production image build
 for `linux/amd64`, local image load and runtime image contract inspection.
 Both CI images share the same full source Git SHA; no image was published.
-MS10.3–MS10.11 are deferred.
+
+**MS10.3 COMPLETE — registry delivery design validated; no registry operation performed.**
+[Registry delivery](REGISTRY_DELIVERY.md) defines the existing ECR pair's immutable
+Git-SHA identity, registry-digest deployment references, versioned JSON Schema and
+offline standard-library validator. Partial/mismatched pairs are rejected; external
+registry provenance and scan-review evidence remain required for eligibility.
+All 11 release-contract tests, five existing readiness checks, five runbook checks
+and four CI contract tests passed with cached tooling and networking disabled.
+Normal CI, application code, Dockerfiles, Compose and IaC remain unchanged.
+This design milestone requires no live ECR execution. MS10.4–MS10.11 are deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.
 ECR delivery and AWS deployment remain reference/design only, with no AWS
 credentials required. No deployed-app URL will be fabricated: MS10.9 uses
 screenshots, demo and local evidence instead. GitHub Releases may be real because
 they do not require AWS provisioning. These adaptations do not authorize any
-later milestone's implementation during MS10.2.
+later milestone's implementation during MS10.3.

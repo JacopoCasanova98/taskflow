@@ -2538,5 +2538,28 @@ unavailable. See [CI/CD](CI_CD.md#docker-ci-ms102) for pins and evidence.
 No Dockerfile, application, Compose, IaC or production runtime change is needed.
 No registry authentication/publication, deployment, AWS credentials/API/OIDC,
 repository secret or additional workflow permission is introduced. No backend
-runtime startup, application E2E or production Compose is run. MS10.3–MS10.11
-remain deferred; this documentation close-out is left uncommitted for review.
+runtime startup, application E2E or production Compose is run.
+
+### Registry delivery design (MS10.3)
+
+[Registry delivery](REGISTRY_DELIVERY.md) defines the offline release-pair contract
+for the existing two ECR repositories. Immutable `git-<full-git-sha>` tags share
+one reviewed source revision and `linux/amd64` platform; deployment references
+remain repository-qualified registry manifest digests. Existing IMMUTABLE/AES256,
+seven-day untagged expiry and opt-in registry scanning ownership are unchanged.
+
+The version `1.0` JSON Schema and standard-library validator require both component
+repositories/digests, matching registry/region/name prefix, one Git SHA/platform,
+UTC build timestamp and declared registry-manifest provenance. Partial pairs and
+component overrides fail; optional shared SemVer aliases never replace Git identity.
+Derived tags/references are structural output, not deployment approval. A local
+image ID can share a registry digest's syntax: external provenance and completed,
+reviewed scan evidence for both exact artifacts remain mandatory eligibility gates.
+
+No live registry operation, IaC change, publish workflow or deployment consumer is
+introduced. The future artifact and short-lived identity interfaces are documented
+only; MS10.4–MS10.11 remain deferred. Local tests and static parity checks provide
+acceptance for this design milestone under the zero-AWS boundary. **MS10.3 COMPLETE:**
+11 release-contract tests, five existing readiness checks, five runbook checks and
+four CI contract tests passed with cached, network-disabled tooling. No application
+test suite or Docker build rerun was needed; source and packaging are unchanged.
