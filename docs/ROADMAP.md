@@ -306,8 +306,11 @@ independent real operator could do; the project does not execute their AWS steps
 - [ ] MS10.10 — GitHub release
 - [ ] MS10.11 — Final repository cleanup
 
-**MS10.1 IMPLEMENTED — first GitHub-hosted run pending.** The checklist remains
-unchecked until both quality jobs pass on GitHub after commit/push. See
+**MS10.1 HOSTED VALIDATION IN PROGRESS — first run exposed backend portability defects.**
+CI #1 passed frontend quality and failed backend quality (CSRF test-context
+pollution and audit timestamp precision). Corrections remain uncommitted for
+manual review; a second hosted run is pending. The checklist remains
+unchecked until both quality jobs pass on GitHub on a new pushed commit. See
 [CI/CD](CI_CD.md). MS10.2–MS10.11 are deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.

@@ -2443,7 +2443,7 @@ pins, dependency-only caches, finite 30/20-minute timeouts and read-only content
 permission. Checkout credentials are not persisted. PostgreSQL integration tests
 retain Testcontainers; the hosted Docker daemon is checked before verification.
 
-The existing MS10.1 working-tree corrections address three SpotBugs findings in
+The initial MS10.1 baseline corrections address three SpotBugs findings in
 the MS9 CA contract. The trust-file catch now names IOException/RuntimeException;
 two class/method-scoped exclusions document deliberately absolute CA mount paths.
 No path, TLS behavior, security threshold or scanner invocation was changed.
@@ -2458,10 +2458,43 @@ build. Maven took 2m04s; the frontend test phase took 15.08s, excluding its buil
 and other gates. The 30/20-minute job limits allow cold caches and runner variance.
 An initial local attempt failed because Docker was unavailable; the full rerun
 passed after Docker Desktop startup and granting local daemon access.
-The workflow is implemented and locally validated; first GitHub-hosted execution
-is pending. MS10.1 remains unchecked until both hosted jobs pass.
+CI #1 (run `36108328937`, push of `97d320c5c418f1948ae22992e6e6e10b61794133`)
+executed on GitHub-hosted Ubuntu 24.04 on 2026-09-25. Frontend passed; backend
+failed with 487 tests, 2 failures, 16 errors and 0 skipped. Runner setup, checkout,
+Java and Docker/Testcontainers worked. The first run exposed two portability
+defects; [CI/CD](CI_CD.md#first-hosted-execution-and-portability-corrections) records
+the evidence, reproduction and corrections.
+
+The session-backed CSRF observed in hosted tests was caused by Spring Security
+Test's `csrf()` postprocessor mutating the live filter repository, then Spring's
+context cache sharing that mutation. A clean reverse-order local run reproduces
+the missing cookie/session signature; clean isolated/default-order runs pass.
+There is one application `CsrfTokenRepository` bean, the intended cookie repository,
+and production wiring already explicitly injects it. Tests now bootstrap real
+cookies instead of mutating the chain. A context regression checks the filter's
+repository identity after every security test and verifies `XSRF-TOKEN`,
+HttpOnly=false, Path=/, SameSite=Strict, configured Secure and no HTTP session.
+Production security configuration and `SessionCreationPolicy.STATELESS` are preserved.
+
+Auditing previously exposed host-clock nanoseconds before PostgreSQL rounded them
+to microseconds, making immediate and reloaded domain values unequal. The auditing
+provider now truncates to microseconds at the persistence boundary, matching the
+existing `TIMESTAMP WITH TIME ZONE` schema. Deterministic fixed-clock unit and real
+PostgreSQL/JDBC tests exercise non-microsecond nanoseconds and exact reload equality;
+the original cross-user persisted-state equality assertions remain unchanged.
+No migration or timezone adjustment is required.
+
+On 2026-09-26, `./mvnw clean verify` passed 490 tests with no failures/errors/skips,
+JaCoCo (94.64% lines, 87.59% branches) and zero SpotBugs/FindSecBugs findings.
+The subsequent root quality gate passed the same 490 backend tests plus all 593
+frontend tests across 38 files, coverage, formatting, lint and production build.
+The static CI contract also passed; workflow YAML and frontend remain unchanged.
+
+**MS10.1 HOSTED VALIDATION IN PROGRESS — first run exposed backend portability defects.**
+MS10.1 remains unchecked until a new pushed commit passes both hosted jobs.
 
 No AWS credentials/API, OIDC role, registry publication, container image build,
 deployment, Terraform/CloudFormation operation or repository secret is involved.
 The network-dependent security audit remains unchanged and is not invoked.
-MS10.2–MS10.11 remain deferred; no commit or push was performed.
+MS10.2–MS10.11 remain deferred; this correction is uncommitted for manual review,
+and no commit or push was performed during this follow-up.

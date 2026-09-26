@@ -18,7 +18,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -201,7 +200,12 @@ class OpenApiDocumentationTest extends DatabaseFreePersistenceTest {
 	void documentationAccessLeavesBusinessAuthenticationAndCsrfIntact() throws Exception {
 		document();
 		mvc.perform(get("/api/boards")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
-		mvc.perform(post("/api/boards").with(csrf())).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+		var bootstrap = mvc.perform(get("/api/auth/csrf")).andExpect(status().isNoContent()).andReturn();
+		var csrf = bootstrap.getResponse().getCookie("XSRF-TOKEN");
+		assertThat(csrf).isNotNull();
+		assertThat(bootstrap.getRequest().getSession(false)).isNull();
+		mvc.perform(post("/api/boards").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue()))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 		String bearer = tokens.issue(UUID.randomUUID()).value();
 		mvc.perform(post("/api/boards").header("Authorization", "Bearer " + bearer))
 				.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
