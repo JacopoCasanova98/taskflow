@@ -2522,15 +2522,21 @@ backend JAR entrypoint, OCI labels and absence of the five forbidden secret-vari
 names in final configuration. This targeted check does not replace a secret scanner.
 CI-local tags do not replace production registry-digest identities.
 
-**MS10.2 is implemented and locally/statically validated; first GitHub-hosted
-Docker CI execution pending.** Both local amd64 builds and actual image metadata
-checks passed; four offline CI contract tests passed. Actionlint is unavailable.
-Local Docker cache reuse does not prove cold hosted execution or GHA cache access.
-Acceptance requires both quality jobs and both Docker matrix executions green in
-one real hosted run. See [CI/CD](CI_CD.md#docker-ci-ms102) for pins and evidence.
+**MS10.2 COMPLETE.**
+[CI #3, run 36242343400](https://github.com/JacopoCasanova98/taskflow/actions/runs/36242343400)
+executed workflow `CI` on GitHub-hosted Ubuntu 24.04 following a `push` of
+`ee084993fe14c07c19557049f3f367deb9b05a07`. The supplied hosted evidence records
+overall **success**: `backend-quality`, `frontend-quality`, `docker-build (backend)`
+and `docker-build (frontend)` all succeeded. Both Docker executions passed Buildx
+setup, production image build/local load and runtime image contract inspection.
+The backend and frontend production Dockerfiles built successfully for the approved
+`linux/amd64` architecture, with the same full source Git SHA identifying both CI
+images. No publishing or AWS operation occurred. Earlier local builds, image
+metadata checks and four offline CI contract tests also passed; actionlint remains
+unavailable. See [CI/CD](CI_CD.md#docker-ci-ms102) for pins and evidence.
 
 No Dockerfile, application, Compose, IaC or production runtime change is needed.
 No registry authentication/publication, deployment, AWS credentials/API/OIDC,
 repository secret or additional workflow permission is introduced. No backend
 runtime startup, application E2E or production Compose is run. MS10.3–MS10.11
-remain deferred; MS10.2 changes are left uncommitted for review.
+remain deferred; this documentation close-out is left uncommitted for review.

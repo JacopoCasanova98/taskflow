@@ -158,7 +158,7 @@ no deployment or CD delivery.
 
 ## Docker CI (MS10.2)
 
-**MS10.2 IMPLEMENTED — first GitHub-hosted Docker build run pending.**
+**MS10.2 COMPLETE — GitHub-hosted CI run #3 passed all four required jobs.**
 
 The existing workflow now defines quality → Docker image build matrix → local
 image inspection. `docker-build (backend)` and `docker-build (frontend)` both
@@ -222,9 +222,34 @@ invalid architecture, users, ports, labels, backend entrypoint and forbidden sec
 variables. Actionlint remains unavailable. The unchanged application test suites
 were not rerun. Temporary validation image tags were removed after inspection.
 
-Completion requires a real pushed GitHub run with all four executions successful:
-`backend-quality`, `frontend-quality`, `docker-build (backend)` and
-`docker-build (frontend)`. Local validation does not close MS10.2.
+### Hosted execution and acceptance
+
+[CI #3, run 36242343400](https://github.com/JacopoCasanova98/taskflow/actions/runs/36242343400)
+executed workflow `CI` on GitHub-hosted Ubuntu 24.04, triggered by a `push` of
+`ee084993fe14c07c19557049f3f367deb9b05a07`. The supplied GitHub Actions evidence
+records overall conclusion **success**:
+
+| Job | Result |
+| --- | --- |
+| `backend-quality` | SUCCESS |
+| `frontend-quality` | SUCCESS |
+| `docker-build (backend)` | SUCCESS |
+| `docker-build (frontend)` | SUCCESS |
+
+After both quality gates passed, each Docker matrix execution successfully
+completed `Set up Docker Buildx`, `Build production image locally` and
+`Inspect runtime image contract`: quality gates → Buildx → `linux/amd64` production
+image build → local image load → runtime image contract inspection.
+Both existing production Dockerfiles built successfully from the same full source
+Git SHA. This hosted evidence satisfies MS10.2 acceptance.
+
+Images were not pushed. No Docker registry login, ECR, GHCR, image publication,
+AWS credentials/API, OIDC, deployment, Terraform plan/apply, CloudFormation
+operation or production Compose execution occurred; no repository secret was
+required. Successful build/load inspection establishes Docker buildability and
+the packaging contract, not a registry release or production deployment identity.
+Production deployment identity remains the registry digest contract defined by
+[MS9.2](CONTAINER_RELEASE.md). MS10.3–MS10.11 remain deferred.
 
 ## Later ownership
 
