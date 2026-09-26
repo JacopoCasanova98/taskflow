@@ -298,7 +298,7 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.2 — Docker CI
 - [x] MS10.3 — Registry delivery design
 - [x] MS10.4 — Automated deployment design / dry-run contract
-- [ ] MS10.5 — CI/CD identity and secrets security design
+- [x] MS10.5 — CI/CD identity and secrets security design
 - [ ] MS10.6 — Branch / PR quality gate
 - [ ] MS10.7 — Professional README
 - [ ] MS10.8 — Diagrams
@@ -341,11 +341,20 @@ mandatory migration, preflight/compatibility and acceptance boundaries. No live
 executor or automatic rollback is introduced. All 13 deployment-plan tests,
 11 release-pair tests, four CI checks, five readiness checks and five runbook
 checks passed with cached, network-disabled tooling. CI, application, Compose
-and IaC remain unchanged. MS10.5–MS10.11 are deferred.
+and IaC remain unchanged. MS10.6–MS10.11 are deferred.
+
+**MS10.5 COMPLETE — CI/CD identity and secret boundaries validated offline; no AWS identity used.**
+[CI/CD security](CI_CD_SECURITY.md) defines separate runtime, publisher, deployment
+and provisioner identities, exact future OIDC trust, scoped ECR publisher actions
+and protected secret flows. The closed v1 reference contract and offline validator
+reject privilege expansion and unsafe deployment authority. All 14 identity tests,
+11 release-pair tests, 13 deployment-plan tests, four CI checks, five readiness
+checks and five runbook checks passed with cached, network-disabled tooling.
+Current CI and runtime/IaC remain unchanged. MS10.6–MS10.11 remain deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.
 ECR delivery and AWS deployment remain reference/design only, with no AWS
 credentials required. No deployed-app URL will be fabricated: MS10.9 uses
 screenshots, demo and local evidence instead. GitHub Releases may be real because
 they do not require AWS provisioning. These adaptations do not authorize any
-later milestone's implementation during MS10.4.
+later milestone's implementation during MS10.5.

@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "status": "reference-only-non-applied",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "audience": "sts.amazonaws.com",
+  "repository": "JacopoCasanova98/taskflow",
+  "authorized_subjects": ["repo:JacopoCasanova98/taskflow:environment:release"],
+  "subject_format": "name-based-reference-requires-verification-before-enabling",
+  "trust_operator": "StringEquals",
+  "credential_model": "short-lived-web-identity",
+  "ordinary_ci": {"permissions": {"contents": "read"}, "aws_federation": false},
+  "future_publisher_workflow": {
+    "enabled": false,
+    "trigger": "workflow_dispatch",
+    "ref": "refs/heads/main",
+    "environment": "release",
+    "permissions": {"contents": "read", "id-token": "write"},
+    "required_controls": ["environment-source-restriction", "independent-approval", "no-untrusted-code", "reviewed-sha-and-quality-gates", "full-sha-action-pins", "verify-effective-subject"],
+    "forbidden_sources": ["pull_request", "pull_request_target", "feature/**", "forks"]
+  },
+  "identities": {
+    "runtime_host": {
+      "role": "<RUNTIME_HOST_ROLE_NAME>",
+      "state": "existing-iac-model",
+      "allowed": ["ecr_auth", "ecr_pull_taskflow_repositories", "application_secret_read", "ssm_agent", "telemetry_write"],
+      "forbidden": ["ecr_push_taskflow_repositories", "iam_mutation", "infrastructure_mutation", "master_secret_read", "migrator_secret_read"]
+    },
+    "registry_publisher": {
+      "role": "<REGISTRY_PUBLISHER_ROLE_NAME>",
+      "state": "reference-only",
+      "allowed": ["ecr_auth", "ecr_push_taskflow_repositories", "ecr_read_release_metadata", "ecr_read_scan_results"],
+      "forbidden": ["application_secret_read", "master_secret_read", "migrator_secret_read", "ssm_deployment_interface", "ssm_remote_shell", "ec2_mutation", "rds_access", "iam_mutation", "infrastructure_mutation", "terraform_state_access", "route53_mutation", "acm_mutation", "cloudwatch_administration"]
+    },
+    "deployment_operator": {
+      "role": "<DEPLOYMENT_ROLE_NAME>",
+      "state": "blocked-pending-reviewed-interface-and-migration-credentials",
+      "allowed": [],
+      "forbidden": ["ssm_remote_shell", "application_secret_read", "master_secret_read", "migrator_secret_read", "ecr_push_taskflow_repositories", "iam_mutation", "infrastructure_mutation"]
+    },
+    "infrastructure_provisioner": {
+      "role": "<INFRASTRUCTURE_PROVISIONER_ROLE_NAME>",
+      "state": "external-authorization-out-of-scope",
+      "allowed": [],
+      "forbidden": ["shared_delivery_identity"]
+    }
+  },
+  "publisher_authorization": {
+    "token_actions": ["ecr:GetAuthorizationToken"],
+    "token_resource": "*",
+    "repository_actions": ["ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:BatchGetImage", "ecr:DescribeImages", "ecr:DescribeImageScanFindings"],
+    "repository_resources": ["arn:aws:ecr:eu-west-1:<AWS_ACCOUNT_ID>:repository/<NAME_PREFIX>-frontend", "arn:aws:ecr:eu-west-1:<AWS_ACCOUNT_ID>:repository/<NAME_PREFIX>-backend"]
+  },
+  "session": {
+    "requested_seconds": 900,
+    "role_maximum_seconds": 3600,
+    "traceability": "github-run-id-run-attempt-and-reviewed-sha",
+    "credential_persistence": false
+  },
+  "secrets": {
+    "application_flow": ["Secrets Manager", "EC2 instance role", "materialize-secrets.sh", "/run/taskflow/secrets", "backend configtree"],
+    "github_payloads": [],
+    "migrator": "independent-live-operator-boundary",
+    "master": "independent-database-administration-only",
+    "forbidden_handling": ["static-access-keys", "personal-credentials", "shared-developer-keys", "committed-env-credentials", "shell-tracing-credentials", "credential-debug-dumps", "secret-plan-or-release-artifacts", "credential-artifacts"]
+  }
+}

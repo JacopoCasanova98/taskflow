@@ -263,8 +263,8 @@ eligibility evidence; structural validation cannot prove registry provenance.
 
 Application CI and Docker build CI are executable and proven by hosted runs.
 Registry delivery is designed, not executed. AWS deployment remains reference
-design, not executed. MS10.4 adds offline planning only. MS10.5 owns the future
-short-lived identity interface, and MS10.10 owns any actual GitHub Release asset.
+design, not executed. MS10.4 adds offline planning only. [MS10.5](CI_CD_SECURITY.md) defines the offline
+short-lived identity and secrets contract, and MS10.10 owns any actual GitHub Release asset.
 Normal CI remains unchanged with `push: false`; no AWS/OIDC, registry login,
 digest lookup, publication, secrets or artifact upload is introduced.
 
@@ -288,16 +288,33 @@ MS10.3 registry delivery and MS10.4 deployment remain non-live designs with loca
 validation tooling. The planner is implemented; a deployment executor and AWS
 interaction are not. No publish/deploy job, environment, OIDC permission or secret
 is added to normal CI. MS9.7 remains the operational authority, including failure
-and rollback decisions. MS10.5–MS10.11 remain deferred.
+and rollback decisions. MS10.6–MS10.11 remain deferred.
 
 **MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair tests, four CI checks,
 five readiness checks and five runbook checks passed locally with cached tooling
 and networking disabled. No live deployment or hosted deployment workflow is
 required for acceptance of this zero-AWS design milestone.
 
+## CI/CD identity and secrets security (MS10.5)
+
+[CI_CD_SECURITY.md](CI_CD_SECURITY.md) and the versioned offline identity contract
+separate runtime, registry publisher, deployment/operator and provisioner authority.
+Future publisher OIDC requires exact audience/repository/environment trust and
+protected trusted sources; current CI stays credential-free and read-only.
+App secrets never flow through GitHub; migrator credentials remain independently
+controlled. Automated deployment identity stays disabled pending a constrained
+host interface and reviewed migration credential delivery.
+
+MS10.1 quality CI and MS10.2 Docker CI are hosted and proven. MS10.3 registry
+delivery, MS10.4 deployment planning and MS10.5 security are offline contracts;
+no privileged AWS CI/CD operation is implemented or executed.
+
+**MS10.5 COMPLETE:** 14 identity tests and all 38 requested regression checks
+passed with cached, network-disabled tooling. No AWS identity was used.
+
 ## Later ownership
 
-MS10.5 owns CI/CD identity/secrets; MS10.6 branch/PR quality
-gates and further quality/security automation decisions. These are unimplemented.
+MS10.6 owns branch/PR quality gates and further quality/security automation
+decisions. MS10.6–MS10.11 remain unimplemented.
 GitHub CI is real executable automation. AWS registry delivery and deployment
 remain reference/design only under the zero-AWS policy.

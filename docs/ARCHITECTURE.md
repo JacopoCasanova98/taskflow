@@ -2583,9 +2583,21 @@ approval. No automatic rollback is generated.
 The planner only reads, validates, derives and serializes local data. It has no
 process execution, network client or AWS capability and adds no workflow job.
 No production Compose, migration, registry operation or deployment occurs. The
-future live executor is not implemented; MS10.5–MS10.11 remain deferred.
+future live executor is not implemented; MS10.6–MS10.11 remain deferred.
 
 **MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair regressions, four CI
 contract tests, five readiness checks and five runbook checks passed with cached,
 network-disabled tooling. Validation establishes offline structure and ordering,
 not live migration compatibility, resource availability or deployment acceptance.
+
+### CI/CD identity and secret boundary (MS10.5)
+
+[CI/CD security](CI_CD_SECURITY.md) defines a versioned, machine-checked offline
+contract separating the unchanged EC2 runtime role from registry publisher,
+deployment/operator and infrastructure provisioner identities. Future GitHub OIDC
+uses exact audience and protected-environment subject matching, with effective
+subject verification before enablement. No long-lived AWS keys are permitted.
+Current CI remains read-only without federation; application secrets never flow
+through GitHub. Deployment remote execution is intentionally unimplemented and
+blocked on a constrained host interface and independent migration credential path.
+No live identity or IaC change is introduced. MS10.6–MS10.11 remain deferred.

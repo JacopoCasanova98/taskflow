@@ -4,7 +4,10 @@
 intent and dry-run output contract. [MS9.7](DEPLOYMENT_RUNBOOK.md) remains the
 operational authority: its D1–D7 order, failure handling and rollback decisions
 are unchanged. The [zero-AWS policy](AWS_ARCHITECTURE.md#hard-project-execution-policy)
-still applies. MS10.5 identity/security design is not started.
+still applies. [MS10.5 identity/security design](CI_CD_SECURITY.md) defines the identity boundary.
+MS10.4 defines WHAT an executor would do; MS10.5 constrains WHO could do it.
+The live executor remains disabled until a constrained host execution interface
+and migration credential path are independently resolved.
 
 The implemented path is embedded [MS10.3 release pair](REGISTRY_DELIVERY.md) +
 non-secret deployment intent → offline validation → deterministic JSON plan.
@@ -153,7 +156,7 @@ process/network capability checks and cross-contract alignment. Existing CI,
 readiness and runbook tests remain regression gates. Cached tooling runs with
 networking disabled and read-only repository access; tests create temporary
 fixtures only. No application suite, Docker build or production Compose is needed.
-Normal CI and all runtime/IaC files remain unchanged. MS10.5–MS10.11 are deferred.
+Normal CI and all runtime/IaC files remain unchanged. MS10.6–MS10.11 are deferred.
 
 Local validation passed with cached `taskflow-cfn-lint:1.57.0`, pulls forbidden,
 networking disabled and read-only repository mounts: 13 deployment-plan tests,
