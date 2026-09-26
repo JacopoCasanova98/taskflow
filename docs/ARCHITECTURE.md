@@ -2558,8 +2558,34 @@ reviewed scan evidence for both exact artifacts remain mandatory eligibility gat
 
 No live registry operation, IaC change, publish workflow or deployment consumer is
 introduced. The future artifact and short-lived identity interfaces are documented
-only; MS10.4–MS10.11 remain deferred. Local tests and static parity checks provide
+only. Local tests and static parity checks provide
 acceptance for this design milestone under the zero-AWS boundary. **MS10.3 COMPLETE:**
 11 release-contract tests, five existing readiness checks, five runbook checks and
 four CI contract tests passed with cached, network-disabled tooling. No application
 test suite or Docker build rerun was needed; source and packaging are unchanged.
+
+### Deployment automation design (MS10.4)
+
+[Deployment automation](DEPLOYMENT_AUTOMATION.md) adds a version `1.0` non-secret
+intent schema and offline planner over the authoritative MS9.7 runbook. It imports
+the unchanged MS10.3 validator, derives both digest-qualified runtime references
+and emits deterministic D1–D7 JSON data. Intent v1 fixes prod/eu-west-1, production
+Compose/project identity, application secret names and runtime CA/agent paths.
+It validates DB/TLS structure and runtime role without connecting to a database.
+
+Unknown/secret fields and invalid/partial release pairs fail before output. All
+gates remain unexecuted: D1 requires live provenance, scan/preflight and compatibility
+evidence; D3 materialization precedes recreation; D5 always represents the existing
+controlled migration route; D6 requires success; D7 references smoke/readiness
+acceptance. A dry-run never proves live schema compatibility or grants deployment
+approval. No automatic rollback is generated.
+
+The planner only reads, validates, derives and serializes local data. It has no
+process execution, network client or AWS capability and adds no workflow job.
+No production Compose, migration, registry operation or deployment occurs. The
+future live executor is not implemented; MS10.5–MS10.11 remain deferred.
+
+**MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair regressions, four CI
+contract tests, five readiness checks and five runbook checks passed with cached,
+network-disabled tooling. Validation establishes offline structure and ordering,
+not live migration compatibility, resource availability or deployment acceptance.

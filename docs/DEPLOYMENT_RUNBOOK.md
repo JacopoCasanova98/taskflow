@@ -20,6 +20,11 @@ when recovering data or a lost host. No new architecture or deployment automatio
 is introduced. One operator coordinates the change; do not overlap deployments,
 migrations, materialization, rotations or container recreation.
 
+MS9.7 remains the operational authority. [MS10.4 deployment automation
+design](DEPLOYMENT_AUTOMATION.md) adds an offline intent-validation and D1–D7
+planning layer over this runbook. Its deterministic JSON output executes no
+commands and is not deployment evidence; no live executor is implemented.
+
 ## Systems of record
 
 | Concern | Authority |

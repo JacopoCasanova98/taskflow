@@ -297,7 +297,7 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.1 — GitHub Actions baseline
 - [x] MS10.2 — Docker CI
 - [x] MS10.3 — Registry delivery design
-- [ ] MS10.4 — Automated deployment design / dry-run contract
+- [x] MS10.4 — Automated deployment design / dry-run contract
 - [ ] MS10.5 — CI/CD identity and secrets security design
 - [ ] MS10.6 — Branch / PR quality gate
 - [ ] MS10.7 — Professional README
@@ -331,11 +331,21 @@ registry provenance and scan-review evidence remain required for eligibility.
 All 11 release-contract tests, five existing readiness checks, five runbook checks
 and four CI contract tests passed with cached tooling and networking disabled.
 Normal CI, application code, Dockerfiles, Compose and IaC remain unchanged.
-This design milestone requires no live ECR execution. MS10.4–MS10.11 are deferred.
+This design milestone requires no live ECR execution.
+
+**MS10.4 COMPLETE — offline deployment dry-run contract validated; no deployment performed.**
+[Deployment automation](DEPLOYMENT_AUTOMATION.md) adds a closed non-secret v1.0
+intent schema and deterministic offline planner reusing MS10.3 release validation.
+It derives digest-qualified runtime images and preserves MS9.7's D1–D7 order,
+mandatory migration, preflight/compatibility and acceptance boundaries. No live
+executor or automatic rollback is introduced. All 13 deployment-plan tests,
+11 release-pair tests, four CI checks, five readiness checks and five runbook
+checks passed with cached, network-disabled tooling. CI, application, Compose
+and IaC remain unchanged. MS10.5–MS10.11 are deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.
 ECR delivery and AWS deployment remain reference/design only, with no AWS
 credentials required. No deployed-app URL will be fabricated: MS10.9 uses
 screenshots, demo and local evidence instead. GitHub Releases may be real because
 they do not require AWS provisioning. These adaptations do not authorize any
-later milestone's implementation during MS10.3.
+later milestone's implementation during MS10.4.

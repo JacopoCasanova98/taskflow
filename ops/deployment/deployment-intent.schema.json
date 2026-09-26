@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TaskFlow offline deployment intent v1.0",
+  "description": "Non-secret planning input only. No execution authority. No actual intent is committed.",
+  "$comment": "render_deployment_plan.py additionally validates JDBC structure, release Region and reuses the MS10.3 validator. v1 is restricted to the existing prod runtime/telemetry and secret names. No secret payload fields or image overrides are supported.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "environment",
+    "region",
+    "compose_project",
+    "compose_file",
+    "database_url",
+    "database_app_username",
+    "database_secret_id",
+    "jwt_secret_id",
+    "rds_ca_path",
+    "cloudwatch_agent_config_path",
+    "public_hostname",
+    "release_pair"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "environment": {
+      "type": "string",
+      "const": "prod"
+    },
+    "region": {
+      "type": "string",
+      "const": "eu-west-1"
+    },
+    "compose_project": {
+      "type": "string",
+      "const": "taskflow"
+    },
+    "compose_file": {
+      "type": "string",
+      "const": "compose.production.yaml"
+    },
+    "database_url": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Non-secret JDBC URL; planner enforces eu-west-1 RDS hostname, port 5432, taskflow and only verify-full/approved CA query parameters."
+    },
+    "database_app_username": {
+      "type": "string",
+      "const": "taskflow_app"
+    },
+    "database_secret_id": {
+      "type": "string",
+      "const": "taskflow-prod/database/application"
+    },
+    "jwt_secret_id": {
+      "type": "string",
+      "const": "taskflow-prod/jwt/signing"
+    },
+    "rds_ca_path": {
+      "type": "string",
+      "const": "/opt/taskflow/trust/rds-ca-bundle.pem"
+    },
+    "cloudwatch_agent_config_path": {
+      "type": "string",
+      "const": "/opt/taskflow/config/amazon-cloudwatch-agent.json"
+    },
+    "public_hostname": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+    },
+    "release_pair": {
+      "$ref": "../release/release-pair.schema.json"
+    }
+  }
+}

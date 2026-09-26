@@ -263,7 +263,7 @@ eligibility evidence; structural validation cannot prove registry provenance.
 
 Application CI and Docker build CI are executable and proven by hosted runs.
 Registry delivery is designed, not executed. AWS deployment remains reference
-design, not executed; MS10.4 automation is not started. MS10.5 owns the future
+design, not executed. MS10.4 adds offline planning only. MS10.5 owns the future
 short-lived identity interface, and MS10.10 owns any actual GitHub Release asset.
 Normal CI remains unchanged with `push: false`; no AWS/OIDC, registry login,
 digest lookup, publication, secrets or artifact upload is introduced.
@@ -272,12 +272,32 @@ MS10.3 acceptance is offline validator tests, static ECR/IaC/runtime alignment
 and documentation review under the zero-AWS policy, not a hosted ECR execution.
 **MS10.3 COMPLETE:** all 11 release-contract tests, five existing readiness checks,
 five runbook checks and four CI contract tests passed using cached tooling with
-networking disabled. MS10.4–MS10.11 remain deferred.
+networking disabled.
+
+## Deployment automation design (MS10.4)
+
+[DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md) defines a version `1.0`
+non-secret intent schema and standard-library offline planner. It reuses MS10.3
+release-pair validation, derives runtime images exclusively by registry digest,
+and emits the unchanged MS9.7 D1–D7 sequence as semantic JSON gates. Every plan
+declares dry-run mode, no live operations and no deployment evidence. D5 is
+mandatory; D6 requires migration success and live schema compatibility.
+
+MS10.1 quality CI and MS10.2 Docker build CI perform proven hosted CI operations.
+MS10.3 registry delivery and MS10.4 deployment remain non-live designs with local
+validation tooling. The planner is implemented; a deployment executor and AWS
+interaction are not. No publish/deploy job, environment, OIDC permission or secret
+is added to normal CI. MS9.7 remains the operational authority, including failure
+and rollback decisions. MS10.5–MS10.11 remain deferred.
+
+**MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair tests, four CI checks,
+five readiness checks and five runbook checks passed locally with cached tooling
+and networking disabled. No live deployment or hosted deployment workflow is
+required for acceptance of this zero-AWS design milestone.
 
 ## Later ownership
 
-MS10.4 owns deployment design
-and dry-run contracts; MS10.5 CI/CD identity/secrets; MS10.6 branch/PR quality
+MS10.5 owns CI/CD identity/secrets; MS10.6 branch/PR quality
 gates and further quality/security automation decisions. These are unimplemented.
 GitHub CI is real executable automation. AWS registry delivery and deployment
 remain reference/design only under the zero-AWS policy.
