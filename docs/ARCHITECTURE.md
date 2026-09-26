@@ -2504,5 +2504,33 @@ and led to correction of the CSRF test-order and timestamp-precision defects.
 No AWS credentials/API, OIDC role, registry publication, container image build,
 deployment, Terraform/CloudFormation operation or repository secret is involved.
 The network-dependent security audit remains unchanged and is not invoked.
-MS10.2–MS10.11 remain deferred. This documentation close-out adds no deployment/CD
-capability and is left uncommitted for manual review.
+The MS10.1 close-out added no deployment/CD capability.
+
+### Docker CI (MS10.2)
+
+The existing CI workflow adds a `docker-build` backend/frontend matrix after both
+application quality gates, targeting GitHub-hosted Ubuntu 24.04. Each execution
+builds its unchanged production Dockerfile from the explicit component context
+for `linux/amd64`, using SHA-pinned official Docker Buildx/build-push actions.
+Fail-fast is disabled and each execution has a 30-minute timeout.
+
+Both runner-local image tags and OCI revision labels use the same full GitHub
+source SHA; OCI source labels identify the repository. Buildx maintains separate
+GHA layer-cache scopes per component. Images are loaded locally with `push: false`,
+then inspected for platform, port 8080, the existing non-root runtime users,
+backend JAR entrypoint, OCI labels and absence of the five forbidden secret-variable
+names in final configuration. This targeted check does not replace a secret scanner.
+CI-local tags do not replace production registry-digest identities.
+
+**MS10.2 is implemented and locally/statically validated; first GitHub-hosted
+Docker CI execution pending.** Both local amd64 builds and actual image metadata
+checks passed; four offline CI contract tests passed. Actionlint is unavailable.
+Local Docker cache reuse does not prove cold hosted execution or GHA cache access.
+Acceptance requires both quality jobs and both Docker matrix executions green in
+one real hosted run. See [CI/CD](CI_CD.md#docker-ci-ms102) for pins and evidence.
+
+No Dockerfile, application, Compose, IaC or production runtime change is needed.
+No registry authentication/publication, deployment, AWS credentials/API/OIDC,
+repository secret or additional workflow permission is introduced. No backend
+runtime startup, application E2E or production Compose is run. MS10.3–MS10.11
+remain deferred; MS10.2 changes are left uncommitted for review.

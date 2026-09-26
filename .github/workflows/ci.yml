@@ -55,3 +55,81 @@ jobs:
         run: npm ci
       - name: Frontend quality gate
         run: npm run quality
+
+  docker-build:
+    name: docker-build (${{ matrix.component }})
+    needs: [backend-quality, frontend-quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: backend
+            context: ./backend
+          - component: frontend
+            context: ./frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build production image locally
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: 'false'
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          provenance: false # Local single-platform inspection; no attestation manifest export.
+          tags: taskflow-${{ matrix.component }}:git-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=taskflow-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=taskflow-${{ matrix.component }}
+      - name: Inspect runtime image contract
+        env:
+          COMPONENT: ${{ matrix.component }}
+          IMAGE: taskflow-${{ matrix.component }}:git-${{ github.sha }}
+          SOURCE_REVISION: ${{ github.sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import subprocess
+
+          image = json.loads(subprocess.check_output(
+              ["docker", "image", "inspect", os.environ["IMAGE"]], text=True))[0]
+          config = image["Config"]
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit(message)
+
+          require(image["Os"] == "linux" and image["Architecture"] == "amd64",
+                  "Expected linux/amd64")
+          require("8080/tcp" in config.get("ExposedPorts", {}), "Missing port 8080")
+          if os.environ["COMPONENT"] == "backend":
+              require(config["User"] == "10001:10001", "Unexpected backend user")
+              require(config["Entrypoint"] == ["java", "-jar", "/app/app.jar"],
+                      "Unexpected backend entrypoint")
+          else:
+              require(os.environ["COMPONENT"] == "frontend", "Unknown component")
+              require(config["User"] == "nginx", "Expected non-root nginx user")
+          labels = config.get("Labels") or {}
+          require(labels.get("org.opencontainers.image.revision") == os.environ["SOURCE_REVISION"],
+                  "Revision label mismatch")
+          require(labels.get("org.opencontainers.image.source") == os.environ["SOURCE_URL"],
+                  "Source label mismatch")
+          forbidden = ("TASKFLOW_DB_PASSWORD", "TASKFLOW_JWT_SECRET_BASE64",
+                       "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN")
+          serialized = json.dumps(config)
+          require(not any(key in serialized for key in forbidden),
+                  "Forbidden secret variable present in image configuration")
+          print(os.environ["COMPONENT"] + ": linux/amd64 runtime, OCI labels and config hygiene passed")
+          PYTHON

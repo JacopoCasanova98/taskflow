@@ -312,11 +312,19 @@ pollution and audit timestamp precision). After deterministic CSRF tests and
 PostgreSQL microsecond-precision audit timestamp corrections, push-triggered
 [CI #2, run 36240871848](https://github.com/JacopoCasanova98/taskflow/actions/runs/36240871848)
 passed on commit `28c95b20028d4b1ebd01f0ff64c32f44da32232c`. See
-[CI/CD](CI_CD.md). MS10.2–MS10.11 are deferred.
+[CI/CD](CI_CD.md).
+
+**MS10.2 IMPLEMENTED — first GitHub-hosted Docker build run pending.**
+The Docker build matrix waits for both application quality gates, builds the
+existing backend/frontend Dockerfiles for Linux/amd64 from the same full Git SHA,
+and inspects locally loaded images without publishing. Both local builds and
+image inspections passed; the static CI contract passed. MS10.2 remains unchecked
+until a real pushed run passes `backend-quality`, `frontend-quality`,
+`docker-build (backend)` and `docker-build (frontend)`. MS10.3–MS10.11 are deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.
 ECR delivery and AWS deployment remain reference/design only, with no AWS
 credentials required. No deployed-app URL will be fabricated: MS10.9 uses
 screenshots, demo and local evidence instead. GitHub Releases may be real because
 they do not require AWS provisioning. These adaptations do not authorize any
-later milestone's implementation during MS10.1.
+later milestone's implementation during MS10.2.

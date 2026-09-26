@@ -5,7 +5,7 @@
 [CI](../.github/workflows/ci.yml) runs on pull requests targeting `main`, pushes
 to `main` or `feature/**`, and manual dispatch. Superseded runs are cancelled per
 workflow and PR number or branch ref; separate branches do not cancel each other.
-The two jobs are independent:
+The two application quality jobs are independent:
 
 | Job | Gate | Environment | Timeout |
 | --- | --- | --- | --- |
@@ -37,8 +37,9 @@ caches and hosted-runner variation; they are bounds, not duration guarantees.
 Workflow permissions are only `contents: read`; checkout does not persist Git
 credentials. No repository secrets, variables, AWS credentials or OIDC role are
 required. Official setup actions cache Maven/npm dependencies using
-`backend/pom.xml` and `frontend/package-lock.json`. Build outputs, coverage,
-Docker layers and application images are not cached.
+`backend/pom.xml` and `frontend/package-lock.json`. Build outputs, coverage and
+application images are not uploaded as artifacts. MS10.2 adds component-scoped
+BuildKit layer caches, described below.
 
 Only official actions are used, pinned to full upstream commits. Release tags
 and commit targets were checked against the official repositories on 2026-09-25:
@@ -49,7 +50,7 @@ and commit targets were checked against the official repositories on 2026-09-25:
 | setup-java | [v6.0.1](https://github.com/actions/setup-java/releases/tag/v6.0.1) | `de7274f081f381c8f8158605e0321c36c376e2e6` |
 | setup-node | [v7.0.0](https://github.com/actions/setup-node/releases/tag/v7.0.0) | `820762786026740c76f36085b0efc47a31fe5020` |
 
-CI performs no container image build, image publishing, ECR/GHCR interaction,
+CI builds container images locally but performs no image publishing, ECR/GHCR interaction,
 deployment or AWS operation. No AWS credentials, AWS OIDC or repository secret
 is required. Testcontainers starts disposable local test containers only.
 `security-audit.sh`, OWASP Dependency-Check and `npm audit` are excluded from this
@@ -59,8 +60,9 @@ Their existing local security contract is unchanged.
 ## Validation and status
 
 [`test_ci_workflow.py`](../scripts/ci/test_ci_workflow.py) checks YAML with PyYAML,
-exact events/permissions, independent jobs, runtime/cache inputs, full action
-pins and allowed commands. It is a static contract, not a GitHub Actions emulator.
+exact events/permissions, independent quality jobs, Docker matrix dependencies,
+runtime/cache inputs, full action pins and allowed commands. It also exercises the
+image validator against invalid metadata. It is not a GitHub Actions emulator.
 Use `python3 scripts/ci/test_ci_workflow.py` where PyYAML is available. For this
 milestone the existing cached `taskflow-cfn-lint:1.57.0` image supplies Python and
 PyYAML with networking disabled, pulls forbidden and the repository read-only.
@@ -154,9 +156,79 @@ CI #2 passed both jobs, validating backend/Testcontainers portability in a clean
 Linux hosted environment. **MS10.1 accepted.** This is CI validation; it performs
 no deployment or CD delivery.
 
+## Docker CI (MS10.2)
+
+**MS10.2 IMPLEMENTED — first GitHub-hosted Docker build run pending.**
+
+The existing workflow now defines quality → Docker image build matrix → local
+image inspection. `docker-build (backend)` and `docker-build (frontend)` both
+require successful `backend-quality` and `frontend-quality`. They use
+GitHub-hosted `ubuntu-24.04`, a 30-minute timeout per execution and `fail-fast: false`
+so a component failure does not cancel its sibling. The existing quality jobs,
+checkout pin, permissions and trigger/concurrency contracts are unchanged.
+
+The explicit matrix maps backend to `./backend` and frontend to `./frontend`,
+each using its existing production `Dockerfile`. Buildx builds only `linux/amd64`,
+with `push: false` and `load: true`. No QEMU or additional platform is configured.
+Provenance export is disabled for these local single-platform validation images.
+
+Official Docker release tags and their full commit targets were verified through
+the upstream GitHub API on 2026-09-26:
+
+| Action | Verified release | Commit |
+| --- | --- | --- |
+| setup-buildx-action | [v4.4.1](https://github.com/docker/setup-buildx-action/releases/tag/v4.4.1) | `f87e5991a6d7451dcb8d9637bfbc97413f497069` |
+| build-push-action | [v7.4.0](https://github.com/docker/build-push-action/releases/tag/v7.4.0) | `c3c9e263c25d99ce0380d002d59b67737d91b0dc` |
+
+Both images use the same full `${{ github.sha }}` in runner-local tags:
+`taskflow-backend:git-${{ github.sha }}` and
+`taskflow-frontend:git-${{ github.sha }}`. On pull requests this identifies GitHub's
+tested merge revision. OCI `org.opencontainers.image.revision` records that SHA;
+`org.opencontainers.image.source` records the repository URL. There is no fabricated
+semantic version, secret, actor email or workstation path in these labels.
+These CI tags are not deployment identities or published releases; MS9.2's
+production registry-digest identity and coordinated image-pair contract remain authoritative.
+
+Buildx uses its Docker-container builder and the
+[GitHub Actions cache backend](https://docs.docker.com/build/cache/backends/gha/),
+with separate `taskflow-backend` and `taskflow-frontend` scopes and `mode=max`.
+GitHub supplies ephemeral cache authorization through the action; no configured
+repository/environment secret or registry credential is needed. Cache reuse is
+subject to GitHub branch access, eviction and service availability. Dockerfile
+cache mounts are not separately exported. Final images are not uploaded as
+artifacts; automatic build-record upload is disabled.
+
+After loading, `docker image inspect` checks Linux/amd64, exposed `8080/tcp`,
+backend user `10001:10001` and entrypoint `java -jar /app/app.jar`, frontend user
+`nginx`, and exact OCI source/revision labels. The serialized final image
+configuration must not contain `TASKFLOW_DB_PASSWORD`, `TASKFLOW_JWT_SECRET_BASE64`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` or `AWS_SESSION_TOKEN`, even empty.
+This is a targeted configuration check, not a complete layer/filesystem secret
+scanner; Gitleaks remains separate.
+
+No registry login, push, ECR/GHCR destination, GitHub Packages, deployment, AWS
+credentials/API/OIDC, Terraform or CloudFormation operation is introduced.
+Permissions remain only `contents: read`. No backend startup with fake credentials,
+application E2E topology, frontend runtime smoke or production Compose startup is
+added; this milestone validates builds and image packaging metadata.
+
+Local validation on 2026-09-26 built and loaded both unchanged Dockerfiles using
+Buildx 0.35.0 for `linux/amd64`, with temporary `ms102-local-<full-sha>` tags based
+on source `fb48c1ed291215f58b8bea09852f90e8b976e6fe`. Both passed the workflow's
+image validator against actual `docker image inspect` output. Cached layers were
+reused; this does not prove cold hosted builds or GHA cache service integration.
+The four cached/offline Python CI contract tests passed, including rejection of
+invalid architecture, users, ports, labels, backend entrypoint and forbidden secret
+variables. Actionlint remains unavailable. The unchanged application test suites
+were not rerun. Temporary validation image tags were removed after inspection.
+
+Completion requires a real pushed GitHub run with all four executions successful:
+`backend-quality`, `frontend-quality`, `docker-build (backend)` and
+`docker-build (frontend)`. Local validation does not close MS10.2.
+
 ## Later ownership
 
-MS10.2 owns Docker CI; MS10.3 registry delivery design; MS10.4 deployment design
+MS10.3 owns registry delivery design; MS10.4 deployment design
 and dry-run contracts; MS10.5 CI/CD identity/secrets; MS10.6 branch/PR quality
 gates and further quality/security automation decisions. These are unimplemented.
 GitHub CI is real executable automation. AWS registry delivery and deployment
