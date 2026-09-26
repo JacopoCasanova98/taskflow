@@ -289,7 +289,7 @@ validation tooling. The planner is implemented; a deployment executor and AWS
 interaction are not. No publish/deploy job, environment, OIDC permission or secret
 is added to normal CI. MS9.7 remains the operational authority, including failure
 and rollback decisions.
-MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
+MS10.7–MS10.11 remain deferred.
 
 **MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair tests, four CI checks,
 five readiness checks and five runbook checks passed locally with cached tooling
@@ -321,13 +321,25 @@ stable `ci-gate` check. Its direct dependencies include both quality jobs and
 only all-success results pass. No quality work is repeated. Current triggers,
 read-only permissions and credential-free/no-publish behavior remain intact.
 
-[Repository governance](REPOSITORY_GOVERNANCE.md) defines the PR template and
-desired main ruleset: PR required, zero approvals for the solo maintainer, required
-`ci-gate`, strict up-to-date checks, resolved conversations, blocked force pushes
-and deletion, no bypasses and merge commits preserved. The reference is not live
-GitHub configuration. Hosted gate and live ruleset verification remain pending.
+The completed merge path is backend/frontend quality → Docker matrix →
+`ci-gate` → active main ruleset → merge eligibility.
+Push-triggered [CI #4, run 36259778449](https://github.com/JacopoCasanova98/taskflow/actions/runs/36259778449)
+concluded `success` on commit `f898a6b5b6dafdd6ae9576efb5383d0a097368b7`.
+`backend-quality`, `frontend-quality`, `docker-build (backend)`,
+`docker-build (frontend)` and `ci-gate` all succeeded. The gate step
+`Require every upstream gate to succeed` also succeeded.
 
-**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
+[Repository governance](REPOSITORY_GOVERNANCE.md) records active live ruleset
+`24046584`, `Taskflow main Ruleset`, for `~DEFAULT_BRANCH` (currently `main`).
+`ci-gate` is now the stable required status check, with strict/up-to-date checks,
+PRs, zero approving reviews and conversation resolution required. Force pushes
+and deletion are blocked; no bypass actors exist and current-user bypass is
+`never`. Merge, squash and rebase remain allowed, preserving merge commits.
+The reference JSON describes desired policy; the separately activated GitHub
+ruleset enforces it. Ordinary CI remains credential-free with `contents: read`
+only: no AWS, OIDC, registry publishing or deployment.
+
+**MS10.6 COMPLETE — hosted ci-gate and live main ruleset verified.**
 
 ## Later ownership
 

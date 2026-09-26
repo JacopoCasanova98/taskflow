@@ -299,7 +299,7 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.3 — Registry delivery design
 - [x] MS10.4 — Automated deployment design / dry-run contract
 - [x] MS10.5 — CI/CD identity and secrets security design
-- [ ] MS10.6 — Branch / PR quality gate
+- [x] MS10.6 — Branch / PR quality gate
 - [ ] MS10.7 — Professional README
 - [ ] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets
@@ -342,7 +342,7 @@ executor or automatic rollback is introduced. All 13 deployment-plan tests,
 11 release-pair tests, four CI checks, five readiness checks and five runbook
 checks passed with cached, network-disabled tooling. CI, application, Compose
 and IaC remain unchanged.
-MS10.6 acceptance remains pending; MS10.7–MS10.11 are deferred.
+MS10.7–MS10.11 are deferred.
 
 **MS10.5 COMPLETE — CI/CD identity and secret boundaries validated offline; no AWS identity used.**
 [CI/CD security](CI_CD_SECURITY.md) defines separate runtime, publisher, deployment
@@ -352,15 +352,19 @@ reject privilege expansion and unsafe deployment authority. All 14 identity test
 11 release-pair tests, 13 deployment-plan tests, four CI checks, five readiness
 checks and five runbook checks passed with cached, network-disabled tooling.
 Current CI and runtime/IaC remain unchanged.
-MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
+MS10.7–MS10.11 remain deferred.
 
-**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
-[Repository governance](REPOSITORY_GOVERNANCE.md) adds one stable all-success
-aggregate check, a concise PR template and an offline-validated main-ruleset
-reference. Desired policy requires PRs, zero approvals, strict `ci-gate`, resolved
-conversations, blocked force pushes/deletion and no bypasses, preserving merge
-commits. The reference does not activate GitHub protection. MS10.6 stays unchecked
-until the five hosted checks and live ruleset are verified after manual push.
+**MS10.6 COMPLETE — GitHub-hosted CI run #4 passed all five jobs,
+including ci-gate, and live GitHub ruleset 24046584 actively
+protects main with PR + strict ci-gate requirements.**
+Push-triggered [CI #4, run 36259778449](https://github.com/JacopoCasanova98/taskflow/actions/runs/36259778449)
+passed on commit `f898a6b5b6dafdd6ae9576efb5383d0a097368b7`: both quality jobs,
+both Docker matrix jobs and `ci-gate` succeeded, including its upstream-result step.
+[Repository governance](REPOSITORY_GOVERNANCE.md) records active ruleset
+`24046584` (`Taskflow main Ruleset`), targeting `~DEFAULT_BRANCH` = `main`.
+PRs require zero approvals and conversation resolution; strict `ci-gate`,
+force-push/deletion blocks and no bypass actors are active. Merge commits remain
+allowed. The desired-policy JSON remains a reference, not a GitHub configurator.
 MS10.7–MS10.11 remain unchecked and deferred.
 
 GitHub CI is real and executable; local/Docker build automation may also be real.

@@ -2584,7 +2584,7 @@ The planner only reads, validates, derives and serializes local data. It has no
 process execution, network client or AWS capability and adds no workflow job.
 No production Compose, migration, registry operation or deployment occurs. The
 future live executor is not implemented.
-MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
+MS10.7–MS10.11 remain deferred.
 
 **MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair regressions, four CI
 contract tests, five readiness checks and five runbook checks passed with cached,
@@ -2602,16 +2602,22 @@ Current CI remains read-only without federation; application secrets never flow
 through GitHub. Deployment remote execution is intentionally unimplemented and
 blocked on a constrained host interface and independent migration credential path.
 No live identity or IaC change is introduced.
-MS10.6 acceptance remains pending; MS10.7–MS10.11 remain deferred.
+MS10.7–MS10.11 remain deferred.
 
 ### Branch / PR quality gate (MS10.6)
 
 The unchanged application quality jobs and Docker matrix feed one stable
 `ci-gate` check. It uses `always()` and requires every dependency to succeed;
 no checkout, tooling setup or quality rerun occurs in the aggregate.
-[Repository governance](REPOSITORY_GOVERNANCE.md) separates this repository
-implementation from the desired PR-oriented main policy and verified live
-enforcement. Zero approvals support the solo maintainer; strict `ci-gate`,
-conversation resolution, force-push/deletion blocks and no bypasses are desired.
-Merge-commit history and MS10.5 credential-free CI remain unchanged.
-**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
+GitHub-hosted [CI #4, run 36259778449](https://github.com/JacopoCasanova98/taskflow/actions/runs/36259778449)
+passed all five jobs on `f898a6b5b6dafdd6ae9576efb5383d0a097368b7`, including
+`ci-gate` and its upstream-result validation step.
+[Repository governance](REPOSITORY_GOVERNANCE.md) records active main ruleset
+`24046584` (`Taskflow main Ruleset`): `~DEFAULT_BRANCH` resolves to `main`.
+The PR-oriented merge path requires strict/up-to-date `ci-gate`, zero approvals
+and conversation resolution. Deletion and force pushes are blocked; bypass actors
+are absent and current-user bypass is `never`. Merge, squash and rebase remain
+allowed. The repository policy JSON remains a desired-policy reference distinct
+from live enforcement. MS10.5 credential-free CI remains unchanged.
+**MS10.6 COMPLETE — hosted ci-gate and live main ruleset verified.**
+MS10.7–MS10.11 remain deferred.

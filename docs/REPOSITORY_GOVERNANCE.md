@@ -1,6 +1,6 @@
 # Repository governance — MS10.6
 
-**MS10.6 IMPLEMENTED — hosted ci-gate and live main-ruleset verification pending.**
+**MS10.6 COMPLETE — hosted ci-gate and live main ruleset verified.**
 
 The contribution path is feature branch → PR to `main` → GitHub Actions →
 `ci-gate` → merge. Feature branches remain development surfaces, not release or
@@ -12,13 +12,14 @@ a workflow file alone cannot prevent direct pushes or enforce PR merging.
 | Layer | Current evidence |
 | --- | --- |
 | Repository implementation | Aggregate job, PR template and offline policy tests implemented |
-| Desired GitHub policy | [Reference target](../ops/github/main-ruleset.reference.json), not applied |
-| Verified live enforcement | Pending; earlier observation found no rulesets, not reverified here |
+| Desired GitHub policy | [Reference target](../ops/github/main-ruleset.reference.json), retained as the repository-owned contract |
+| Verified live enforcement | Active GitHub ruleset `24046584`, `Taskflow main Ruleset`, protects the default branch `main` |
 
 The JSON is **REFERENCE TARGET — NOT PROOF OF LIVE GITHUB CONFIGURATION**. It is
 a versioned semantic checklist, not a GitHub API request or imported live export.
-`desired_enforcement: active` describes the target only. No repository-admin
-mutation, hosted gate verification or ruleset activation occurs in this pass.
+`desired_enforcement: active` describes the target only. Live enforcement was
+activated separately in GitHub and verified before this documentation close-out.
+The evidence below records that state; this edit performs no repository-admin mutation.
 
 ## Stable aggregate gate
 
@@ -35,25 +36,27 @@ Both Docker matrix executions must succeed. `fail-fast: false` and absence of
 Ubuntu 24.04 with a two-minute timeout; no checkout, setup action, test rerun or
 Docker operation is needed. A cancelled workflow or unavailable runner may never
 produce a completed gate; that must remain non-green and block acceptance, not
-be treated as success. Hosted execution remains necessary to verify scheduling
-and matrix aggregation; local tests exercise only the contract and shell logic.
+be treated as success. Hosted run #4 successfully executed the complete graph;
+local tests separately exercise failure combinations in the contract and shell.
 
 The job ID and display name are both exactly `ci-gate`. Required-check configuration
 uses that job name, not `CI`, `CI / ci-gate`, a branch or matrix name. Keep this
-name unique across workflows. Verify the observed check and GitHub Actions app
-source after the first hosted run, rather than inventing an integration ID.
+name unique across workflows. Run #4 and the live ruleset confirm `ci-gate` as
+the required check. No source-app integration ID is asserted by this close-out.
 [GitHub check naming](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules),
 [unique job names](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
 
-## Desired main ruleset
+## Desired policy and active main ruleset
 
-Target exactly `refs/heads/main`, with active enforcement and no bypass actors:
+The reference targets `refs/heads/main`. The live ruleset uses `~DEFAULT_BRANCH`,
+which currently resolves to `main`; it follows any future default-branch change,
+so such a change requires policy review. Active enforcement has no bypass actors:
 
 - Require a pull request, with **zero required approving reviews**. The sole
   maintainer can merge a green PR without a fictional second reviewer. Do not
   add code-owner approval or last-push approval requirements. Increase approval
   count through a separate decision when collaborators join.
-- Require `ci-gate`, using the verified GitHub Actions source, and strict
+- Require `ci-gate` and strict
   up-to-date checks. If `main` advances, update the PR branch and rerun CI before
   merging; extra builds are an accepted cost of checking the current base.
 - Require conversation resolution. This closes actionable discussion without
@@ -63,15 +66,14 @@ Target exactly `refs/heads/main`, with active enforcement and no bypass actors:
   against a malicious repository owner changing the rules themselves.
 
 No signed-commit, merge-queue, deployment or linear-history requirement is added.
-TaskFlow's deliberate PR merge-commit history remains supported. Do not enable
+Live allowed merge methods are `merge`, `squash` and `rebase`, preserving
+TaskFlow's deliberate PR merge-commit history. Do not enable
 “restrict updates,” which would unnecessarily block ordinary approved merges.
 [GitHub available rules](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets).
 
 Use branch rulesets, not paid push-rule features. GitHub documents branch rulesets
 for public repositories on Free and private repositories on qualifying plans;
-confirm repository visibility/feature availability when configuring the live target.
-If unavailable, stop acceptance and record the limitation rather than claiming
-protection. [Ruleset availability](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
+the verified live branch ruleset is active for this repository. [Ruleset availability](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
 
 ## Security and local checks
 
@@ -105,29 +107,35 @@ result combinations), four CI checks, 14 identity tests, 11 release-pair tests,
 `taskflow-cfn-lint:1.57.0` ran with no pulls, networking disabled and the repository
 mounted read-only. `actionlint` is unavailable locally; no tool was downloaded.
 
-## Post-push acceptance — not executed now
+## Hosted CI and live enforcement evidence
 
-1. After manual commit/push, let GitHub execute CI. Record run URL, reviewed
-   commit and successful `backend-quality`, `frontend-quality`,
-   `docker-build (backend)`, `docker-build (frontend)` and `ci-gate` results.
-2. Confirm the check's exact name/source from GitHub. Separately configure the
-   main branch ruleset against the reference target: active, exact main target,
-   no bypasses, PR/zero approvals/resolved conversations, required `ci-gate`,
-   strict checks, force-push and deletion blocks. No policy mutation is authorized
-   by the present implementation task.
-3. Read back the **live** ruleset from GitHub and inspect the effective rules
-   targeting main, including any overlapping policy. Record its ID/URL, active
-   enforcement and every required setting; verify PR merge-box enforcement and
-   that unresolved/non-green/out-of-date checks prevent merging. Do not force-push
-   or delete main as a test. Confirm merge commits remain available and that no
-   bypass defeats the intended ordinary contribution path.
-4. Only after hosted CI and live enforcement verification, check MS10.6 complete
-   and document the evidence. MS10.7–MS10.11 remain deferred.
+The verified GitHub evidence supplied for this documentation close-out is:
 
-GitHub requires adding an actual required check when selecting strict status
-checks. The reference file alone cannot perform this step.
-[Creating a repository ruleset](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository),
-[viewing/managing live rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/managing-rulesets-for-a-repository).
+- Workflow `CI`, push run **#4**, [run 36259778449](https://github.com/JacopoCasanova98/taskflow/actions/runs/36259778449),
+  commit `f898a6b5b6dafdd6ae9576efb5383d0a097368b7`, conclusion `success`.
+- `backend-quality`, `frontend-quality`, `docker-build (backend)`,
+  `docker-build (frontend)` and `ci-gate`: **SUCCESS**.
+- Gate step `Require every upstream gate to succeed`: **SUCCESS**.
 
-Official GitHub documentation above verified **2026-09-26**. No live repository
-configuration was inspected or changed during this implementation pass.
+| Live ruleset field | Verified value |
+| --- | --- |
+| ID / name | `24046584` / `Taskflow main Ruleset` |
+| Target / source | `branch` / `JacopoCasanova98/taskflow` |
+| Enforcement | `active` |
+| Target condition | `~DEFAULT_BRANCH`, resolving to `main` |
+| Pull request | Required; approving reviews = `0` |
+| Review-thread resolution | Required (`true`) |
+| Required status check | `ci-gate` |
+| Strict/up-to-date policy | `strict_required_status_checks_policy = true` |
+| Deletion / non-fast-forward | Blocked / blocked |
+| Bypass actors / current-user bypass | None / `never` |
+| Allowed merge methods | `merge`, `squash`, `rebase` |
+
+The earlier no-ruleset observation is superseded by this verified live activation.
+The reference JSON does not configure GitHub and remains unchanged. Its exact-main
+selector and the live default-branch selector currently protect the same branch.
+This close-out records successful hosted execution and live configuration; it
+claims no destructive push/deletion test or new GitHub admin operation.
+
+MS10.6 is complete. MS10.7–MS10.11 remain deferred.
+Official GitHub documentation cited above was verified **2026-09-26**.

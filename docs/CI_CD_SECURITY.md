@@ -71,8 +71,10 @@ live enablement, verify required review/source controls are available and cannot
 be bypassed under the agreed policy; prevent self-approval where supported.
 If the required protection cannot be enforced, leave federation disabled pending
 an independently reviewed alternative. [GitHub environment protection](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
-The [MS10.6 branch/PR gate](REPOSITORY_GOVERNANCE.md) is implemented locally;
-hosted and live-policy verification remain pending.
+The [MS10.6 branch/PR gate](REPOSITORY_GOVERNANCE.md) passed hosted CI run #4.
+Active ruleset `24046584` now protects `main` with PR and strict `ci-gate`
+requirements. This governance adds no privileged cloud identity to ordinary CI;
+the MS10.5 identity model is unchanged.
 
 Ordinary `.github/workflows/ci.yml` stays `contents: read`, with no OIDC, AWS
 action, secrets, registry login or deployment job. The future publisher would
