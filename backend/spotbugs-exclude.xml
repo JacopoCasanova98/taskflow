@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
+	<!-- Production Compose and the migration helper deliberately mount the official
+	     RDS CA at this fixed contract path. These two callers must not use a
+	     working-directory-relative trust file. No other pathname warning is excluded. -->
+	<Match>
+		<Class name="com.taskflow.operations.DatabaseMigration"/>
+		<Method name="run"/>
+		<Bug pattern="DMI_HARDCODED_ABSOLUTE_FILENAME"/>
+	</Match>
+	<Match>
+		<Class name="com.taskflow.shared.config.DatabaseCredentialsConfiguration$1"/>
+		<Method name="postProcessBeforeInitialization"/>
+		<Bug pattern="DMI_HARDCODED_ABSOLUTE_FILENAME"/>
+	</Match>
 	<!-- FindSecBugs 1.14.0: all afterCommit call sites pass constant event templates
 	     and UUID/int identifiers only, never request text. UUID/int rendering cannot
 	     contain CR/LF. MutationLogTest and service logging tests enforce this policy. -->

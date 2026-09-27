@@ -285,7 +285,7 @@ MacroStep 9 Definition of Done under the adapted zero-provisioning policy:
   provisioning AWS.
 
 **MS9.8 COMPLETE — MACROSTEP 9 COMPLETE.** Live-only checks remain deliberately
-unchecked in the readiness record. MS10 is not started.
+unchecked in the readiness record. MS10 had not started at the MS9 close-out.
 
 Acceptance is local/static evidence and coherent artifacts/runbooks. No domain
 purchase, live URL, real certificate, secret population, AWS stack, cloud restore
@@ -294,5 +294,184 @@ independent real operator could do; the project does not execute their AWS steps
 
 ## MacroStep 10 — CI/CD and portfolio preparation
 
-- [ ] Establish continuous integration and delivery
-- [ ] Prepare portfolio materials
+- [x] MS10.1 — GitHub Actions baseline
+- [x] MS10.2 — Docker CI
+- [x] MS10.3 — Registry delivery design
+- [x] MS10.4 — Automated deployment design / dry-run contract
+- [x] MS10.5 — CI/CD identity and secrets security design
+- [x] MS10.6 — Branch / PR quality gate
+- [x] MS10.7 — Professional README / portfolio demo
+  - [x] MS10.7A — Free portfolio live demo — COMPLETE
+  - [x] MS10.7B — Professional README — COMPLETE
+- [x] MS10.8 — Diagrams
+- [ ] MS10.9 — Portfolio assets: DEFERRED / OPTIONAL
+- [ ] MS10.10 — GitHub release: PREPARED, pending final release action
+- [x] MS10.11 — Final repository cleanup
+
+MacroStep 10 remains in progress pending actual release publication. The checklist
+above records current status; closeouts below preserve evidence and milestone
+states at the time each was written.
+
+**MS10.1 COMPLETE — GitHub-hosted CI run #2 passed on Ubuntu 24.04 with both backend-quality and frontend-quality successful.**
+CI #1 passed frontend quality and failed backend quality (CSRF test-context
+pollution and audit timestamp precision). After deterministic CSRF tests and
+PostgreSQL microsecond-precision audit timestamp corrections, push-triggered
+[CI #2, run 36240871848](https://github.com/JacopoCasanova98/taskflow/actions/runs/36240871848)
+passed on commit `28c95b20028d4b1ebd01f0ff64c32f44da32232c`. See
+[CI/CD](CI_CD.md).
+
+**MS10.2 COMPLETE — GitHub-hosted CI run #3 passed with backend-quality,
+frontend-quality, docker-build (backend), and docker-build (frontend)
+all successful.**
+Push-triggered [CI #3, run 36242343400](https://github.com/JacopoCasanova98/taskflow/actions/runs/36242343400)
+passed on commit `ee084993fe14c07c19557049f3f367deb9b05a07`.
+Both Docker jobs successfully completed Buildx setup, production image build
+for `linux/amd64`, local image load and runtime image contract inspection.
+Both CI images share the same full source Git SHA; no image was published.
+
+**MS10.3 COMPLETE — registry delivery design validated; no registry operation performed.**
+[Registry delivery](REGISTRY_DELIVERY.md) defines the existing ECR pair's immutable
+Git-SHA identity, registry-digest deployment references, versioned JSON Schema and
+offline standard-library validator. Partial/mismatched pairs are rejected; external
+registry provenance and scan-review evidence remain required for eligibility.
+All 11 release-contract tests, five existing readiness checks, five runbook checks
+and four CI contract tests passed with cached tooling and networking disabled.
+Normal CI, application code, Dockerfiles, Compose and IaC remain unchanged.
+This design milestone requires no live ECR execution.
+
+**MS10.4 COMPLETE — offline deployment dry-run contract validated; no deployment performed.**
+[Deployment automation](DEPLOYMENT_AUTOMATION.md) adds a closed non-secret v1.0
+intent schema and deterministic offline planner reusing MS10.3 release validation.
+It derives digest-qualified runtime images and preserves MS9.7's D1–D7 order,
+mandatory migration, preflight/compatibility and acceptance boundaries. No live
+executor or automatic rollback is introduced. All 13 deployment-plan tests,
+11 release-pair tests, four CI checks, five readiness checks and five runbook
+checks passed with cached, network-disabled tooling. CI, application, Compose
+and IaC remain unchanged.
+MS10.7–MS10.11 are deferred.
+
+**MS10.5 COMPLETE — CI/CD identity and secret boundaries validated offline; no AWS identity used.**
+[CI/CD security](CI_CD_SECURITY.md) defines separate runtime, publisher, deployment
+and provisioner identities, exact future OIDC trust, scoped ECR publisher actions
+and protected secret flows. The closed v1 reference contract and offline validator
+reject privilege expansion and unsafe deployment authority. All 14 identity tests,
+11 release-pair tests, 13 deployment-plan tests, four CI checks, five readiness
+checks and five runbook checks passed with cached, network-disabled tooling.
+Current CI and runtime/IaC remain unchanged.
+MS10.7–MS10.11 remain deferred.
+
+**MS10.6 COMPLETE — GitHub-hosted CI run #4 passed all five jobs,
+including ci-gate, and live GitHub ruleset 24046584 actively
+protects main with PR + strict ci-gate requirements.**
+Push-triggered [CI #4, run 36259778449](https://github.com/JacopoCasanova98/taskflow/actions/runs/36259778449)
+passed on commit `f898a6b5b6dafdd6ae9576efb5383d0a097368b7`: both quality jobs,
+both Docker matrix jobs and `ci-gate` succeeded, including its upstream-result step.
+[Repository governance](REPOSITORY_GOVERNANCE.md) records active ruleset
+`24046584` (`Taskflow main Ruleset`), targeting `~DEFAULT_BRANCH` = `main`.
+PRs require zero approvals and conversation resolution; strict `ci-gate`,
+force-push/deletion blocks and no bypass actors are active. Merge commits remain
+allowed. The desired-policy JSON remains a reference, not a GitHub configurator.
+MS10.7–MS10.11 remain unchecked and deferred.
+
+GitHub CI is real and executable; local/Docker build automation may also be real.
+ECR delivery and AWS deployment remain reference/design only, with no AWS
+credentials required. No deployed-app URL will be fabricated: MS10.9 uses
+screenshots, demo and local evidence instead. GitHub Releases may be real because
+they do not require AWS provisioning. These adaptations do not authorize any
+later milestone's implementation during MS10.6.
+
+**MS10.7A COMPLETE — free portfolio demo live and core user flow validated (2026-09-27).**
+[Portfolio demo](PORTFOLIO_DEMO.md) records deployed commit
+`797a3e4e3ee815ed11380ad751da6c1c420afb00` (`deploy: prepare free portfolio demo`).
+[CI run #5, 36309160331](https://github.com/JacopoCasanova98/taskflow/actions/runs/36309160331)
+was green: both quality jobs, both Docker build jobs and `ci-gate` passed.
+The Render Static Site [frontend](https://taskflow-demo-frontend-bod0.onrender.com)
+and Render Free Docker [backend](https://taskflow-6udg.onrender.com) are live;
+the backend and Neon Free PostgreSQL 17.11 are in Frankfurt. Flyway validated six
+migrations with schema v6; Hibernate validation passed. Manual ordered API/SPA
+rewrites support the same-origin frontend. The human browser smoke passed HTTPS
+loading, registration/logout/login, board/column creation, task creation/editing/
+deletion, persisted data after refresh, and logout followed by refresh remaining
+unauthenticated. Two-account isolation and natural cold-start testing remain
+unverified live; automated security tests are separate evidence.
+
+No AWS resource was provisioned and no paid resource was introduced. AWS production
+contracts remain unchanged; Render/Neon hosting is explicitly non-production.
+Both Render services have auto-deploy OFF and temporarily use
+`feature/ci-portfolio-preparation`; restore `main` after MacroStep 10 merges.
+MS10.7A live evidence remains separate from automated security tests and the AWS reference design.
+MS10.8–MS10.11 remain unchecked and unstarted.
+
+**MS10.7B COMPLETE — professional README (2026-09-27).**
+The [README](../README.md) now prominently links the validated live portfolio demo
+and summarizes product capabilities, engineering decisions, technology, local
+setup, quality gates, repository structure, and technical documentation. It
+clearly separates the non-production Render/Neon demo from implemented but
+non-provisioned AWS reference IaC. Claims and links were reviewed against tracked
+configuration and the MS10.7A evidence; no application or provider change is part
+of this documentation milestone. MS10.7A and MS10.7B are complete, closing parent
+MS10.7. Diagrams (MS10.8) and screenshots/portfolio assets (MS10.9) remain deferred;
+MS10.8–MS10.11 remain unchecked and unstarted.
+
+**MS10.8 COMPLETE — source-controlled architecture diagrams (2026-09-27).**
+[Canonical Mermaid diagrams](DIAGRAMS.md) cover the logical application, live
+Render/Neon portfolio demo, non-provisioned AWS reference architecture, and
+implemented CI versus reference delivery flow. Markdown sources and every flow
+were audited against the authoritative architecture, runtime, IaC, workflow,
+governance, release, deployment and identity contracts. Mermaid source received
+manual syntax/structure review; no renderer or diagram dependency was introduced.
+README and architecture navigation link to the canonical page. No AWS resource
+was provisioned and no provider configuration, code, CI or IaC behavior changed.
+MS10.9–MS10.11 remain unchecked and unstarted.
+
+**MS10.9 adaptation — DEFERRED / OPTIONAL (2026-09-27).**
+Real screenshots may be added manually later. The repository already provides a
+live public demo and source-controlled architecture diagrams; screenshots are
+presentation polish, not a technical completion requirement. MS10.9 no longer
+blocks MacroStep 10 completion and is not marked complete. No fake/generated
+screenshots, placeholders, or image assets were added.
+
+**MS10.10 PREPARED — v1.0.0 release material (2026-09-27).**
+[Reviewed-body source](RELEASE_NOTES_v1.0.0.md) describes the implemented portfolio
+application, verification evidence, live non-production demo, and unprovisioned
+AWS reference design. [Manual release procedure](CI_CD.md#manual-github-release-ms1010)
+requires the MacroStep 10 merge and green CI on the selected `main` commit before
+an annotated tag and GitHub Release are created. Local/remote tag lists and the
+public GitHub release listing were empty during preparation; recheck before
+publication. Maven/npm package versions remain unchanged. No tag, release, commit,
+or push was performed. MS10.10 remains unchecked until the actual GitHub Release
+exists; MS10.11 remains unstarted.
+
+**MS10.11 COMPLETE — final repository cleanup (2026-09-27).**
+Audited release-preparation baseline `a6142099feee66308dce6f03ab1e22b8c15301b0`.
+No accidental tracked build outputs, logs, archives, credentials or screenshot
+artifacts required removal; no ignore-rule change was justified. Corrected stale
+README/governance milestone wording and scoped registry deployment statements to
+AWS. Release notes explicitly remain prepared material, not publication evidence.
+README and release scope remain consistent with the live non-production demo and
+the unprovisioned AWS reference architecture.
+
+Validation passed: 63 lightweight demo, readiness, runbook, CI, governance,
+identity, release and deployment tests; standalone observability and edge
+contracts; cached offline Terraform formatting/validation and CloudFormation
+lint for `eu-west-1`; relative Markdown links; Gitleaks history/worktree scans;
+and whitespace checks. The interrupted observability failure was an invocation
+error (a standalone script passed to `unittest`), resolved without changing tests.
+No application, dependency, workflow, Docker, IaC or provider behavior changed.
+
+MS10.9 remains deferred/optional and non-blocking. MS10.10 remains prepared and
+unchecked until publication. MacroStep 10 is not yet fully complete.
+
+Remaining external closeout, performed separately by the human:
+
+1. Commit and push MS10.11.
+2. Open the final MacroStep 10 PR to `main`.
+3. Obtain a green required `ci-gate`.
+4. Merge to `main`.
+5. Manually restore both Render demo services from the temporary feature branch to `main`.
+6. Verify final `main` CI and the live demo.
+7. Create annotated tag `v1.0.0` on the exact verified release commit.
+8. Publish the GitHub Release using [reviewed release notes](RELEASE_NOTES_v1.0.0.md).
+
+No AWS operation belongs to this sequence. No tag, release, PR, commit or push
+was performed during cleanup.

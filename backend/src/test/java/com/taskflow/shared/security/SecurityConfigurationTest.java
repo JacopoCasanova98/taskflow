@@ -1,7 +1,6 @@
 package com.taskflow.shared.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -12,8 +11,10 @@ import com.taskflow.shared.security.jwt.JwtProperties;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.UUID;
+import jakarta.servlet.http.Cookie;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +24,12 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
@@ -55,6 +61,35 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 
 	@Autowired
 	private Clock clock;
+
+	@AfterEach
+	void realFilterRetainsApplicationCookieRepository() throws Exception {
+		// The csrf() test postprocessor mutates this shared filter; use the SPA bootstrap instead.
+		var repositories = context.getBeansOfType(CsrfTokenRepository.class);
+		assertThat(repositories).containsOnlyKeys("csrfTokenRepository");
+		var repository = repositories.get("csrfTokenRepository");
+		assertThat(repository).isInstanceOf(CookieCsrfTokenRepository.class);
+		var chain = context.getBean(SecurityFilterChain.class);
+		assertThat(chain.getFilters()).filteredOn(CsrfFilter.class::isInstance)
+				.singleElement().satisfies(filter -> assertThat(
+						ReflectionTestUtils.getField(filter, "tokenRepository"))
+						.isSameAs(repository));
+		bootstrapCsrfCookie();
+	}
+
+	private Cookie bootstrapCsrfCookie() throws Exception {
+		var result = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isNoContent()).andReturn();
+		Cookie cookie = result.getResponse().getCookie("XSRF-TOKEN");
+		assertThat(cookie).isNotNull();
+		assertThat(cookie.getValue()).isNotBlank();
+		assertThat(cookie.isHttpOnly()).isFalse();
+		assertThat(cookie.getSecure()).isEqualTo(context.getBean(CookieProperties.class).secure());
+		assertThat(cookie.getPath()).isEqualTo("/");
+		assertThat(cookie.getAttribute("SameSite")).isEqualTo("Strict");
+		assertThat(cookie.getDomain()).isNull();
+		assertThat(result.getRequest().getSession(false)).isNull();
+		return cookie;
+	}
 
 	@Test
 	void validBearerTokenPassesAuthenticationBoundary() throws Exception {
@@ -144,7 +179,9 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 	@Test
 	void doesNotProvideGeneratedLoginLogoutOrUsers() throws Exception {
 		mockMvc.perform(get("/login")).andExpect(status().isNotFound());
-		mockMvc.perform(post("/logout").with(csrf())).andExpect(status().isNotFound());
+		Cookie csrf = bootstrapCsrfCookie();
+		mockMvc.perform(post("/logout").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue()))
+				.andExpect(status().isNotFound());
 		assertThat(context.getBeansOfType(UserDetailsService.class).values())
 				.hasSize(1).allMatch(service -> service instanceof com.taskflow.auth.security.TaskFlowUserDetailsService);
 	}
@@ -159,7 +196,8 @@ class SecurityConfigurationTest extends com.taskflow.DatabaseFreePersistenceTest
 				.andExpect(status().isForbidden())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
-		mockMvc.perform(post("/api/security-check").with(csrf()))
+		Cookie csrf = bootstrapCsrfCookie();
+		mockMvc.perform(post("/api/security-check").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue()))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 	}

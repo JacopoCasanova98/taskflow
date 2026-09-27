@@ -1,0 +1,21 @@
+# Non-production Render/Neon portfolio demo only; never select for AWS Compose.
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 0
+      idle-timeout: 30000
+      keepalive-time: 0
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+server:
+  forward-headers-strategy: framework
+
+taskflow:
+  security:
+    cookies:
+      secure: true

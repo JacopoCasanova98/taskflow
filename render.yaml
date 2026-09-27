@@ -1,0 +1,46 @@
+# NON-PRODUCTION portfolio demo. See docs/PORTFOLIO_DEMO.md before creating services.
+# No paid resources or Render database. Neon Free is configured separately.
+services:
+  - type: web
+    name: taskflow-demo-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeployTrigger: 'off'
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: demo
+      - key: TASKFLOW_COOKIE_SECURE
+        value: 'true'
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: framework
+      - key: JAVA_TOOL_OPTIONS
+        value: '-XX:MaxRAMPercentage=50.0'
+      - key: TASKFLOW_DB_URL
+        sync: false
+      - key: TASKFLOW_DB_USERNAME
+        sync: false
+      - key: TASKFLOW_DB_PASSWORD
+        sync: false
+      - key: TASKFLOW_JWT_SECRET_BASE64
+        sync: false
+  - type: web
+    name: taskflow-demo-frontend
+    runtime: static
+    branch: main
+    autoDeployTrigger: 'off'
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist/taskflow/browser
+    envVars:
+      - key: NODE_VERSION
+        value: 22.23.1
+    # No plan/region for a static site (global CDN).
+    # Add BOTH ordered routes in the Dashboard after the backend URL is assigned:
+    # /api/* -> backend HTTPS URL + /api/* (Rewrite), then /* -> /index.html (Rewrite).
+    # Blueprint route destinations do not support variable interpolation.

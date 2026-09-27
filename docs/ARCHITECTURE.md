@@ -2,6 +2,10 @@
 
 ## Overview
 
+[Architecture diagrams](DIAGRAMS.md) summarize the logical application, live demo,
+AWS reference infrastructure, and delivery boundaries; the specifications here
+and in the linked documents remain authoritative.
+
 Milestone sections retain implementation-time evidence. The final MacroStep 8
 verification section records current IaC status; earlier deferrals are historical.
 
@@ -2431,3 +2435,193 @@ Cached read-only Gitleaks scanned all 78 Git commits and final relevant working-
 files with networking disabled and pulls forbidden: no leaks found. No unresolved
 repository blocker remains. **MS9.8 COMPLETE — MACROSTEP 9 COMPLETE**, under the
 adapted local/static Definition of Done; no live production acceptance is claimed.
+
+### GitHub Actions baseline (MS10.1)
+
+[CI/CD](CI_CD.md) defines two independent Ubuntu 24.04 jobs in
+[ci.yml](../.github/workflows/ci.yml): Temurin Java 21 with Maven Wrapper `verify`,
+and Node 22.23.1 with `npm ci` followed by the existing frontend `quality` gate.
+PRs to main, main/feature pushes and manual dispatch trigger CI; concurrency
+cancels superseded runs per PR/ref. Official actions use verified full commit
+pins, dependency-only caches, finite 30/20-minute timeouts and read-only contents
+permission. Checkout credentials are not persisted. PostgreSQL integration tests
+retain Testcontainers; the hosted Docker daemon is checked before verification.
+
+The initial MS10.1 baseline corrections address three SpotBugs findings in
+the MS9 CA contract. The trust-file catch now names IOException/RuntimeException;
+two class/method-scoped exclusions document deliberately absolute CA mount paths.
+No path, TLS behavior, security threshold or scanner invocation was changed.
+
+The repository-owned [static CI contract](../scripts/ci/test_ci_workflow.py)
+passes with cached offline PyYAML; actionlint is unavailable locally. This checks
+workflow structure and allowed commands without emulating GitHub Actions.
+On 2026-09-25, the complete `./scripts/quality.sh` regression passed: 487 backend
+tests (zero failures/errors/skips), JaCoCo gates, zero SpotBugs/FindSecBugs findings,
+and 593 frontend tests across 38 files, formatting, lint, coverage and production
+build. Maven took 2m04s; the frontend test phase took 15.08s, excluding its build
+and other gates. The 30/20-minute job limits allow cold caches and runner variance.
+An initial local attempt failed because Docker was unavailable; the full rerun
+passed after Docker Desktop startup and granting local daemon access.
+CI #1 (run `36108328937`, push of `97d320c5c418f1948ae22992e6e6e10b61794133`)
+executed on GitHub-hosted Ubuntu 24.04 on 2026-09-25. Frontend passed; backend
+failed with 487 tests, 2 failures, 16 errors and 0 skipped. Runner setup, checkout,
+Java and Docker/Testcontainers worked. The first run exposed two portability
+defects; [CI/CD](CI_CD.md#first-hosted-execution-and-portability-corrections) records
+the evidence, reproduction and corrections.
+
+The session-backed CSRF observed in hosted tests was caused by Spring Security
+Test's `csrf()` postprocessor mutating the live filter repository, then Spring's
+context cache sharing that mutation. A clean reverse-order local run reproduces
+the missing cookie/session signature; clean isolated/default-order runs pass.
+There is one application `CsrfTokenRepository` bean, the intended cookie repository,
+and production wiring already explicitly injects it. Tests now bootstrap real
+cookies instead of mutating the chain. A context regression checks the filter's
+repository identity after every security test and verifies `XSRF-TOKEN`,
+HttpOnly=false, Path=/, SameSite=Strict, configured Secure and no HTTP session.
+Production security configuration and `SessionCreationPolicy.STATELESS` are preserved.
+
+Auditing previously exposed host-clock nanoseconds before PostgreSQL rounded them
+to microseconds, making immediate and reloaded domain values unequal. The auditing
+provider now truncates to microseconds at the persistence boundary, matching the
+existing `TIMESTAMP WITH TIME ZONE` schema. Deterministic fixed-clock unit and real
+PostgreSQL/JDBC tests exercise non-microsecond nanoseconds and exact reload equality;
+the original cross-user persisted-state equality assertions remain unchanged.
+No migration or timezone adjustment is required.
+
+On 2026-09-26, `./mvnw clean verify` passed 490 tests with no failures/errors/skips,
+JaCoCo (94.64% lines, 87.59% branches) and zero SpotBugs/FindSecBugs findings.
+The subsequent root quality gate passed the same 490 backend tests plus all 593
+frontend tests across 38 files, coverage, formatting, lint and production build.
+The static CI contract also passed; workflow YAML and frontend remain unchanged.
+
+**MS10.1 COMPLETE.**
+[CI #2, run 36240871848](https://github.com/JacopoCasanova98/taskflow/actions/runs/36240871848)
+executed workflow `CI` on GitHub-hosted Ubuntu 24.04 following a `push` of
+`28c95b20028d4b1ebd01f0ff64c32f44da32232c`. The supplied hosted evidence records
+overall conclusion **success**, with `backend-quality` **SUCCESS** and
+`frontend-quality` **SUCCESS**. Backend checkout, Java 21 setup, Docker verification
+and Maven quality including PostgreSQL Testcontainers succeeded; frontend checkout,
+Node setup, locked `npm ci` and its quality gate succeeded. This clean Linux hosted
+execution validated backend/Testcontainers portability after the first run exposed
+and led to correction of the CSRF test-order and timestamp-precision defects.
+
+No AWS credentials/API, OIDC role, registry publication, container image build,
+deployment, Terraform/CloudFormation operation or repository secret is involved.
+The network-dependent security audit remains unchanged and is not invoked.
+The MS10.1 close-out added no deployment/CD capability.
+
+### Docker CI (MS10.2)
+
+The existing CI workflow adds a `docker-build` backend/frontend matrix after both
+application quality gates, targeting GitHub-hosted Ubuntu 24.04. Each execution
+builds its unchanged production Dockerfile from the explicit component context
+for `linux/amd64`, using SHA-pinned official Docker Buildx/build-push actions.
+Fail-fast is disabled and each execution has a 30-minute timeout.
+
+Both runner-local image tags and OCI revision labels use the same full GitHub
+source SHA; OCI source labels identify the repository. Buildx maintains separate
+GHA layer-cache scopes per component. Images are loaded locally with `push: false`,
+then inspected for platform, port 8080, the existing non-root runtime users,
+backend JAR entrypoint, OCI labels and absence of the five forbidden secret-variable
+names in final configuration. This targeted check does not replace a secret scanner.
+CI-local tags do not replace production registry-digest identities.
+
+**MS10.2 COMPLETE.**
+[CI #3, run 36242343400](https://github.com/JacopoCasanova98/taskflow/actions/runs/36242343400)
+executed workflow `CI` on GitHub-hosted Ubuntu 24.04 following a `push` of
+`ee084993fe14c07c19557049f3f367deb9b05a07`. The supplied hosted evidence records
+overall **success**: `backend-quality`, `frontend-quality`, `docker-build (backend)`
+and `docker-build (frontend)` all succeeded. Both Docker executions passed Buildx
+setup, production image build/local load and runtime image contract inspection.
+The backend and frontend production Dockerfiles built successfully for the approved
+`linux/amd64` architecture, with the same full source Git SHA identifying both CI
+images. No publishing or AWS operation occurred. Earlier local builds, image
+metadata checks and four offline CI contract tests also passed; actionlint remains
+unavailable. See [CI/CD](CI_CD.md#docker-ci-ms102) for pins and evidence.
+
+No Dockerfile, application, Compose, IaC or production runtime change is needed.
+No registry authentication/publication, deployment, AWS credentials/API/OIDC,
+repository secret or additional workflow permission is introduced. No backend
+runtime startup, application E2E or production Compose is run.
+
+### Registry delivery design (MS10.3)
+
+[Registry delivery](REGISTRY_DELIVERY.md) defines the offline release-pair contract
+for the existing two ECR repositories. Immutable `git-<full-git-sha>` tags share
+one reviewed source revision and `linux/amd64` platform; deployment references
+remain repository-qualified registry manifest digests. Existing IMMUTABLE/AES256,
+seven-day untagged expiry and opt-in registry scanning ownership are unchanged.
+
+The version `1.0` JSON Schema and standard-library validator require both component
+repositories/digests, matching registry/region/name prefix, one Git SHA/platform,
+UTC build timestamp and declared registry-manifest provenance. Partial pairs and
+component overrides fail; optional shared SemVer aliases never replace Git identity.
+Derived tags/references are structural output, not deployment approval. A local
+image ID can share a registry digest's syntax: external provenance and completed,
+reviewed scan evidence for both exact artifacts remain mandatory eligibility gates.
+
+No live registry operation, IaC change, publish workflow or deployment consumer is
+introduced. The future artifact and short-lived identity interfaces are documented
+only. Local tests and static parity checks provide
+acceptance for this design milestone under the zero-AWS boundary. **MS10.3 COMPLETE:**
+11 release-contract tests, five existing readiness checks, five runbook checks and
+four CI contract tests passed with cached, network-disabled tooling. No application
+test suite or Docker build rerun was needed; source and packaging are unchanged.
+
+### Deployment automation design (MS10.4)
+
+[Deployment automation](DEPLOYMENT_AUTOMATION.md) adds a version `1.0` non-secret
+intent schema and offline planner over the authoritative MS9.7 runbook. It imports
+the unchanged MS10.3 validator, derives both digest-qualified runtime references
+and emits deterministic D1–D7 JSON data. Intent v1 fixes prod/eu-west-1, production
+Compose/project identity, application secret names and runtime CA/agent paths.
+It validates DB/TLS structure and runtime role without connecting to a database.
+
+Unknown/secret fields and invalid/partial release pairs fail before output. All
+gates remain unexecuted: D1 requires live provenance, scan/preflight and compatibility
+evidence; D3 materialization precedes recreation; D5 always represents the existing
+controlled migration route; D6 requires success; D7 references smoke/readiness
+acceptance. A dry-run never proves live schema compatibility or grants deployment
+approval. No automatic rollback is generated.
+
+The planner only reads, validates, derives and serializes local data. It has no
+process execution, network client or AWS capability and adds no workflow job.
+No production Compose, migration, registry operation or deployment occurs. The
+future live executor is not implemented.
+MS10.7–MS10.11 remain deferred.
+
+**MS10.4 COMPLETE:** 13 deployment-plan tests, 11 release-pair regressions, four CI
+contract tests, five readiness checks and five runbook checks passed with cached,
+network-disabled tooling. Validation establishes offline structure and ordering,
+not live migration compatibility, resource availability or deployment acceptance.
+
+### CI/CD identity and secret boundary (MS10.5)
+
+[CI/CD security](CI_CD_SECURITY.md) defines a versioned, machine-checked offline
+contract separating the unchanged EC2 runtime role from registry publisher,
+deployment/operator and infrastructure provisioner identities. Future GitHub OIDC
+uses exact audience and protected-environment subject matching, with effective
+subject verification before enablement. No long-lived AWS keys are permitted.
+Current CI remains read-only without federation; application secrets never flow
+through GitHub. Deployment remote execution is intentionally unimplemented and
+blocked on a constrained host interface and independent migration credential path.
+No live identity or IaC change is introduced.
+MS10.7–MS10.11 remain deferred.
+
+### Branch / PR quality gate (MS10.6)
+
+The unchanged application quality jobs and Docker matrix feed one stable
+`ci-gate` check. It uses `always()` and requires every dependency to succeed;
+no checkout, tooling setup or quality rerun occurs in the aggregate.
+GitHub-hosted [CI #4, run 36259778449](https://github.com/JacopoCasanova98/taskflow/actions/runs/36259778449)
+passed all five jobs on `f898a6b5b6dafdd6ae9576efb5383d0a097368b7`, including
+`ci-gate` and its upstream-result validation step.
+[Repository governance](REPOSITORY_GOVERNANCE.md) records active main ruleset
+`24046584` (`Taskflow main Ruleset`): `~DEFAULT_BRANCH` resolves to `main`.
+The PR-oriented merge path requires strict/up-to-date `ci-gate`, zero approvals
+and conversation resolution. Deletion and force pushes are blocked; bypass actors
+are absent and current-user bypass is `never`. Merge, squash and rebase remain
+allowed. The repository policy JSON remains a desired-policy reference distinct
+from live enforcement. MS10.5 credential-free CI remains unchanged.
+**MS10.6 COMPLETE — hosted ci-gate and live main ruleset verified.**
+MS10.7–MS10.11 remain deferred.

@@ -43,6 +43,13 @@ class BaseEntityTest {
 	}
 
 	@Test
+	void normalizesNanosecondClockToPersistableMicroseconds() {
+		Clock clock = Clock.fixed(Instant.parse("2026-09-25T07:35:38.123456789Z"), ZoneOffset.UTC);
+		assertThat(new PersistenceConfiguration().utcDateTimeProvider(clock).getNow())
+				.contains(Instant.parse("2026-09-25T07:35:38.123456Z"));
+	}
+
+	@Test
 	void providesAuditTimestampsFromUtcClock() {
 		PersistenceConfiguration configuration = new PersistenceConfiguration();
 		Clock clock = new TimeConfiguration().utcClock();

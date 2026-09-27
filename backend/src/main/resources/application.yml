@@ -33,6 +33,7 @@ taskflow:
       secret-base64: ${TASKFLOW_JWT_SECRET_BASE64:}
 
 server:
+  port: ${PORT:8080}
   error:
     include-binding-errors: never
     include-message: never
