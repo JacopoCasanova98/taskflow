@@ -16,12 +16,14 @@
     }
     <p>{{ serverError() }}</p>
   </div>
-  <div class="actions">
-    <button class="primary" type="submit" [disabled]="nameForm().submitting()">
-      {{ nameForm().submitting() ? 'Saving…' : action() }}
-    </button>
+  <div class="actions tf-dialog-actions">
     <button type="button" [disabled]="nameForm().submitting()" (click)="closed.emit()">
       Cancel
     </button>
+    <button class="primary" type="submit" [disabled]="nameForm().submitting()">
+      {{ nameForm().submitting() ? 'Saving…' : action() }}
+    </button>
   </div>
 </form>
+
+<p class="progress" role="status">{{ nameForm().submitting() ? 'Saving board…' : '' }}</p>

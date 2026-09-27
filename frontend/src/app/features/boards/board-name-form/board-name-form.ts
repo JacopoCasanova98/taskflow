@@ -15,7 +15,7 @@ import { BoardMutationResult } from '../board-list/board-list-state';
   selector: 'app-board-name-form',
   imports: [FormField],
   templateUrl: './board-name-form.html',
-  styleUrl: '../board-controls.scss',
+  styleUrl: './board-name-form.scss',
 })
 export class BoardNameForm implements OnInit {
   readonly inputId = input.required<string>();

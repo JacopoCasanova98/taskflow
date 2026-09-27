@@ -197,7 +197,9 @@ describe('TaskFlow functional acceptance', () => {
     return firstValueFrom(router.events.pipe(filter((event) => event instanceof NavigationEnd)));
   }
   async function logout() {
-    await click('Log out', element.querySelector('header')!);
+    element.querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')!.click();
+    await settle();
+    await click('Log out', document.querySelector<HTMLElement>('[role="menu"]')!);
     const navigation = nextNavigation();
     request('POST', '/api/auth/logout', null).flush(null, {
       status: 204,
@@ -242,14 +244,21 @@ describe('TaskFlow functional acceptance', () => {
     expect(session.user()?.email).toBe(credentials.email);
     expect(session.accessToken()).toBe('login-access');
     expect(router.url).toBe('/boards');
-    expect(element.querySelector('header')?.textContent).toContain(credentials.email);
+    element.querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')!.click();
+    await settle();
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain(credentials.email);
+    document.body.click();
+    await settle();
     request('GET', '/api/boards').flush([]);
     await settle();
     expect(element.textContent).toContain('No boards yet.');
 
-    await click('Create board');
-    await fill('#create-name', board.name);
-    await click('Create board');
+    await click('Create board', element.querySelector('.page-heading')!);
+    const nameInput = document.querySelector<HTMLInputElement>('[role="dialog"] #create-name')!;
+    nameInput.value = board.name;
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    await click('Create board', document.querySelector('[role="dialog"]')!);
     request('POST', '/api/boards', { name: board.name }).flush(board, {
       status: 201,
       statusText: 'Created',

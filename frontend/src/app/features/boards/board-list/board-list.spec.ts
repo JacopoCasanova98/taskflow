@@ -38,12 +38,12 @@ describe('Board list page', () => {
     });
     fixture = TestBed.createComponent(BoardList);
     await settle();
-    element = fixture.nativeElement;
+    element = document.body;
   });
   it('links the Board name without nesting mutation controls', async () => {
     await loaded();
     const link = fixture.debugElement.query(By.directive(RouterLink));
-    expect(link.nativeElement.textContent.trim()).toBe(first.name);
+    expect(link.nativeElement.getAttribute('aria-label')).toBe(first.name);
     expect(link.nativeElement.getAttribute('href')).toBe('/boards/one');
     expect(link.nativeElement.querySelector('button')).toBeNull();
   });
@@ -52,7 +52,10 @@ describe('Board list page', () => {
     await Promise.resolve();
     await fixture.whenStable();
   }
-  function button(text: string, scope: ParentNode = element): HTMLButtonElement {
+  function button(
+    text: string,
+    scope: ParentNode = element.querySelector('[role="dialog"]') ?? element,
+  ): HTMLButtonElement {
     const found = Array.from(scope.querySelectorAll('button')).find(
       (item) => item.textContent?.trim() === text,
     );
@@ -60,7 +63,15 @@ describe('Board list page', () => {
     return found!;
   }
   async function click(text: string, scope: ParentNode = element) {
-    button(text, scope).click();
+    if (text === 'Rename' || text === 'Delete') {
+      (scope.querySelector('button[aria-label^="Board actions"]') as HTMLButtonElement).click();
+      await settle();
+      button(text, element.querySelector('[role="menu"]')!).click();
+    } else
+      button(
+        text,
+        scope === element ? (element.querySelector('[role="dialog"]') ?? element) : scope,
+      ).click();
     await settle();
   }
   async function loaded(boards: Board[] = [first, second]) {
@@ -109,8 +120,14 @@ describe('Board list page', () => {
       first.name,
       second.name,
     ]);
-    expect(element.querySelector('[aria-label="Rename Product Roadmap"]')).not.toBeNull();
-    expect(element.querySelector('[aria-label="Delete Product Roadmap"]')).not.toBeNull();
+    expect(
+      element.querySelector('button[aria-label="Board actions for Product Roadmap"]'),
+    ).not.toBeNull();
+    expect(element.querySelector('[role="menu"]')).toBeNull();
+    await click('Rename');
+    expect(element.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
+      'Rename board',
+    );
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/boards/one');
   });
   it('shows useful empty state only after successful empty load', async () => {
@@ -151,6 +168,8 @@ describe('Board list page', () => {
         expect(element.querySelector('label')?.textContent).toBe('Board name');
         expect(input.value).toBe(kind === 'create' ? '' : first.name);
         expect(document.activeElement).toBe(input);
+        expect(element.querySelector('[role="dialog"]')?.getAttribute('aria-modal')).toBe('true');
+        expect(fixture.nativeElement.querySelector('form')).toBeNull();
       });
       it.each([
         ['', 'Enter a board name.'],
@@ -195,6 +214,14 @@ describe('Board list page', () => {
         expect(api[method]).toHaveBeenCalledTimes(1);
         expect(button('Saving…').disabled).toBe(true);
         expect(button('Cancel').disabled).toBe(true);
+        const close = element.querySelector<HTMLButtonElement>(
+          'button[aria-label="Close dialog"]',
+        )!;
+        expect(close.disabled).toBe(true);
+        document.body.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+        );
+        expect(element.querySelector('form')).not.toBeNull();
         expect(element.textContent).toContain(second.name);
         pending.next({ ...first, id: kind === 'create' ? 'new' : first.id, name: 'Saved' });
         await settle();
@@ -236,27 +263,29 @@ describe('Board list page', () => {
     });
   }
 
-  it('keeps one rename editor while allowing deletion of another Board', async () => {
+  it('keeps a single modal interaction and closes it when the page is destroyed', async () => {
     await loaded();
     await click('Rename');
-    expect(element.querySelectorAll('form')).toHaveLength(1);
-    const other = element.querySelectorAll('li')[1];
-    expect(button('Delete', other).disabled).toBe(false);
-    await click('Delete', other);
-    await click('Delete board');
-    expect(api.deleteBoard).toHaveBeenCalledExactlyOnceWith(second.id);
+    fixture.componentInstance.openCreate(button('Create board', element));
+    expect(element.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     expect(element.querySelector<HTMLInputElement>('input')?.value).toBe(first.name);
+    fixture.destroy();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
   });
   it('delete selection opens explicit named confirmation; Cancel never deletes', async () => {
     await loaded();
     await click('Delete');
     expect(api.deleteBoard).not.toHaveBeenCalled();
-    expect(element.querySelector('h3')?.textContent).toBe('Delete “Product Roadmap”?');
+    expect(element.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
+      'Delete board?',
+    );
+    expect(element.querySelector('.confirmation')?.textContent).toContain(first.name);
+    expect(document.activeElement).toBe(button('Cancel'));
     expect(element.textContent).toContain(
       'This will permanently delete the board and its contents.',
     );
     const panel = element.querySelector('.confirmation')!;
-    expect(panel.getAttribute('aria-labelledby')).toBe(element.querySelector('h3')?.id);
+    expect(element.querySelector('[role="dialog"]')?.getAttribute('aria-modal')).toBe('true');
     await click('Cancel', panel);
     expect(api.deleteBoard).not.toHaveBeenCalled();
     expect(element.querySelector('.confirmation')).toBeNull();
@@ -268,10 +297,19 @@ describe('Board list page', () => {
     await click('Delete');
     await click('Delete board');
     // Exercise the handler guard as well as the disabled UI button.
-    void fixture.componentInstance.deleteBoard();
+    button('Deleting…').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(api.deleteBoard).toHaveBeenCalledExactlyOnceWith(first.id);
     expect(button('Deleting…').disabled).toBe(true);
     expect(button('Cancel').disabled).toBe(true);
+    expect(
+      element.querySelector<HTMLButtonElement>('button[aria-label="Close dialog"]')!.disabled,
+    ).toBe(true);
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    element.querySelector<HTMLElement>('.tf-dialog-backdrop')!.click();
+    await settle();
+    expect(element.querySelector('[role="dialog"]')).not.toBeNull();
     expect(element.querySelectorAll('li')).toHaveLength(2);
     pending.next(undefined);
     await settle();
@@ -315,7 +353,9 @@ describe('Board list page', () => {
       expect(element.querySelector('.confirmation')).toBeNull();
       expect(element.querySelector('li h2')?.textContent).toBe(second.name);
       expect(api.listBoards).toHaveBeenCalledTimes(2);
-      expect(button('Rename').disabled).toBe(false);
+      expect(
+        element.querySelector<HTMLButtonElement>('button[aria-label^="Board actions"]')?.disabled,
+      ).toBe(false);
     },
   );
   it('preserves a pending rename through another Board stale reload without duplicate submission', async () => {
@@ -328,8 +368,8 @@ describe('Board list page', () => {
     const reload = new Subject<Board[]>();
     api.listBoards.mockReturnValue(reload);
     fail('deleteBoard', 404, 'BOARD_NOT_FOUND');
-    await click('Delete', element.querySelectorAll('li')[1]);
-    await click('Delete board');
+    await fixture.componentInstance.state.delete(second.id);
+    await settle();
     expect(element.querySelector('ul')?.hidden).toBe(true);
     reload.next([first]);
     await settle();
@@ -339,5 +379,59 @@ describe('Board list page', () => {
     pending.next({ ...first, name: 'Saved' });
     await settle();
     expect(element.querySelector('li h2')?.textContent).toBe('Saved');
+  });
+  it('supports menu keyboard navigation, Escape, outside dismissal and rename focus restoration', async () => {
+    await loaded();
+    const trigger = element.querySelector<HTMLButtonElement>(
+      'button[aria-label="Board actions for Product Roadmap"]',
+    )!;
+    trigger.focus();
+    trigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }),
+    );
+    await settle();
+    const rename = button('Rename', element);
+    expect(document.activeElement).toBe(rename);
+    rename.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }),
+    );
+    await settle();
+    const remove = button('Delete', element);
+    expect(document.activeElement).toBe(remove);
+    remove.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    await settle();
+    expect(element.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    trigger.click();
+    await settle();
+    document.body.click();
+    await settle();
+    expect(element.querySelector('[role="menu"]')).toBeNull();
+    await click('Rename');
+    await click('Cancel');
+    expect(document.activeElement).toBe(trigger);
+  });
+  it('cancels creation with Escape and restores the stable create action', async () => {
+    await loaded([]);
+    const create = button('Create board', element);
+    await click('Create board');
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    await settle();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
+    expect(api.createBoard).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(create);
+  });
+  it('reconciles an externally removed board and restores focus outside its removed card', async () => {
+    await loaded();
+    await click('Rename');
+    api.listBoards.mockReturnValue(of([second]));
+    await fixture.componentInstance.state.load();
+    await settle();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(button('Create board', element));
   });
 });

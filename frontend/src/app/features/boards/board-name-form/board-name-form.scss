@@ -1,0 +1,33 @@
+@use '../../../../styles/controls' as controls;
+:host {
+  display: block;
+}
+label {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-2);
+}
+input {
+  @include controls.field;
+  width: 100%;
+  min-width: 0;
+}
+.errors {
+  color: var(--color-danger);
+  min-height: 1.5em;
+  font-size: var(--font-size-meta);
+  margin-top: var(--space-2);
+}
+.errors p {
+  margin: 0;
+}
+button {
+  @include controls.button;
+}
+.progress {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

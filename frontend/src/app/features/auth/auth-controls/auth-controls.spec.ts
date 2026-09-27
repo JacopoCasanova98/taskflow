@@ -30,18 +30,30 @@ describe('Authenticated shell controls', () => {
     fixture = TestBed.createComponent(AuthControls);
     await fixture.whenStable();
   });
+  async function openMenu() {
+    fixture.nativeElement.querySelector('button').click();
+    await fixture.whenStable();
+    return document.querySelector<HTMLElement>('[role="menu"]')!;
+  }
+  async function clickLogout() {
+    const menu = await openMenu();
+    menu.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click();
+  }
   it('shows email and logout only while authenticated', async () => {
-    expect(fixture.nativeElement.textContent).toContain('person@example.com');
-    expect(fixture.nativeElement.querySelector('button').textContent).toContain('Log out');
+    expect(fixture.nativeElement.textContent).not.toContain('person@example.com');
+    const menu = await openMenu();
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('person@example.com');
+    expect(menu.querySelector('[role="menuitem"]')?.textContent).toContain('Log out');
     authenticated.set(false);
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent.trim()).toBe('');
     expect(fixture.nativeElement.querySelector('button')).toBeNull();
+    expect(document.querySelector('[role="menu"]')).toBeNull();
   });
   it('navigates to login only after logout succeeds, preventing duplicates', async () => {
     const pending = new Subject<void>();
     logout.mockReturnValue(pending);
-    fixture.nativeElement.querySelector('button').click();
+    await clickLogout();
     await fixture.whenStable();
     await fixture.componentInstance.logout();
     expect(logout).toHaveBeenCalledTimes(1);
@@ -54,15 +66,41 @@ describe('Authenticated shell controls', () => {
   });
   it('preserves authenticated UI on failure, announces a safe error and permits retry', async () => {
     logout.mockReturnValue(throwError(() => new Error('private infrastructure detail')));
-    fixture.nativeElement.querySelector('button').click();
+    await clickLogout();
     await fixture.whenStable();
     expect(navigate).not.toHaveBeenCalled();
     expect(authenticated()).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('person@example.com');
-    expect(fixture.nativeElement.querySelector('[aria-live="polite"]').textContent).toBe(
+    await openMenu();
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('person@example.com');
+    expect(fixture.nativeElement.querySelector('[aria-live="polite"]').textContent.trim()).toBe(
       "We couldn't log you out. Please try again.",
     );
     expect(fixture.nativeElement.textContent).not.toContain('private infrastructure detail');
     expect(fixture.nativeElement.querySelector('button').disabled).toBe(false);
+    logout.mockReturnValue(of(undefined));
+    document.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click();
+    await fixture.whenStable();
+    expect(logout).toHaveBeenCalledTimes(2);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('/login');
+    expect(fixture.nativeElement.querySelector('[aria-live="polite"]').textContent.trim()).toBe('');
+  });
+  it('supports keyboard opening, Escape focus restoration and outside dismissal', async () => {
+    const trigger = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    trigger.focus();
+    trigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }),
+    );
+    await fixture.whenStable();
+    const item = document.querySelector<HTMLElement>('[role="menuitem"]')!;
+    expect(item).not.toBeNull();
+    expect(document.activeElement).toBe(item);
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+    await fixture.whenStable();
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    await openMenu();
+    document.body.click();
+    await fixture.whenStable();
+    expect(document.querySelector('[role="menu"]')).toBeNull();
   });
 });

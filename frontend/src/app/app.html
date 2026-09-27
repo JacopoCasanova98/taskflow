@@ -2,8 +2,22 @@
   Skip to content
 </a>
 
-<header>
-  <span class="brand">TaskFlow</span>
+<header class="app-header">
+  <a class="brand" routerLink="/" aria-label="TaskFlow home">
+    <img src="taskflow-mark.svg" width="36" height="36" alt="" />
+    <span>TaskFlow</span>
+  </a>
+  @if (session.isAuthenticated()) {
+    <nav aria-label="Main navigation">
+      <a
+        routerLink="/boards"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        [routerLinkActiveOptions]="{ exact: true }"
+        >Boards</a
+      >
+    </nav>
+  }
   <app-auth-controls />
 </header>
 

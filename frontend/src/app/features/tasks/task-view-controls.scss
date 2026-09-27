@@ -1,3 +1,5 @@
+@use '../../../styles/controls' as controls;
+
 :host {
   display: block;
   margin-block: 1rem;
@@ -13,18 +15,13 @@
 }
 label {
   display: block;
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   margin-bottom: 0.35rem;
 }
 select,
 input {
+  @include controls.field;
   max-width: 100%;
-  padding: 0.5rem;
-  font: inherit;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
 }
 p {
   margin-bottom: 0;
@@ -37,4 +34,8 @@ p {
 
 .clear-filters {
   align-self: end;
+}
+
+button {
+  @include controls.button;
 }

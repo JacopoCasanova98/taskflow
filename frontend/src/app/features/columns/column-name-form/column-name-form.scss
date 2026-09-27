@@ -1,22 +1,19 @@
+@use '../../../../styles/controls' as controls;
+
 label {
   display: block;
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   margin-bottom: 0.4rem;
 }
 input {
+  @include controls.field;
   width: 100%;
-  padding: 0.65rem;
-  font: inherit;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
 }
 form {
   margin-block: 1rem;
 }
 .errors {
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 .actions {
   display: flex;
@@ -24,19 +21,5 @@ form {
   gap: 0.6rem;
 }
 button {
-  padding: 0.6rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-}
-button.primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
+  @include controls.button;
 }

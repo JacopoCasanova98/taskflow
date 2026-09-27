@@ -1,23 +1,20 @@
+@use '../../../styles/controls' as controls;
+
 :host {
   display: block;
   min-width: 0;
 }
 label {
   display: block;
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   margin-bottom: 0.35rem;
 }
 input,
 textarea,
 select {
+  @include controls.field;
   width: 100%;
   min-width: 0;
-  padding: 0.6rem;
-  font: inherit;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
 }
 textarea {
   resize: vertical;
@@ -29,22 +26,10 @@ textarea {
   margin-block: 1rem;
 }
 button {
-  padding: 0.5rem 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-button:hover:not(:disabled) {
-  background: #eff6ff;
+  @include controls.button;
 }
 .errors {
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 ul {
   display: grid;
@@ -61,6 +46,7 @@ ul {
   overflow-wrap: anywhere;
 }
 .task-title {
+  min-height: auto;
   border: 0;
   padding: 0;
   text-align: left;

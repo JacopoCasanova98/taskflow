@@ -1,99 +1,65 @@
 <section aria-labelledby="boards-title">
-  <div class="page-heading">
+  <header class="page-heading">
     <div>
       <h1 id="boards-title">Boards</h1>
-      <p>A place to organize your work.</p>
+      <p>Organize your projects and keep work moving.</p>
     </div>
-    @if (!creating()) {
-      <button class="primary" type="button" (click)="creating.set(true)">Create board</button>
-    }
-  </div>
-  @if (creating()) {
-    <section class="panel" aria-labelledby="create-title">
-      <h2 id="create-title">Create board</h2>
-      <app-board-name-form
-        inputId="create-name"
-        action="Create board"
-        [save]="create"
-        (closed)="creating.set(false)"
-      />
-    </section>
-  }
-  <p role="status">{{ state.notice() }}</p>
+    <button #createButton class="primary" type="button" (click)="openCreate(createButton)">
+      <app-icon name="plus" /> Create board
+    </button>
+  </header>
+  <p class="notice" role="status">{{ state.notice() }}</p>
   @if (state.loading()) {
-    <p role="status">Loading boards…</p>
+    <div class="state-surface"><p role="status">Loading boards…</p></div>
   } @else if (state.loadError()) {
-    <div class="panel">
+    <div class="state-surface">
+      <h2>Let's try that again</h2>
       <p role="alert">{{ state.loadError() }}</p>
       <button type="button" (click)="state.load()">Retry</button>
     </div>
   } @else if (state.boards().length === 0) {
-    <div class="panel empty">
+    <div class="state-surface empty">
+      <img src="taskflow-mark.svg" width="48" height="48" alt="" />
       <h2>No boards yet.</h2>
       <p>Create your first board to start organizing tasks.</p>
+      <button class="primary" type="button" (click)="openCreate(createButton)">Create board</button>
     </div>
   }
   @if (state.boards().length > 0) {
     <ul class="boards" [hidden]="state.loading() || state.loadError() !== null">
       @for (board of state.boards(); track board.id) {
-        <li class="panel" [attr.aria-labelledby]="'board-' + board.id">
-          <div class="board-heading">
-            <h2 [id]="'board-' + board.id">
-              <a [routerLink]="['/boards', board.id]">{{ board.name }}</a>
-            </h2>
-            <div class="actions">
+        <li class="board-card" [attr.aria-labelledby]="'board-' + board.id">
+          <a class="board-link" [routerLink]="['/boards', board.id]" [attr.aria-label]="board.name">
+            <h2 [id]="'board-' + board.id">{{ board.name }}</h2>
+            <span class="open-label" aria-hidden="true">Open board <span>→</span></span>
+          </a>
+          <button
+            #boardTrigger
+            class="board-menu-trigger"
+            [appIconButton]="'Board actions for ' + board.name"
+            [cdkMenuTriggerFor]="boardMenu"
+          >
+            <app-icon name="more" />
+          </button>
+          <ng-template #boardMenu>
+            <div cdkMenu class="tf-menu" [attr.aria-label]="'Board actions for ' + board.name">
               <button
+                cdkMenuItem
                 type="button"
-                [disabled]="editing() !== null || confirming()?.id === board.id"
-                [attr.aria-label]="'Rename ' + board.name"
-                (click)="editing.set(board)"
+                (cdkMenuItemTriggered)="openRename(board, boardTrigger)"
               >
                 Rename
               </button>
               <button
-                class="danger"
+                cdkMenuItem
+                class="delete-action"
                 type="button"
-                [disabled]="deleting() || editing()?.id === board.id"
-                [attr.aria-label]="'Delete ' + board.name"
-                (click)="confirmDelete(board)"
+                (cdkMenuItemTriggered)="openDelete(board, createButton)"
               >
                 Delete
               </button>
             </div>
-          </div>
-          @if (editing()?.id === board.id) {
-            <app-board-name-form
-              [inputId]="'rename-' + board.id"
-              action="Save name"
-              [initialName]="board.name"
-              [save]="rename"
-              (closed)="editing.set(null)"
-            />
-          }
-          @if (confirming()?.id === board.id) {
-            <section
-              class="confirmation"
-              [attr.aria-labelledby]="'delete-' + board.id"
-              [attr.aria-busy]="deleting()"
-            >
-              <h3 [id]="'delete-' + board.id">Delete “{{ board.name }}”?</h3>
-              <p>This will permanently delete the board and its contents.</p>
-              <p class="errors" role="alert">{{ deleteError() }}</p>
-              <div class="actions">
-                <button
-                  class="danger"
-                  type="button"
-                  [disabled]="deleting()"
-                  (click)="deleteBoard()"
-                >
-                  {{ deleting() ? 'Deleting…' : 'Delete board' }}
-                </button>
-                <button type="button" [disabled]="deleting()" (click)="confirming.set(null)">
-                  Cancel
-                </button>
-              </div>
-            </section>
-          }
+          </ng-template>
         </li>
       }
     </ul>
