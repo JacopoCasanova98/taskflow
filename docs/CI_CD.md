@@ -341,8 +341,45 @@ only: no AWS, OIDC, registry publishing or deployment.
 
 **MS10.6 COMPLETE — hosted ci-gate and live main ruleset verified.**
 
+## Manual GitHub Release (MS10.10)
+
+**Prepared only — no tag or GitHub Release has been created.** The planned version
+is `v1.0.0`; [release notes](RELEASE_NOTES_v1.0.0.md) are the reviewed body source.
+This repository-level version does not change Maven/npm package metadata.
+
+1. Complete the final repository review and merge the MacroStep 10 branch to
+   `main` through the protected PR flow. MS10.9 screenshots are optional.
+2. Require successful CI, including `ci-gate`, on the exact selected `main` commit.
+   A green feature-branch run is not a substitute. Tag pushes do not trigger the
+   current CI workflow.
+3. Use a clean checkout at that commit; confirm its full SHA matches the reviewed
+   remote `main` revision and successful run. Review the release notes at that SHA.
+   Recheck local tags, remote tags, and GitHub releases: if `v1.0.0` exists, stop
+   for human review; do not move/overwrite it or choose another version silently.
+4. Only during the separately authorized final release operation, create an
+   annotated tag on the verified commit and push that tag:
+
+   ```bash
+   git tag -a v1.0.0 -m "TaskFlow v1.0.0" <verified-main-commit-sha>
+   git push origin refs/tags/v1.0.0
+   ```
+
+5. In GitHub Releases, select the existing `v1.0.0` tag, use title
+   `TaskFlow v1.0.0`, and copy the reviewed `docs/RELEASE_NOTES_v1.0.0.md` from the
+   tagged commit as the body. Review and publish the release manually. Do not
+   attach fabricated binaries or images; attach assets only if intentionally
+   produced and reviewed. GitHub-generated source archives are not Docker releases.
+6. Verify the published release and tag resolve to the selected commit, then
+   record the actual release URL/evidence and mark MS10.10 complete in a follow-up.
+   Preparing notes or a draft alone does not complete the milestone.
+
+No AWS credentials, ECR publication, AWS deployment, or Render/Neon operation is
+part of this GitHub Release procedure. GitHub authentication for publication is
+separate from AWS authorization.
+
 ## Later ownership
 
-MS10.7–MS10.11 remain deferred.
+MS10.7 and MS10.8 are complete. MS10.9 is deferred/optional; MS10.10 is prepared
+but pending the final release action, and MS10.11 remains unstarted.
 GitHub CI is real executable automation. AWS registry delivery and deployment
 remain reference/design only under the zero-AWS policy.

@@ -304,8 +304,8 @@ independent real operator could do; the project does not execute their AWS steps
   - [x] MS10.7A — Free portfolio live demo — COMPLETE
   - [x] MS10.7B — Professional README — COMPLETE
 - [x] MS10.8 — Diagrams
-- [ ] MS10.9 — Portfolio assets
-- [ ] MS10.10 — GitHub release
+- [ ] MS10.9 — Portfolio assets: DEFERRED / OPTIONAL
+- [ ] MS10.10 — GitHub release: PREPARED, pending final release action
 - [ ] MS10.11 — Final repository cleanup
 
 **MS10.1 COMPLETE — GitHub-hosted CI run #2 passed on Ubuntu 24.04 with both backend-quality and frontend-quality successful.**
@@ -419,3 +419,21 @@ manual syntax/structure review; no renderer or diagram dependency was introduced
 README and architecture navigation link to the canonical page. No AWS resource
 was provisioned and no provider configuration, code, CI or IaC behavior changed.
 MS10.9–MS10.11 remain unchecked and unstarted.
+
+**MS10.9 adaptation — DEFERRED / OPTIONAL (2026-09-27).**
+Real screenshots may be added manually later. The repository already provides a
+live public demo and source-controlled architecture diagrams; screenshots are
+presentation polish, not a technical completion requirement. MS10.9 no longer
+blocks MacroStep 10 completion and is not marked complete. No fake/generated
+screenshots, placeholders, or image assets were added.
+
+**MS10.10 PREPARED — v1.0.0 release material (2026-09-27).**
+[Reviewed-body source](RELEASE_NOTES_v1.0.0.md) describes the implemented portfolio
+application, verification evidence, live non-production demo, and unprovisioned
+AWS reference design. [Manual release procedure](CI_CD.md#manual-github-release-ms1010)
+requires the MacroStep 10 merge and green CI on the selected `main` commit before
+an annotated tag and GitHub Release are created. Local/remote tag lists and the
+public GitHub release listing were empty during preparation; recheck before
+publication. Maven/npm package versions remain unchanged. No tag, release, commit,
+or push was performed. MS10.10 remains unchecked until the actual GitHub Release
+exists; MS10.11 remains unstarted.
