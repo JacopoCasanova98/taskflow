@@ -1,8 +1,29 @@
 # Free portfolio demo — MS10.7A
 
-Repository preparation only; **live Render/Neon deployment and public URL are
-pending**. This separate, disposable demo lets recruiters try TaskFlow. The final
-professional README will follow live validation; it is not written in this step.
+**Live deployment and core user flow validated on 2026-09-27.** This separate,
+disposable, non-production demo lets recruiters try TaskFlow. MS10.7A is complete;
+MS10.7B (the professional README) is next and remains pending.
+
+- Frontend: [TaskFlow live demo](https://taskflow-demo-frontend-bod0.onrender.com)
+  — Render Static Site, Angular production build, same-origin `/api`.
+- Backend: [Render backend](https://taskflow-6udg.onrender.com)
+  — Render Free Web Service, Docker runtime, Frankfurt, `demo` profile.
+- Database: Neon Free, Frankfurt (`aws-eu-central-1`), PostgreSQL **17.11**,
+  database `taskflow`, dedicated role `taskflow_app`, direct/unpooled endpoint.
+
+The human verified deployment and browser flows on commit
+`797a3e4e3ee815ed11380ad751da6c1c420afb00` (`deploy: prepare free portfolio demo`).
+[GitHub Actions CI run #5, 36309160331](https://github.com/JacopoCasanova98/taskflow/actions/runs/36309160331)
+passed `backend-quality`, `frontend-quality`, both backend/frontend `docker-build`
+jobs, and `ci-gate`. Automated checks and the human live smoke evidence below
+are separate evidence.
+
+Both Render services currently use the temporary
+`feature/ci-portfolio-preparation` branch with **auto-deploy OFF**. They must
+ultimately deploy from **`main` after MacroStep 10 is merged**. Provider resources
+were configured externally; this repository does not automatically provision
+Render or Neon. Live credentials remain provider-managed and are never documented.
+No paid resource was introduced; AWS remains a separate, non-provisioned reference.
 
 ## Architecture and €0 boundary
 
@@ -40,9 +61,9 @@ current Free allowance is authoritative; this repository does not provision Neon
 
 ## Neon preparation (existing external project)
 
-The dedicated Neon Free project already exists externally; this repository neither
-creates nor inspects it. Verify its Free plan, region and PostgreSQL version
-(17 is the tested major version). Verify or create database `taskflow` and a dedicated
+The externally managed project was verified as Neon Free, Frankfurt, PostgreSQL
+17.11. On recreation, verify the Free plan, region and PostgreSQL 17 version.
+Verify or create database `taskflow` and a dedicated
 login role `taskflow_app` with a unique password using Neon’s secure controls.
 Make it owner of this disposable database and allow it to create objects in the
 `public` schema. Do not reuse personal/project administrator credentials in Render.
@@ -50,14 +71,16 @@ Make it owner of this disposable database and allow it to create objects in the
 Unlike production, this demo role runs Flyway at startup and therefore needs DDL
 privileges on its own database/schema. This intentional demo tradeoff is not the
 production `taskflow_migrator`/runtime-role split. Existing migrations are reused;
-Hibernate stays `ddl-auto=validate`. Do not enable Flyway clean/baseline shortcuts.
+Hibernate stays `ddl-auto=validate`. Live startup successfully validated all six
+Flyway migrations, reached/currently uses schema version 6, and passed Hibernate
+validation. Do not enable Flyway clean/baseline shortcuts.
 
 Choose Neon's **direct/unpooled** endpoint for startup migrations and the small
 Hikari pool. Enter the JDBC URL only in Render's backend environment. Its shape is
 `jdbc:postgresql://<neon-host>:5432/taskflow?sslmode=require`; no real host or
 connection string is committed. Username/password are separate variables, never
 URL parameters. Optional `&channelBinding=require` is accepted (JDBC spelling),
-and recommended when verified with the supplied endpoint/driver. Do not copy a
+and was verified in the live deployment together with `sslmode=require`. Do not copy a
 libpq `channel_binding` parameter into JDBC.
 
 The demo-only guard requires this database, port, role and TLS URL shape and
@@ -65,7 +88,7 @@ rejects embedded credentials, duplicate options and TLS-disable overrides. It al
 rejects disabled Flyway or a Hibernate mode other than `validate`. It is
 not a Neon hostname allowlist. `sslmode=require` encrypts but does not authenticate
 the server certificate like AWS's `verify-full` contract; use only disposable demo
-data and validate channel binding before publishing the link. No AWS CA path is
+data and revalidate channel binding when changing endpoints or drivers. No AWS CA path is
 used. [pgJDBC TLS semantics](https://jdbc.postgresql.org/documentation/ssl/),
 [Neon connection-security guidance](https://neon.com/blog/postgres-needs-better-connection-security-defaults).
 
@@ -75,7 +98,9 @@ used. [pgJDBC TLS semantics](https://jdbc.postgresql.org/documentation/ssl/),
 `rootDir: backend`, Docker context `.`, `plan: free`, `region: frankfurt` and
 `/actuator/health`. No extra actuator endpoint is exposed; health details remain
 hidden. The base application uses `${PORT:8080}`: Render supplies `PORT`, while
-local Docker and AWS retain 8080 when it is absent. Do not pin a Render port.
+local Docker and AWS retain 8080 when it is absent. Live startup successfully used
+Render's `PORT`; `/actuator/health` is the configured Render health check. Do not
+pin a Render port.
 
 | Variable | Backend-only value/source |
 | --- | --- |
@@ -99,8 +124,9 @@ The demo profile enables framework forwarded-header handling behind Render's HTT
 edge and retains Secure cookies. It inherits existing HttpOnly/SameSite/CSRF
 behavior. Do not expose the app outside the trusted provider proxy or disable
 Secure cookies/CORS protection to mask a routing defect. The public backend URL
-is still reachable; this is not private AWS ingress. Live proxy/cookie behavior
-must pass the smoke test below.
+is still reachable; this is not private AWS ingress. The live auth and mutation
+flows below passed through the proxy. Detailed cookie-attribute/header inspection
+and negative CSRF checks were not recorded in that live session.
 
 Hikari uses at most two connections, zero minimum idle, a 30-second idle timeout
 and no keepalive. This limits idle database use; it does not promise zero compute
@@ -118,8 +144,15 @@ relative to `rootDir`. Angular remains unchanged and uses same-origin `/api`.
 
 Render does not interpolate Blueprint variables into route destinations. Routes
 are deliberately omitted from the Blueprint so it does not silently replace a
-manual backend destination or send API requests to the SPA. Once Render assigns
-the backend HTTPS URL, configure these Dashboard **Rewrite** rules in this order:
+manual backend destination or send API requests to the SPA. The live Static Site
+has these manually configured Dashboard **Rewrite** rules, in this order:
+
+1. `/api/*` → `https://taskflow-6udg.onrender.com/api/*` (Rewrite).
+2. `/*` → `/index.html` (Rewrite).
+
+Same-origin routing worked for the recorded browser auth and CRUD flows. Preserve
+the API rule before the SPA fallback. For recreation with a newly assigned backend
+origin, use this routing contract:
 
 | Priority | Source | Destination |
 | --- | --- | --- |
@@ -135,7 +168,7 @@ and Set-Cookie reaches the frontend origin. No broad CORS or hardcoded Angular A
 URL is needed. [Render rewrite syntax](https://render.com/docs/redirects-rewrites),
 [route priority](https://api-docs.render.com/reference/add-route).
 
-## Deployment procedure — pending, not executed here
+## Deployment and recreation procedure
 
 1. Review and manually commit/push when authorized; require the existing green
    CI gate. Long-term both services deploy from `main` after MacroStep 10 merges.
@@ -143,7 +176,8 @@ URL is needed. [Render rewrite syntax](https://render.com/docs/redirects-rewrite
 3. In Render, review the Blueprint preview before creating anything. Verify the
    free plan and no payment method; fill the backend secret prompts. Initial
    Blueprint creation starts builds even though automatic deploys are off.
-4. Both services explicitly use `branch: main` and `autoDeployTrigger: off`.
+4. The repository Blueprint specifies `branch: main` and `autoDeployTrigger: off`
+   for both services; the current live branch is the temporary feature branch above.
    Keep Blueprint Auto Sync off in the Dashboard as well: service auto-deploy
    settings do not prevent configuration syncs from deploying. No previews or
    feature-branch auto-deploys are required. For initial validation before merge,
@@ -153,12 +187,29 @@ URL is needed. [Render rewrite syntax](https://render.com/docs/redirects-rewrite
 5. Wait for backend health and successful Flyway startup, without logging secrets.
    Configure both frontend rewrites and wait for its build. Check the smoke list.
 6. Record the reviewed commit, public frontend URL and actual smoke evidence only
-   after success. A URL is not fabricated here; final README work remains pending.
+   after success. Update the evidence above for later deployments; MS10.7B
+   professional README work remains pending.
 
 No Render deploy hook/token is added to GitHub Actions. Later deployments remain
 manual and must follow successful CI. [Blueprint sync behavior](https://render.com/docs/infrastructure-as-code).
 
-## Live smoke checklist
+## Live browser smoke evidence — 2026-09-27
+
+The human manually verified these flows through the public frontend:
+
+- TaskFlow loads over HTTPS.
+- Account registration, logout, and login with the same account work.
+- Board creation and Column creation work.
+- Task creation, editing, and deletion work.
+- Browser refresh preserves persisted application data.
+- Logout followed by refresh does not leave the user authenticated.
+
+This establishes the core user flow for the deployed commit, not production
+readiness or exhaustive proxy/security behavior. No live two-account isolation,
+natural cold-start-after-sleep, availability/SLA, or AWS deployment claim is made.
+Existing automated ownership/security tests remain separate evidence.
+
+## Repeat validation and remaining live checks
 
 Before live deployment, run `./mvnw -B -ntp verify` from `backend/` with Docker
 running (Testcontainers and local HTTP tests require Docker/socket access), then
@@ -169,20 +220,23 @@ configuration and offline Blueprint contract; they do not contact Neon or Render
 Run the existing CI/policy/security/release/deployment/readiness/runbook regressions
 and Gitleaks before review. Run frontend quality if frontend code/config changes.
 
-- Open HTTPS `/` and reload a nested Angular route: both serve the SPA.
-- Verify backend `/actuator/health` returns healthy without sensitive details.
-- From the frontend origin, request `/api/auth/csrf`; verify an API response, no
-  cross-origin redirect or SPA HTML, and appropriate non-cacheable behavior.
-- Register a disposable account, login, create a board/column/task, edit/delete it,
-  refresh the page, refresh authentication and logout. Exercise POST/PUT/DELETE,
-  CSRF enforcement and Secure/HttpOnly/SameSite cookie behavior via browser tools.
-- Use a second account to verify private-data isolation and no shared response cache.
-- Let hosting sleep naturally; verify wake/retry behavior without scheduled pings.
-- Confirm Free plans, no payment method, no paid resource and usage within limits.
+Repeat the recorded core flows after deployment changes. The following additional
+live checks were **not explicitly recorded** in this session and remain unverified:
+
+- Direct nested-route reload and explicit SPA fallback inspection.
+- Direct health-response inspection for absence of sensitive details (the Render
+  health-check path is configured, as recorded above).
+- Explicit `/api/auth/csrf` response/cache inspection, negative CSRF enforcement,
+  Secure/HttpOnly/SameSite attribute inspection, and authentication refresh behavior.
+- Two-account isolation and absence of shared API-response caching.
+- Natural Render sleep followed by wake/retry behavior.
+
+Continue monitoring Free plans and usage limits. No keep-alive hacks, cron pings,
+synthetic uptime bots, or paid always-on services are used.
 
 If external rewriting fails authenticated mutations or cookie forwarding, do not
 publish the URL or weaken security. Record the provider limitation for a separate
-design decision; repository preparation is not evidence of live proxy correctness.
+design decision; the successful core smoke flows do not prove every proxy behavior.
 
 ## Limitations and teardown
 
@@ -197,7 +251,7 @@ and Blueprint in Render, then delete the dedicated Neon demo project and revoke 
 credentials. Check both dashboards for remaining demo resources; delete only these
 resources, never production/reference infrastructure. No teardown runs here.
 
-Provider documentation checked **2026-09-27**. Repository/static tests and local
-backend verification do not prove live provider eligibility, proxy behavior or
-Neon connectivity. This repository work creates no account, service, secret or public
-deployment; the pre-existing external Neon project remains separate.
+Provider documentation checked **2026-09-27**. Live deployment and human browser
+validation were recorded on **2026-09-27** for the commit above. This closeout changes
+documentation only; it performs no provider operation. Availability, future
+provider eligibility, and the explicitly unverified checks are not guaranteed.

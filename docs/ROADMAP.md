@@ -300,7 +300,9 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.4 — Automated deployment design / dry-run contract
 - [x] MS10.5 — CI/CD identity and secrets security design
 - [x] MS10.6 — Branch / PR quality gate
-- [ ] MS10.7 — Professional README (in progress: free portfolio-demo preparation)
+- [ ] MS10.7 — Professional README / portfolio demo
+  - [x] MS10.7A — Free portfolio live demo — COMPLETE
+  - [ ] MS10.7B — Professional README — pending
 - [ ] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets
 - [ ] MS10.10 — GitHub release
@@ -374,9 +376,24 @@ screenshots, demo and local evidence instead. GitHub Releases may be real becaus
 they do not require AWS provisioning. These adaptations do not authorize any
 later milestone's implementation during MS10.6.
 
-**MS10.7A — free portfolio demo repository preparation.**
-[Portfolio demo](PORTFOLIO_DEMO.md) defines a separate €0 Render Static Site +
-Render Free Docker backend + Neon Free path. AWS production contracts remain
-unchanged. Live provider deployment/routing validation and the final professional
-README are pending; MS10.7 is not complete. No public URL is fabricated.
+**MS10.7A COMPLETE — free portfolio demo live and core user flow validated (2026-09-27).**
+[Portfolio demo](PORTFOLIO_DEMO.md) records deployed commit
+`797a3e4e3ee815ed11380ad751da6c1c420afb00` (`deploy: prepare free portfolio demo`).
+[CI run #5, 36309160331](https://github.com/JacopoCasanova98/taskflow/actions/runs/36309160331)
+was green: both quality jobs, both Docker build jobs and `ci-gate` passed.
+The Render Static Site [frontend](https://taskflow-demo-frontend-bod0.onrender.com)
+and Render Free Docker [backend](https://taskflow-6udg.onrender.com) are live;
+the backend and Neon Free PostgreSQL 17.11 are in Frankfurt. Flyway validated six
+migrations with schema v6; Hibernate validation passed. Manual ordered API/SPA
+rewrites support the same-origin frontend. The human browser smoke passed HTTPS
+loading, registration/logout/login, board/column creation, task creation/editing/
+deletion, persisted data after refresh, and logout followed by refresh remaining
+unauthenticated. Two-account isolation and natural cold-start testing remain
+unverified live; automated security tests are separate evidence.
+
+No AWS resource was provisioned and no paid resource was introduced. AWS production
+contracts remain unchanged; Render/Neon hosting is explicitly non-production.
+Both Render services have auto-deploy OFF and temporarily use
+`feature/ci-portfolio-preparation`; restore `main` after MacroStep 10 merges.
+MS10.7B (professional README) is next and pending, so parent MS10.7 remains unchecked.
 MS10.8–MS10.11 remain unchecked and unstarted.
