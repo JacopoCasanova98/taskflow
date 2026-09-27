@@ -300,9 +300,9 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.4 — Automated deployment design / dry-run contract
 - [x] MS10.5 — CI/CD identity and secrets security design
 - [x] MS10.6 — Branch / PR quality gate
-- [ ] MS10.7 — Professional README / portfolio demo
+- [x] MS10.7 — Professional README / portfolio demo
   - [x] MS10.7A — Free portfolio live demo — COMPLETE
-  - [ ] MS10.7B — Professional README — pending
+  - [x] MS10.7B — Professional README — COMPLETE
 - [ ] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets
 - [ ] MS10.10 — GitHub release
@@ -395,5 +395,16 @@ No AWS resource was provisioned and no paid resource was introduced. AWS product
 contracts remain unchanged; Render/Neon hosting is explicitly non-production.
 Both Render services have auto-deploy OFF and temporarily use
 `feature/ci-portfolio-preparation`; restore `main` after MacroStep 10 merges.
-MS10.7B (professional README) is next and pending, so parent MS10.7 remains unchecked.
+MS10.7A live evidence remains separate from automated security tests and the AWS reference design.
+MS10.8–MS10.11 remain unchecked and unstarted.
+
+**MS10.7B COMPLETE — professional README (2026-09-27).**
+The [README](../README.md) now prominently links the validated live portfolio demo
+and summarizes product capabilities, engineering decisions, technology, local
+setup, quality gates, repository structure, and technical documentation. It
+clearly separates the non-production Render/Neon demo from implemented but
+non-provisioned AWS reference IaC. Claims and links were reviewed against tracked
+configuration and the MS10.7A evidence; no application or provider change is part
+of this documentation milestone. MS10.7A and MS10.7B are complete, closing parent
+MS10.7. Diagrams (MS10.8) and screenshots/portfolio assets (MS10.9) remain deferred;
 MS10.8–MS10.11 remain unchecked and unstarted.
