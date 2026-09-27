@@ -18,6 +18,9 @@ class ForwardedHeadersTest {
         verify("native", "https|true|443|taskflow.example.com|198.51.100.8");
     }
     @Test void localDoesNotPromoteClientForwardingHeaders() { verify("none", null); }
+    @Test void demoFrameworkUsesForwardedHttpsHeaders() {
+        verify("framework", "https|true|443|taskflow.example.com|198.51.100.8");
+    }
 
     private void verify(String strategy, String expected) {
         new ApplicationContextRunner(AnnotationConfigServletWebServerApplicationContext::new)

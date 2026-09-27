@@ -300,7 +300,7 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.4 — Automated deployment design / dry-run contract
 - [x] MS10.5 — CI/CD identity and secrets security design
 - [x] MS10.6 — Branch / PR quality gate
-- [ ] MS10.7 — Professional README
+- [ ] MS10.7 — Professional README (in progress: free portfolio-demo preparation)
 - [ ] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets
 - [ ] MS10.10 — GitHub release
@@ -373,3 +373,10 @@ credentials required. No deployed-app URL will be fabricated: MS10.9 uses
 screenshots, demo and local evidence instead. GitHub Releases may be real because
 they do not require AWS provisioning. These adaptations do not authorize any
 later milestone's implementation during MS10.6.
+
+**MS10.7A — free portfolio demo repository preparation.**
+[Portfolio demo](PORTFOLIO_DEMO.md) defines a separate €0 Render Static Site +
+Render Free Docker backend + Neon Free path. AWS production contracts remain
+unchanged. Live provider deployment/routing validation and the final professional
+README are pending; MS10.7 is not complete. No public URL is fabricated.
+MS10.8–MS10.11 remain unchecked and unstarted.
