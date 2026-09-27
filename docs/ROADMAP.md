@@ -306,7 +306,11 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets: DEFERRED / OPTIONAL
 - [ ] MS10.10 — GitHub release: PREPARED, pending final release action
-- [ ] MS10.11 — Final repository cleanup
+- [x] MS10.11 — Final repository cleanup
+
+MacroStep 10 remains in progress pending actual release publication. The checklist
+above records current status; closeouts below preserve evidence and milestone
+states at the time each was written.
 
 **MS10.1 COMPLETE — GitHub-hosted CI run #2 passed on Ubuntu 24.04 with both backend-quality and frontend-quality successful.**
 CI #1 passed frontend quality and failed backend quality (CSRF test-context
@@ -437,3 +441,37 @@ public GitHub release listing were empty during preparation; recheck before
 publication. Maven/npm package versions remain unchanged. No tag, release, commit,
 or push was performed. MS10.10 remains unchecked until the actual GitHub Release
 exists; MS10.11 remains unstarted.
+
+**MS10.11 COMPLETE — final repository cleanup (2026-09-27).**
+Audited release-preparation baseline `a6142099feee66308dce6f03ab1e22b8c15301b0`.
+No accidental tracked build outputs, logs, archives, credentials or screenshot
+artifacts required removal; no ignore-rule change was justified. Corrected stale
+README/governance milestone wording and scoped registry deployment statements to
+AWS. Release notes explicitly remain prepared material, not publication evidence.
+README and release scope remain consistent with the live non-production demo and
+the unprovisioned AWS reference architecture.
+
+Validation passed: 63 lightweight demo, readiness, runbook, CI, governance,
+identity, release and deployment tests; standalone observability and edge
+contracts; cached offline Terraform formatting/validation and CloudFormation
+lint for `eu-west-1`; relative Markdown links; Gitleaks history/worktree scans;
+and whitespace checks. The interrupted observability failure was an invocation
+error (a standalone script passed to `unittest`), resolved without changing tests.
+No application, dependency, workflow, Docker, IaC or provider behavior changed.
+
+MS10.9 remains deferred/optional and non-blocking. MS10.10 remains prepared and
+unchecked until publication. MacroStep 10 is not yet fully complete.
+
+Remaining external closeout, performed separately by the human:
+
+1. Commit and push MS10.11.
+2. Open the final MacroStep 10 PR to `main`.
+3. Obtain a green required `ci-gate`.
+4. Merge to `main`.
+5. Manually restore both Render demo services from the temporary feature branch to `main`.
+6. Verify final `main` CI and the live demo.
+7. Create annotated tag `v1.0.0` on the exact verified release commit.
+8. Publish the GitHub Release using [reviewed release notes](RELEASE_NOTES_v1.0.0.md).
+
+No AWS operation belongs to this sequence. No tag, release, PR, commit or push
+was performed during cleanup.

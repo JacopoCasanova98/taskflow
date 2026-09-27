@@ -2,7 +2,7 @@
 
 **Live deployment and core user flow validated on 2026-09-27.** This separate,
 disposable, non-production demo lets recruiters try TaskFlow. MS10.7A is complete;
-MS10.7B (the professional README) is next and remains pending.
+MS10.7B is also complete, with the live demo linked from the [professional README](../README.md).
 
 - Frontend: [TaskFlow live demo](https://taskflow-demo-frontend-bod0.onrender.com)
   — Render Static Site, Angular production build, same-origin `/api`.
@@ -187,8 +187,7 @@ URL is needed. [Render rewrite syntax](https://render.com/docs/redirects-rewrite
 5. Wait for backend health and successful Flyway startup, without logging secrets.
    Configure both frontend rewrites and wait for its build. Check the smoke list.
 6. Record the reviewed commit, public frontend URL and actual smoke evidence only
-   after success. Update the evidence above for later deployments; MS10.7B
-   professional README work remains pending.
+   after success. Update the evidence above and the README as needed for later deployments.
 
 No Render deploy hook/token is added to GitHub Actions. Later deployments remain
 manual and must follow successful CI. [Blueprint sync behavior](https://render.com/docs/infrastructure-as-code).

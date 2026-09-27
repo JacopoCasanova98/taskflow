@@ -137,5 +137,5 @@ selector and the live default-branch selector currently protect the same branch.
 This close-out records successful hosted execution and live configuration; it
 claims no destructive push/deletion test or new GitHub admin operation.
 
-MS10.6 is complete. MS10.7–MS10.11 remain deferred.
+MS10.6 is complete. See the [roadmap](ROADMAP.md) for current milestone status.
 Official GitHub documentation cited above was verified **2026-09-26**.

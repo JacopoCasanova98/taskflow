@@ -148,7 +148,7 @@ artifact checksum or local image ID is not a registry manifest digest.
 MS10.10 owns any actual GitHub Release asset. No artifact upload, release asset,
 fake pair, executable registry workflow or normal-CI publication is added here.
 MS10.4 offline planning and MS10.5 identity/security design are complete.
-No publication or live deployment has occurred; their interfaces grant no live authority.
+No ECR publication or AWS deployment has occurred; their interfaces grant no live authority.
 
 ## Local validation
 

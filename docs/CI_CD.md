@@ -380,6 +380,6 @@ separate from AWS authorization.
 ## Later ownership
 
 MS10.7 and MS10.8 are complete. MS10.9 is deferred/optional; MS10.10 is prepared
-but pending the final release action, and MS10.11 remains unstarted.
+but pending the final release action, and MS10.11 repository cleanup is complete.
 GitHub CI is real executable automation. AWS registry delivery and deployment
 remain reference/design only under the zero-AWS policy.

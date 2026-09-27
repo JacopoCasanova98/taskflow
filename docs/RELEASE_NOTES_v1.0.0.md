@@ -1,5 +1,8 @@
 # TaskFlow v1.0.0
 
+Prepared release body: tagging and GitHub Release publication remain pending the
+final merge and successful CI on `main`.
+
 TaskFlow v1.0.0 marks the first complete portfolio release of the application:
 a production-oriented Kanban platform with a live non-production demo and a
 reviewable engineering baseline. This release is not a production deployment claim.
