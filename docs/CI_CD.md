@@ -343,8 +343,8 @@ only: no AWS, OIDC, registry publishing or deployment.
 
 ## Manual GitHub Release (MS10.10)
 
-**Prepared only — no tag or GitHub Release has been created.** The planned version
-is `v1.0.0`; [release notes](RELEASE_NOTES_v1.0.0.md) are the reviewed body source.
+**Completed for `v1.0.0`.** The procedure below documents the first release;
+[release notes](RELEASE_NOTES_v1.0.0.md) are the reviewed body source.
 This repository-level version does not change Maven/npm package metadata.
 
 1. Complete the final repository review and merge the MacroStep 10 branch to
@@ -377,9 +377,16 @@ No AWS credentials, ECR publication, AWS deployment, or Render/Neon operation is
 part of this GitHub Release procedure. GitHub authentication for publication is
 separate from AWS authorization.
 
-## Later ownership
+## Final release status
 
-MS10.7 and MS10.8 are complete. MS10.9 is deferred/optional; MS10.10 is prepared
-but pending the final release action, and MS10.11 repository cleanup is complete.
+GitHub Release `v1.0.0` is published. PR #9 merged to `main` at
+`4098751c0cdad81ae8c26e0371eda5cba709f90c`; main CI run `36325514971` succeeded.
+Both Render services were restored to `main` and deployed that exact commit,
+followed by human live-demo revalidation and exact tag-to-release-commit
+verification. The manual procedure above is retained as the release record;
+do not recreate or move the existing tag.
+
+MacroStep 10, including MS10.10 and MS10.11, is complete. MS10.9 remains
+deferred/optional and non-blocking.
 GitHub CI is real executable automation. AWS registry delivery and deployment
 remain reference/design only under the zero-AWS policy.

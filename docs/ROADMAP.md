@@ -292,7 +292,7 @@ purchase, live URL, real certificate, secret population, AWS stack, cloud restor
 or public-cloud smoke test is required or authorized. Runbooks describe what an
 independent real operator could do; the project does not execute their AWS steps.
 
-## MacroStep 10 — CI/CD and portfolio preparation
+## MacroStep 10 — CI/CD and portfolio preparation — COMPLETE
 
 - [x] MS10.1 — GitHub Actions baseline
 - [x] MS10.2 — Docker CI
@@ -305,10 +305,10 @@ independent real operator could do; the project does not execute their AWS steps
   - [x] MS10.7B — Professional README — COMPLETE
 - [x] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets: DEFERRED / OPTIONAL
-- [ ] MS10.10 — GitHub release: PREPARED, pending final release action
+- [x] MS10.10 — GitHub release: COMPLETE
 - [x] MS10.11 — Final repository cleanup
 
-MacroStep 10 remains in progress pending actual release publication. The checklist
+MacroStep 10 is complete following publication of `v1.0.0`. The checklist
 above records current status; closeouts below preserve evidence and milestone
 states at the time each was written.
 
@@ -459,10 +459,10 @@ and whitespace checks. The interrupted observability failure was an invocation
 error (a standalone script passed to `unittest`), resolved without changing tests.
 No application, dependency, workflow, Docker, IaC or provider behavior changed.
 
-MS10.9 remains deferred/optional and non-blocking. MS10.10 remains prepared and
-unchecked until publication. MacroStep 10 is not yet fully complete.
+At the MS10.11 closeout, MS10.9 was deferred/optional and non-blocking; MS10.10
+was prepared but unpublished, so MacroStep 10 was not yet fully complete.
 
-Remaining external closeout, performed separately by the human:
+External closeout planned at MS10.11, subsequently completed by the human:
 
 1. Commit and push MS10.11.
 2. Open the final MacroStep 10 PR to `main`.
@@ -475,3 +475,15 @@ Remaining external closeout, performed separately by the human:
 
 No AWS operation belongs to this sequence. No tag, release, PR, commit or push
 was performed during cleanup.
+
+**MS10.10 and MacroStep 10 COMPLETE — v1.0.0 published.**
+PR #9, “Complete MacroStep 10 — CI/CD and Portfolio Preparation”, merged into
+`main` at `4098751c0cdad81ae8c26e0371eda5cba709f90c`. Main CI run
+`36325514971` completed successfully for that exact commit. Both Render services
+were restored to `main`, and both frontend and backend deployed that release
+commit. The human manually revalidated the
+[live demo](https://taskflow-demo-frontend-bod0.onrender.com) after deployment.
+Tag `v1.0.0` was verified against the same main/release commit, and the human
+published GitHub Release `v1.0.0` using the reviewed release notes.
+AWS remained completely unprovisioned. MS10.11 remains complete; MS10.9
+screenshots remain deferred/optional and do not block completion.
