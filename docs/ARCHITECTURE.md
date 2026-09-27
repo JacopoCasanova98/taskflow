@@ -2,6 +2,10 @@
 
 ## Overview
 
+[Architecture diagrams](DIAGRAMS.md) summarize the logical application, live demo,
+AWS reference infrastructure, and delivery boundaries; the specifications here
+and in the linked documents remain authoritative.
+
 Milestone sections retain implementation-time evidence. The final MacroStep 8
 verification section records current IaC status; earlier deferrals are historical.
 

@@ -41,6 +41,8 @@ and remaining live checks.
 
 ## Architecture
 
+[View architecture diagrams](docs/DIAGRAMS.md)
+
 The backend is a feature-oriented modular monolith with separate API, application,
 domain, and persistence responsibilities. The Angular frontend uses standalone
 components, signals, and feature-owned API clients. Both communicate through

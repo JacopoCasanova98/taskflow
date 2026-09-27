@@ -303,7 +303,7 @@ independent real operator could do; the project does not execute their AWS steps
 - [x] MS10.7 — Professional README / portfolio demo
   - [x] MS10.7A — Free portfolio live demo — COMPLETE
   - [x] MS10.7B — Professional README — COMPLETE
-- [ ] MS10.8 — Diagrams
+- [x] MS10.8 — Diagrams
 - [ ] MS10.9 — Portfolio assets
 - [ ] MS10.10 — GitHub release
 - [ ] MS10.11 — Final repository cleanup
@@ -408,3 +408,14 @@ configuration and the MS10.7A evidence; no application or provider change is par
 of this documentation milestone. MS10.7A and MS10.7B are complete, closing parent
 MS10.7. Diagrams (MS10.8) and screenshots/portfolio assets (MS10.9) remain deferred;
 MS10.8–MS10.11 remain unchecked and unstarted.
+
+**MS10.8 COMPLETE — source-controlled architecture diagrams (2026-09-27).**
+[Canonical Mermaid diagrams](DIAGRAMS.md) cover the logical application, live
+Render/Neon portfolio demo, non-provisioned AWS reference architecture, and
+implemented CI versus reference delivery flow. Markdown sources and every flow
+were audited against the authoritative architecture, runtime, IaC, workflow,
+governance, release, deployment and identity contracts. Mermaid source received
+manual syntax/structure review; no renderer or diagram dependency was introduced.
+README and architecture navigation link to the canonical page. No AWS resource
+was provisioned and no provider configuration, code, CI or IaC behavior changed.
+MS10.9–MS10.11 remain unchecked and unstarted.
