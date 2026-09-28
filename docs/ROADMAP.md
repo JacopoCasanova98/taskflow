@@ -502,10 +502,16 @@ behavior. Avoid dense developer interfaces and enterprise/admin-dashboard stylin
 - [x] MS11.3 — Application shell and interaction infrastructure
 - [x] MS11.4 — Authentication experience
 - [x] MS11.5 — Boards dashboard
-- [ ] MS11.6 — Modern Kanban workspace
-- [ ] MS11.7 — Task details and task forms
-- [ ] MS11.8 — Search, filters and sorting experience
-- [ ] MS11.9 — Board statistics presentation
+- [x] MS11.6 — Modern Kanban workspace
+- [x] MS11.7 — Task details and task forms
+  - Local implementation revised on 2026-09-28: one large task dialog for details/create/edit, compact in-dialog delete confirmation, canonical-state updates, pending dismissal protection, and focus restoration. Existing inline-DOM tests migrated to CDK overlay DOM without removing behavioral assertions. Focused task/form/mutation/shared-dialog/column tests: 133 passed. Headless Chrome with mocked API data reviewed desktop (1440×1000) and mobile (390×844) task surfaces; mobile form fields remain contained without horizontal overflow. Real-device/touch and human visual acceptance remain pending.
+  - Final validation (2026-09-28): the search/filter migration blockers are resolved. `npm run quality` passes formatting, lint, all 614 tests in 40 files, unchanged coverage thresholds and production build; `git diff --check` passes. Coverage: statements 97.44%, branches 95.85%, functions 97.94%, lines 98.56%. No additional task-modal visual changes were needed.
+- [x] MS11.8 — Search, filters and sorting experience
+  - Final validation (2026-09-28): approved search/pill/popover appearance preserved. Restored Retry search, named the compact clear action accessibly, and exposed selected options through CDK radio-menu semantics. Removed hidden compatibility selects; migrated priority/due/combined-filter and acceptance tests to visible menu interactions. Search, combined filters, sorting, clearing, selected values, expanded state, Escape/focus restoration and outside dismissal pass 102 focused tests in 5 files. Full quality evidence is recorded above. Test-only menu support lives in `frontend/testing`, outside production sources. No new browser visual acceptance is claimed by this test-only closeout; MS11.9–MS11.12 remain unchecked.
+- [x] MS11.9 — Board statistics presentation
+  - Complete (2026-09-28): one spacious Board overview surface using existing radius, spacing, border and restrained elevation tokens. Prominent total/overdue values and readable priority/column rows pair exact counts with decorative CSS-only proportional bars; zero totals and empty boards remain explicit. Server statistics, board-wide scope, column ordering, retry and mutation-refresh behavior are unchanged. Narrow layouts stack groups and wrap long labels without changing the interaction architecture.
+  - Validation: 27 statistics tests pass; statistics plus functional acceptance pass 28 tests in 4 files. Full `npm run quality` passes formatting, lint, all 616 tests in 40 files, unchanged coverage thresholds and production build. Coverage: statements 97.44%, branches 95.85%, functions 97.94%, lines 98.56%. `git diff --check` passes. Headless Chrome with mocked API data inspected the section at 1440px, 900px and 390px; narrow-width checks showed no page overflow. This is section-level sanity checking, not MS11.10–MS11.12 final acceptance. Approved filters/task dialogs were preserved; no backend, API, database, chart dependency, commit or push changes.
+  - MS11.6–MS11.9 checkpoint (2026-09-28): task-card title buttons now use transparent, borderless styling, brand-teal hover feedback, wrapping semibold text, a 44px minimum hit area and a visible keyboard focus outline. Native activation and separate drag handles are unchanged. Task/Kanban focused tests: 113 passed in 3 files. The complete quality gate remains green with 616 tests and unchanged coverage thresholds; `git diff --check` passes. This title-only correction does not start MS11.10.
 - [ ] MS11.10 — Responsive desktop/tablet/mobile UX
 - [ ] MS11.11 — Product polish and interaction states
 - [ ] MS11.12 — Visual, responsive, accessibility and regression acceptance
@@ -718,3 +724,7 @@ and dialog/menu appearance remain unverified in a browser.
 MS11.6–MS11.12 remain unchecked and unstarted. No Kanban, column, task, filter or
 statistics redesign, backend/API/database/dependency/infrastructure changes,
 commit or push occurred.
+
+**MS11.6 COMPLETE — Modern Kanban workspace (2026-09-28).** The Board workspace now has a spacious Board navigation/title hierarchy and a contained horizontal Kanban surface. Lanes have stable desktop widths, visible task counts, calm neutral backgrounds, an intentional empty-lane treatment, and smartphone-aware horizontal scrolling; desktop and tablet retain the horizontal workspace. Column create/rename/delete use the shared CDK dialog frame with existing validation and server-error behavior, while Rename, valid Move actions and Delete live in labelled contextual menus. Column ordering and deletion semantics are unchanged.
+
+Task cards now use white soft-edged surfaces, restrained priority and due-date metadata, separate labelled drag handles, and refined CDK preview/placeholder/transition states with reduced-motion support. Existing task detail and create/edit interactions remain in place intentionally; search, filters, sorting and statistics presentation are untouched for MS11.7–MS11.9. Drag/drop still uses Angular CDK and the existing placement API/state behavior. Automated quality evidence and browser/touch acceptance are recorded with the milestone closeout; true device touch drag acceptance remains for MS11.12. No backend, API, database, dependency, infrastructure, commit or push change was made.

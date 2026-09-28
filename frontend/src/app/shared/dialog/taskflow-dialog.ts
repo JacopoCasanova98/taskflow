@@ -1,5 +1,5 @@
 import { NgComponentOutlet } from '@angular/common';
-import { Component, inject, Injectable, Injector, Type } from '@angular/core';
+import { Component, inject, Injectable, Injector, signal, Type } from '@angular/core';
 import { DIALOG_DATA, Dialog, DialogRef } from '@angular/cdk/dialog';
 import { Overlay } from '@angular/cdk/overlay';
 import { Icon } from '../icon/icon';
@@ -12,6 +12,7 @@ export interface TaskflowDialogOptions<D> {
   disableClose?: boolean;
   autoFocus?: string;
   restoreFocus?: HTMLElement;
+  injector?: Injector;
 }
 
 interface FrameData {
@@ -25,7 +26,7 @@ interface FrameData {
   imports: [NgComponentOutlet, Icon, IconButton],
   template: `
     <header class="tf-dialog-header">
-      <h2 tabindex="-1">{{ frame.title }}</h2>
+      <h2 tabindex="-1">{{ title() }}</h2>
       <button appIconButton="Close dialog" [disabled]="ref.disableClose" (click)="dismiss()">
         <app-icon name="close" />
       </button>
@@ -38,6 +39,7 @@ interface FrameData {
 })
 export class DialogFrame {
   readonly frame = inject<FrameData>(DIALOG_DATA);
+  readonly title = signal(this.frame.title);
   readonly ref = inject(DialogRef);
   readonly contentInjector = Injector.create({
     parent: inject(Injector),
@@ -60,6 +62,7 @@ export class TaskflowDialog {
   ): DialogRef<R, DialogFrame> {
     return this.dialog.open<R, FrameData, DialogFrame>(DialogFrame, {
       data: { title: options.title, content, data: options.data },
+      injector: options.injector,
       ariaLabel: options.title,
       ariaModal: true,
       autoFocus: options.autoFocus ?? 'first-heading',

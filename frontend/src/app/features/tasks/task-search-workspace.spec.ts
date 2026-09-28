@@ -65,7 +65,7 @@ describe('Task Search in the Board workspace', () => {
     });
     fixture = TestBed.createComponent(BoardWorkspace);
     http = TestBed.inject(HttpTestingController);
-    element = fixture.nativeElement;
+    element = document.body;
     view = fixture.debugElement.injector.get(TaskView);
     await load();
   });

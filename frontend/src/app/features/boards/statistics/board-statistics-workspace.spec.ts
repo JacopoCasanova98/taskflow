@@ -104,7 +104,7 @@ describe('Board statistics dashboard and mutation integration', () => {
   function counts() {
     return Array.from(panel().querySelectorAll('dl > div'), (row) => [
       row.querySelector('dt')?.textContent,
-      row.querySelector('dd')?.textContent,
+      row.querySelector('dd')?.textContent?.trim(),
     ]);
   }
 
@@ -113,7 +113,7 @@ describe('Board statistics dashboard and mutation integration', () => {
       'Loading board statistics',
     );
     await loaded();
-    expect(panel().querySelector('h2')?.textContent).toBe('Board statistics');
+    expect(panel().querySelector('h2')?.textContent).toBe('Board overview');
     expect(counts()).toEqual([
       ['Total tasks', '4'],
       ['Overdue', '1'],
@@ -134,6 +134,38 @@ describe('Board statistics dashboard and mutation integration', () => {
     stats().flush(zero);
     await settle();
     expect(counts().map((row) => row[1])).toEqual(Array(8).fill('0'));
+    expect(
+      Array.from(panel().querySelectorAll<HTMLElement>('.bar > span'), (bar) => bar.style.width),
+    ).toEqual(Array(6).fill('0%'));
+  });
+  it('renders decorative proportional bars while retaining exact readable counts', async () => {
+    await loaded();
+    const bars = panel().querySelectorAll<HTMLElement>('.bar');
+    expect(Array.from(bars, (bar) => bar.getAttribute('aria-hidden'))).toEqual(
+      Array(6).fill('true'),
+    );
+    expect(Array.from(bars, (bar) => (bar.firstElementChild as HTMLElement).style.width)).toEqual([
+      '50%',
+      '25%',
+      '25%',
+      '100%',
+      '0%',
+      '0%',
+    ]);
+    expect(panel().querySelectorAll('.metrics dd')).toHaveLength(2);
+  });
+  it('keeps the overview and zero priorities when the board has no columns', async () => {
+    stats().flush({ ...zero, statusDistribution: [] });
+    await settle();
+    expect(panel().textContent).toContain('No columns yet.');
+    expect(counts()).toEqual([
+      ['Total tasks', '0'],
+      ['Overdue', '0'],
+      ['High', '0'],
+      ['Medium', '0'],
+      ['Low', '0'],
+    ]);
+    expect(panel().querySelectorAll('.bar')).toHaveLength(3);
   });
   it('shows safe statistics error and a working Retry while retaining the Board and lanes', async () => {
     stats().flush({ detail: 'secret SQL' }, { status: 500, statusText: 'Failure' });

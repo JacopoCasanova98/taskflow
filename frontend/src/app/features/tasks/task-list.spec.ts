@@ -67,7 +67,7 @@ describe('Task CRUD in workspace', () => {
       ],
     });
     fixture = TestBed.createComponent(BoardWorkspace);
-    element = fixture.nativeElement;
+    element = document.body;
     http = TestBed.inject(HttpTestingController);
     await load();
   });
@@ -95,6 +95,16 @@ describe('Task CRUD in workspace', () => {
     button(name).click();
     await settle();
   }
+  async function columnAction(column: string, action: string) {
+    button('Actions for column ' + column).click();
+    await settle();
+    const item = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(
+      (candidate) => candidate.textContent?.trim() === action,
+    );
+    expect(item, action).toBeDefined();
+    item!.click();
+    await settle();
+  }
   async function fill(field: string, value: string) {
     const input = element.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
       '[id$="-' + field + '"]',
@@ -118,6 +128,59 @@ describe('Task CRUD in workspace', () => {
     await click('Cancel');
     expect(element.querySelector('form')).toBeNull();
   });
+  it('keeps the drag handle separate and restores focus after Escape from details', async () => {
+    const handle = fixture.debugElement.query(By.directive(CdkDragHandle)).nativeElement;
+    handle.click();
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    const trigger = button('View task: Fix login');
+    trigger.focus();
+    trigger.click();
+    await settle();
+    const dialog = document.querySelector('[role="dialog"]')!;
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-label')).toBe('Fix login');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(fixture.componentInstance.tasks.selected()).toBeNull();
+  });
+  it('uses one dialog for edit and a compact delete confirmation with mode focus', async () => {
+    await click('View task: Fix login');
+    const dialog = document.querySelector('[role="dialog"]');
+    await click('Edit task');
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+    expect(document.activeElement).toBe(dialog?.querySelector('input'));
+    await click('Cancel');
+    expect(document.activeElement).toBe(button('Edit task'));
+    await click('Delete');
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.querySelector('.tf-dialog-sm')).not.toBeNull();
+    expect(document.activeElement).toBe(button('Cancel'));
+    await click('Cancel');
+    expect(document.querySelector('.tf-dialog-lg')).not.toBeNull();
+  });
+  it('blocks Escape, close and duplicate create submissions while saving', async () => {
+    await click('Add task to B');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('B');
+    await fill('title', 'Pending');
+    await submit();
+    await submit();
+    expect(button('Close dialog').disabled).toBe(true);
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    const request = http.expectOne('/api/columns/b/tasks');
+    request.flush({ ...task, id: 'pending', title: 'Pending', position: 1 });
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
   it('creates in the selected Column with explicit MEDIUM and canonical content', async () => {
     await click('Add task to B');
     await fill('title', '  New task  ');
@@ -138,21 +201,21 @@ describe('Task CRUD in workspace', () => {
   });
   it('opens details from memory with plain text content and closes without requests', async () => {
     await click('View task: Fix login');
-    const details = element.querySelector('app-task-details')!;
-    expect(details.querySelector('h3')?.textContent).toBe('Fix login');
+    const details = element.querySelector('[role="dialog"]')!;
+    expect(details.querySelector('h2')?.textContent).toBe('Fix login');
     expect(details.textContent).toContain(task.description);
     expect(details.querySelector('b')).toBeNull();
     expect(details.textContent).toContain('Priority: High');
     expect(details.querySelector('time')?.getAttribute('datetime')).toBe('2026-09-30');
     expect(details.textContent).not.toContain('created');
     expect(details.querySelector('[draggable]')).toBeNull();
-    for (const name of ['Edit', 'Delete', 'Close']) expect(button(name)).toBeDefined();
+    for (const name of ['Edit task', 'Delete', 'Close']) expect(button(name)).toBeDefined();
     await click('Close');
-    expect(element.querySelector('app-task-details')).toBeNull();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
   });
   it('edits all content and immediately shows canonical details without moving the Task', async () => {
     await click('View task: Fix login');
-    await click('Edit');
+    await click('Edit task');
     expect(element.querySelector<HTMLInputElement>('[id$="-title"]')?.value).toBe(task.title);
     expect(element.querySelector('textarea')?.value).toBe(task.description);
     expect(element.querySelector<HTMLSelectElement>('select[id$="-priority"]')?.value).toBe('HIGH');
@@ -178,8 +241,8 @@ describe('Task CRUD in workspace', () => {
     });
     await settle();
     expect(element.querySelector('form')).toBeNull();
-    const details = element.querySelector('app-task-details')!;
-    expect(details.querySelector('h3')?.textContent).toBe('Canonical update');
+    const details = element.querySelector('[role="dialog"]')!;
+    expect(details.querySelector('h2')?.textContent).toBe('Canonical update');
     expect(details.textContent).toContain('Priority: Low');
     expect(details.querySelector('.description')).toBeNull();
     expect(details.textContent).toContain('No due date');
@@ -197,7 +260,7 @@ describe('Task CRUD in workspace', () => {
     await click('Delete task');
     http.expectOne('/api/tasks/b0').flush(null, { status: 204, statusText: 'No Content' });
     await settle();
-    expect(element.querySelector('app-task-details')).toBeNull();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
     expect(element.textContent).not.toContain('Fix login');
   });
   it.each(['create', 'update', 'delete'] as const)(
@@ -209,7 +272,7 @@ describe('Task CRUD in workspace', () => {
         await submit();
       } else {
         await click('View task: Fix login');
-        await click(operation === 'update' ? 'Edit' : 'Delete');
+        await click(operation === 'update' ? 'Edit task' : 'Delete');
         if (operation === 'update') {
           await fill('title', 'Entered');
           await submit();
@@ -232,7 +295,7 @@ describe('Task CRUD in workspace', () => {
     'maps backend %s validation without exposing server text',
     async (field) => {
       await click('View task: Fix login');
-      await click('Edit');
+      await click('Edit task');
       await fill('title', 'Entered');
       await submit();
       http.expectOne('/api/tasks/b0').flush(
@@ -260,7 +323,7 @@ describe('Task CRUD in workspace', () => {
   );
   it('safely handles malformed requests without closing the editor', async () => {
     await click('View task: Fix login');
-    await click('Edit');
+    await click('Edit task');
     await submit();
     http
       .expectOne('/api/tasks/b0')
@@ -275,26 +338,25 @@ describe('Task CRUD in workspace', () => {
   });
   it('closes stale details and announces TASK_NOT_FOUND while reloading', async () => {
     await click('View task: Fix login');
-    await click('Edit');
+    await click('Edit task');
     await submit();
     http
       .expectOne('/api/tasks/b0')
       .flush({ code: 'TASK_NOT_FOUND' }, { status: 404, statusText: 'Not Found' });
     await settle();
     expect(element.textContent).toContain('This task is no longer available.');
-    expect(element.querySelector('app-task-details')).toBeNull();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
     await load('one', []);
-    expect(element.querySelector('app-task-details')).toBeNull();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
   });
   it('coordinates Task and Column controls while writes are pending', async () => {
     await click('Add task to B');
     await fill('title', 'New');
     await submit();
-    for (const name of ['Delete B', 'Rename B', 'Move B left', 'Add column'])
-      expect(button(name).disabled).toBe(true);
+    expect(button('Actions for column B').disabled).toBe(true);
     http.expectOne('/api/columns/b/tasks').flush({ ...task, id: 'new', position: 1 });
     await settle();
-    await click('Move B left');
+    await columnAction('B', 'Move left');
     expect(button('Add task to B').disabled).toBe(true);
     expect(button('View task: Fix login').disabled).toBe(true);
     http
@@ -319,8 +381,8 @@ describe('Task CRUD in workspace', () => {
   it('clears a create form when its empty Column is deleted, allowing creation elsewhere', async () => {
     await click('Add task to A');
     await fill('title', 'Unsubmitted');
-    await click('Delete A');
-    await click('Delete column');
+    await columnAction('A', 'Delete');
+    document.querySelector<HTMLButtonElement>('[role="dialog"] .danger')!.click();
     http.expectOne('/api/columns/a').flush(null, { status: 204, statusText: 'No Content' });
     await settle();
     expect(element.querySelector('app-task-form')).toBeNull();
@@ -365,32 +427,22 @@ describe('Task CRUD in workspace', () => {
     expect(drags[0].injector.get(CdkDrag).data).toBe(task.id);
     const handles = fixture.debugElement.queryAll(By.directive(CdkDragHandle));
     expect(handles).toHaveLength(1);
-    expect(handles[0].nativeElement.tagName).toBe('SPAN');
+    expect(handles[0].nativeElement.tagName).toBe('BUTTON');
     expect(button('View task: Fix login').disabled).toBe(false);
-    expect(button('Move B left').disabled).toBe(false);
-    expect(button('Move B right').disabled).toBe(false);
+    expect(button('Actions for column B').disabled).toBe(false);
   });
   it.each(['success', 'error'])(
     'renders an optimistic empty-Column move, keeps details open and handles %s',
     async (outcome) => {
       await click('View task: Fix login');
-      const details = element.querySelector('app-task-details');
+      const details = element.querySelector('[role="dialog"]');
       dropTask();
       await settle();
       const lanes = fixture.debugElement.queryAll(By.directive(TaskList));
       expect(lanes[0].nativeElement.textContent).toContain('Fix login');
       expect(lanes[1].nativeElement.textContent).toContain('No tasks yet.');
-      expect(element.querySelector('app-task-details')).toBe(details);
-      for (const name of [
-        'Add task to A',
-        'Edit',
-        'Delete',
-        'Rename B',
-        'Delete B',
-        'Move B left',
-        'Move B right',
-        'Add column',
-      ])
+      expect(element.querySelector('[role="dialog"]')).toBe(details);
+      for (const name of ['Add task to A', 'Edit task', 'Delete', 'Actions for column B'])
         expect(button(name).disabled).toBe(true);
       for (const node of fixture.debugElement.queryAll(By.directive(CdkDrag)))
         expect(node.injector.get(CdkDrag).disabled).toBe(true);
@@ -401,8 +453,8 @@ describe('Task CRUD in workspace', () => {
       if (outcome === 'success') request.flush({ ...task, columnId: 'a', title: 'Canonical move' });
       else request.flush({ detail: 'Secret' }, { status: 500, statusText: 'Failure' });
       await settle();
-      expect(element.querySelector('app-task-details')).toBe(details);
-      expect(details?.querySelector('h3')?.textContent).toBe(
+      expect(element.querySelector('[role="dialog"]')).toBe(details);
+      expect(details?.querySelector('h2')?.textContent).toBe(
         outcome === 'success' ? 'Canonical move' : task.title,
       );
       if (outcome === 'error') {
@@ -413,20 +465,20 @@ describe('Task CRUD in workspace', () => {
       expect(fixture.debugElement.query(By.directive(CdkDrag)).injector.get(CdkDrag).disabled).toBe(
         false,
       );
-      expect(button('Edit').disabled).toBe(false);
+      expect(button('Edit task').disabled).toBe(false);
     },
   );
   it.each(['success', 'error'])(
     'preserves an unsent edit draft during movement and %s',
     async (outcome) => {
       await click('View task: Fix login');
-      await click('Edit');
+      await click('Edit task');
       await fill('title', 'Unsent draft');
       const form = element.querySelector('form');
       dropTask();
       await settle();
       expect(element.querySelector('form')).toBe(form);
-      expect(button('Save task').disabled).toBe(true);
+      expect(button('Save changes').disabled).toBe(true);
       await submit();
       http.expectNone('/api/tasks/b0');
       const request = http.expectOne('/api/tasks/b0/placement');
@@ -435,7 +487,7 @@ describe('Task CRUD in workspace', () => {
       await settle();
       expect(element.querySelector('form')).toBe(form);
       expect(element.querySelector<HTMLInputElement>('[id$="-title"]')?.value).toBe('Unsent draft');
-      expect(button('Save task').disabled).toBe(false);
+      expect(button('Save changes').disabled).toBe(false);
     },
   );
   it('preserves an open create form and disables its submission during placement', async () => {
@@ -465,14 +517,14 @@ describe('Task CRUD in workspace', () => {
   });
   it('disables dragging while either a Task or Column request is pending', async () => {
     await click('View task: Fix login');
-    await click('Edit');
+    await click('Edit task');
     await submit();
     expect(fixture.debugElement.query(By.directive(CdkDrag)).injector.get(CdkDrag).disabled).toBe(
       true,
     );
     http.expectOne('/api/tasks/b0').flush(task);
     await settle();
-    await click('Move B left');
+    await columnAction('B', 'Move left');
     expect(fixture.debugElement.query(By.directive(CdkDrag)).injector.get(CdkDrag).disabled).toBe(
       true,
     );

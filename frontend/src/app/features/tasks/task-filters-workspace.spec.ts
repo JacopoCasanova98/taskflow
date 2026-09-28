@@ -1,3 +1,4 @@
+import { taskViewControls } from '../../../../testing/task-view-controls.test-helper';
 import { BoardStatisticsApi } from '../boards/statistics/board-statistics-api';
 import { of as statisticsOf } from 'rxjs';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
@@ -69,7 +70,7 @@ describe('Combined Task filters in the Board workspace', () => {
     });
     fixture = TestBed.createComponent(BoardWorkspace);
     http = TestBed.inject(HttpTestingController);
-    element = fixture.nativeElement;
+    element = document.body;
     view = fixture.debugElement.injector.get(TaskView);
     await load();
   });
@@ -103,15 +104,8 @@ describe('Combined Task filters in the Board workspace', () => {
   function titles(index = 0) {
     return Array.from(lane(index).querySelectorAll('.task-title'), (b) => b.textContent?.trim());
   }
-  function control(id: string) {
-    return element.querySelector<HTMLSelectElement>('#' + id)!;
-  }
-  async function change(id: string, value: string) {
-    const select = control(id);
-    select.value = value;
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await settle();
-  }
+  const controls = taskViewControls(settle);
+  const change = controls.choose;
   function button(label: string) {
     const found = Array.from(element.querySelectorAll('button')).find(
       (b) => (b.getAttribute('aria-label') || b.textContent?.trim()) === label,
@@ -123,12 +117,31 @@ describe('Combined Task filters in the Board workspace', () => {
     button(label).click();
     await settle();
   }
-  function options() {
-    return Array.from(control('task-column-filter').options, (o) => [
-      o.value,
-      o.textContent?.trim(),
-    ]);
-  }
+  const options = () => controls.options('task-column-filter');
+  it.each([
+    ['task-column-filter', 'a', 'Column: Review'],
+    ['task-priority-filter', 'HIGH', 'Priority: High'],
+    ['task-due-filter', 'OVERDUE', 'Due date: Overdue'],
+    ['task-priority-order', 'PRIORITY_HIGH_TO_LOW', 'Sort: Priority: High to Low'],
+  ])(
+    'exposes selected state and dismisses %s without changing its value',
+    async (id, value, label) => {
+      await change(id, value);
+      expect(controls.trigger(id).textContent?.trim()).toBe(label);
+      const menu = await controls.open(id);
+      expect(menu.querySelectorAll('[aria-checked="true"]')).toHaveLength(1);
+      expect(menu.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.value).toBe(value);
+      await controls.dismiss(id, menu);
+      expect(document.activeElement).toBe(controls.trigger(id));
+      expect(controls.trigger(id).value).toBe(value);
+      await controls.open(id);
+      document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await settle();
+      expect(controls.trigger(id).getAttribute('aria-expanded')).toBe('false');
+      expect(controls.trigger(id).value).toBe(value);
+      http.expectNone(() => true);
+    },
+  );
   async function type(value: string) {
     const input = element.querySelector<HTMLInputElement>('#task-search')!;
     input.value = value;
@@ -209,28 +222,28 @@ describe('Combined Task filters in the Board workspace', () => {
     expect(canonical()).toBe(before);
     http.expectNone(() => true);
   });
-  it('labels native controls and derives Column UUID/name options in canonical order', () => {
+  it('names menu triggers and derives Column UUID/name options in canonical order', async () => {
+    expect(element.querySelector('label[for="task-search"]')?.textContent).toBe('Search tasks');
     for (const [id, label] of [
-      ['task-search', 'Search tasks'],
       ['task-column-filter', 'Column'],
       ['task-priority-filter', 'Priority'],
       ['task-due-filter', 'Due date'],
-      ['task-priority-order', 'Task order'],
+      ['task-priority-order', 'Sort'],
     ])
-      expect(element.querySelector('label[for="' + id + '"]')?.textContent).toBe(label);
-    expect(options()).toEqual([
+      expect(controls.trigger(id).textContent?.trim()).toBe(label);
+    expect(await options()).toEqual([
       ['ALL', 'All columns'],
       ['a', 'Review'],
       ['b', 'Custom workflow'],
       ['c', 'Inbox'],
     ]);
-    expect(button('Clear filters').disabled).toBe(true);
+    expect(element.querySelector('.clear-filters')).toBeNull();
     expect(view.activeFilterCount()).toBe(0);
   });
   it('shows only All columns for a zero-Column Board', async () => {
     fixture.componentInstance.state.retry();
     await load('one', [], []);
-    expect(options()).toEqual([['ALL', 'All columns']]);
+    expect(await options()).toEqual([['ALL', 'All columns']]);
     expect(view.columnFilter()).toBe('ALL');
   });
   it('combines all four filters with AND while retaining every Column lane', async () => {
@@ -298,7 +311,7 @@ describe('Combined Task filters in the Board workspace', () => {
     expect(view.order()).toBe('PRIORITY_HIGH_TO_LOW');
     expect(titles()).toEqual(['T1', 'T5', 'T2']);
     expect(view.activeFilterCount()).toBe(0);
-    expect(button('Clear filters').disabled).toBe(true);
+    expect(element.querySelector('.clear-filters')).toBeNull();
     dragDisabled(true);
     await change('task-priority-order', 'MANUAL');
     expect(titles()).toEqual(['T1', 'T2', 'T5']);
@@ -352,13 +365,13 @@ describe('Combined Task filters in the Board workspace', () => {
     http.expectOne('/api/boards/one/columns').flush(added);
     await creation;
     await settle();
-    expect(options()[4]).toEqual(['new', 'Custom new']);
+    expect((await options())[4]).toEqual(['new', 'Custom new']);
     expect(view.columnFilter()).toBe('a');
     const rename = fixture.componentInstance.columns.rename('a', 'Renamed');
     http.expectOne('/api/columns/a').flush({ ...columns[0], name: 'Renamed' });
     await rename;
     await settle();
-    expect(options()[1]).toEqual(['a', 'Renamed']);
+    expect((await options())[1]).toEqual(['a', 'Renamed']);
     expect(view.columnFilter()).toBe('a');
     http.expectNone((r) => r.method === 'GET');
   });
@@ -370,7 +383,7 @@ describe('Combined Task filters in the Board workspace', () => {
       .flush([columns[1], columns[0], columns[2]].map((c, position) => ({ ...c, position })));
     await reorder;
     await settle();
-    expect(options().map((o) => o[0])).toEqual(['ALL', 'b', 'a', 'c']);
+    expect((await options()).map((o) => o[0])).toEqual(['ALL', 'b', 'a', 'c']);
     expect(view.columnFilter()).toBe('a');
     expect(titles(1)).toEqual(['T1']);
     http.expectNone((r) => r.method === 'GET');
@@ -386,7 +399,7 @@ describe('Combined Task filters in the Board workspace', () => {
       await settle();
       expect(view.columnFilter()).toBe(selected ? 'ALL' : 'a');
       expect(view.filter()).toBe('HIGH');
-      expect(options()).toHaveLength(3);
+      expect(await options()).toHaveLength(3);
       http.expectNone((r) => r.method === 'GET');
     },
   );
@@ -465,7 +478,7 @@ describe('Combined Task filters in the Board workspace', () => {
   });
   it('keeps details and an unsent draft when combined filters hide the card', async () => {
     await click('View task: T1');
-    await click('Edit');
+    await click('Edit task');
     const form = element.querySelector('form');
     const title = element.querySelector<HTMLInputElement>('form input')!;
     title.value = 'Draft';

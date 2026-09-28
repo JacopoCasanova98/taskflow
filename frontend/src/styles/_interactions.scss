@@ -42,7 +42,8 @@
   box-shadow: var(--shadow-popover);
   animation: tf-overlay-enter var(--duration-fast) var(--ease-standard);
 }
-.tf-menu [cdkMenuItem] {
+.tf-menu [cdkMenuItem],
+.tf-menu [cdkMenuItemRadio] {
   display: flex;
   align-items: center;
   min-height: var(--control-hit-area-min);
@@ -69,6 +70,7 @@
 
 .tf-dialog-backdrop {
   background: var(--color-backdrop);
+  backdrop-filter: blur(3px);
   transition-duration: var(--duration-overlay);
 }
 .tf-dialog-panel {
@@ -94,9 +96,26 @@
   min-height: 0;
   overflow: hidden;
   background: var(--color-surface);
+  border: 1px solid rgb(255 255 255 / 65%);
   border-radius: var(--radius-dialog);
   box-shadow: var(--shadow-dialog);
   animation: tf-overlay-enter var(--duration-overlay) var(--ease-standard);
+}
+.tf-task-dialog {
+  .tf-dialog-header {
+    padding: var(--space-6) var(--space-6) var(--space-4);
+  }
+  .tf-dialog-header h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
+    min-width: 0;
+  }
+  .tf-dialog-content {
+    padding: var(--space-3) var(--space-6) var(--space-6);
+  }
+  app-task-due-indicator time {
+    margin-inline-start: var(--space-1);
+  }
 }
 .tf-dialog-header {
   display: flex;

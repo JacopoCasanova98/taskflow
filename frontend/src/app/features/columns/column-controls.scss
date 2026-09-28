@@ -7,50 +7,88 @@
 .lanes {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: var(--space-4);
   overflow-x: auto;
-  padding: 0.25rem 0.25rem 1rem;
+  overscroll-behavior-x: contain;
+  padding: var(--space-2) var(--space-2) var(--space-5);
+  scroll-padding-inline: var(--space-2);
 }
 .lane {
-  flex: 0 0 19rem;
+  flex: 0 0 clamp(18.75rem, 24vw, 21.25rem);
   min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  background: #eef2f7;
+  min-height: 16rem;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
   overflow-wrap: anywhere;
+  scroll-snap-align: start;
+}
+.lane-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.lane-title {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  gap: var(--space-2);
 }
 h2 {
-  margin: 0 0 1rem;
-  font-size: 1.15rem;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-section);
+  overflow-wrap: anywhere;
 }
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+.task-count {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
 }
-button {
+.add-column {
   @include controls.button;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
 }
-.create {
-  max-width: 30rem;
-  margin-block: 1rem;
+.lane-add-column {
+  flex: 0 0 clamp(11rem, 16vw, 14rem);
+  min-height: var(--control-height);
+  margin-top: var(--space-2);
+  color: var(--color-text-secondary);
+  border-style: dashed;
 }
-.confirmation {
-  border-block: 1px solid var(--border);
-  margin-block: 1rem;
+.empty-board {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
 }
-.errors {
+.empty-board p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+.reorder-error {
+  min-height: 1.5em;
   color: var(--color-danger);
 }
-@media (max-width: 40rem) {
+.tf-menu .delete-action {
+  color: var(--color-danger);
+}
+@media (max-width: 47.99rem) {
   .lanes {
-    flex-direction: column;
-    overflow-x: visible;
+    gap: var(--space-3);
+    scroll-snap-type: x proximity;
+    padding-inline: 0 var(--space-4);
   }
-  .lane {
-    flex: auto;
-    width: 100%;
+  .lane,
+  .lane-add-column {
+    flex-basis: min(86vw, 22rem);
   }
 }

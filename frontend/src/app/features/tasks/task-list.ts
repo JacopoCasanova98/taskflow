@@ -2,18 +2,16 @@ import { CdkDrag, CdkDragHandle, CdkDropList } from '@angular/cdk/drag-drop';
 import { Component, computed, inject, input } from '@angular/core';
 import { WorkspaceColumn } from '../boards/board-workspace/board-workspace-state';
 import { TaskManagement } from './task-management';
-import { TaskForm } from './task-form/task-form';
 import { TaskPriorityIndicator } from './task-priority-indicator';
 import { TaskDueIndicator } from './task-due-indicator';
 import { TaskLocalDay } from './task-local-day';
 import { TaskView } from './task-view';
-import { UpdateTaskRequest } from './task.models';
 
 @Component({
   selector: 'app-task-list',
-  imports: [TaskForm, TaskPriorityIndicator, TaskDueIndicator, CdkDrag, CdkDragHandle, CdkDropList],
+  imports: [TaskPriorityIndicator, TaskDueIndicator, CdkDrag, CdkDragHandle, CdkDropList],
   templateUrl: './task-list.html',
-  styleUrl: './task-controls.scss',
+  styleUrl: './task-list.scss',
 })
 export class TaskList {
   readonly lane = input.required<WorkspaceColumn>();
@@ -28,6 +26,4 @@ export class TaskList {
     this.view.project(this.lane().tasks, this.localDay.today()),
   );
   readonly dragDisabled = computed(() => this.management.busy() || !this.view.manual());
-  readonly create = (request: UpdateTaskRequest) =>
-    this.management.create(this.lane().column.id, request);
 }

@@ -1,33 +1,21 @@
-@if (management.creatingIn() === lane().column.id) {
-  <section [attr.aria-labelledby]="'create-task-title-' + lane().column.id">
-    <h3 [id]="'create-task-title-' + lane().column.id">Create task</h3>
-    <app-task-form
-      [inputId]="'create-task-' + lane().column.id"
-      action="Create task"
-      [save]="create"
-      [disabled]="management.busy()"
-      (closed)="management.creatingIn.set(null)"
-    />
-  </section>
-} @else {
-  <button
-    type="button"
-    [attr.aria-label]="'Add task to ' + lane().column.name"
-    [disabled]="management.busy() || management.creatingIn() !== null"
-    (click)="management.creatingIn.set(lane().column.id)"
-  >
-    Add task
-  </button>
-}
+<button
+  class="add-task"
+  type="button"
+  [attr.aria-label]="'Add task to ' + lane().column.name"
+  [disabled]="management.busy() || management.creatingIn() !== null"
+  (click)="management.creatingIn.set(lane().column.id)"
+>
+  Add task
+</button>
 @if (lane().tasks.length === 0) {
-  <p>No tasks yet.</p>
+  <p class="empty-lane">No tasks yet.</p>
 } @else if (
   visibleTasks().length === 0 && (!view.search.active() || view.search.status() === 'ready')
 ) {
   <p>{{ view.emptyMessage() }}</p>
 }
 <ul
-  aria-label="Tasks"
+  [attr.aria-label]="'Tasks in ' + lane().column.name"
   cdkDropList
   [cdkDropListData]="dropData()"
   [cdkDropListDisabled]="dragDisabled()"
@@ -36,7 +24,6 @@
 >
   @for (task of visibleTasks(); track task.id) {
     <li class="task" cdkDrag [cdkDragData]="task.id" [cdkDragDisabled]="dragDisabled()">
-      <span class="task-grip" cdkDragHandle aria-hidden="true" title="Drag to move task"></span>
       <button
         class="task-title"
         type="button"
@@ -46,10 +33,21 @@
       >
         {{ task.title }}
       </button>
-      <app-task-priority-indicator [priority]="task.priority" />
-      @if (task.dueDate) {
-        <div class="task-due"><app-task-due-indicator [dueDate]="task.dueDate" /></div>
-      }
+      <div class="task-meta">
+        <app-task-priority-indicator [priority]="task.priority" />
+        @if (task.dueDate) {
+          <app-task-due-indicator [dueDate]="task.dueDate" />
+        }
+      </div>
+      <button
+        class="task-grip"
+        type="button"
+        cdkDragHandle
+        [attr.aria-label]="'Drag ' + task.title"
+        title="Drag to move task"
+      >
+        <span aria-hidden="true">⠿</span>
+      </button>
     </li>
   }
 </ul>

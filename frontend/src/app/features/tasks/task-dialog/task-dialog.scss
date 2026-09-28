@@ -1,0 +1,79 @@
+@use '../../../../styles/controls' as controls;
+
+:host {
+  display: block;
+  overflow-wrap: anywhere;
+}
+p {
+  margin: 0;
+}
+.eyebrow {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-medium);
+}
+.intro {
+  margin-top: var(--space-2);
+  color: var(--color-text-secondary);
+}
+.description-group {
+  margin-bottom: var(--space-6);
+}
+h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-meta);
+}
+.description {
+  white-space: pre-wrap;
+  color: var(--color-text-secondary);
+}
+.task-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-7) 0;
+}
+.task-facts > div {
+  min-width: 0;
+}
+dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+dd {
+  margin: var(--space-2) 0 0;
+  font-weight: var(--font-weight-medium);
+}
+.confirmation p {
+  margin-bottom: var(--space-3);
+  color: var(--color-text-secondary);
+}
+.confirmation .task-name {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+.errors {
+  min-height: 1.5em;
+  color: var(--color-danger) !important;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.actions span {
+  flex: 1;
+}
+button {
+  @include controls.button;
+}
+.delete-action {
+  color: var(--color-danger);
+  border-color: transparent;
+}
+@media (max-width: 35rem) {
+  .task-facts {
+    grid-template-columns: 1fr;
+  }
+}

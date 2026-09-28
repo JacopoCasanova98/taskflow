@@ -1,5 +1,5 @@
 <section aria-labelledby="board-statistics-heading">
-  <h2 id="board-statistics-heading">Board statistics</h2>
+  <h2 id="board-statistics-heading">Board overview</h2>
   <p class="scope">All tasks on this board, regardless of search, filters, or order.</p>
   @let state = statistics.state();
   @switch (state.status) {
@@ -12,9 +12,9 @@
     }
     @case ('ready') {
       <div class="statistics-grid">
-        <div>
+        <div class="summary">
           <h3>Task counts</h3>
-          <dl>
+          <dl class="metrics">
             <div>
               <dt>Total tasks</dt>
               <dd>{{ state.data.totalTasks }}</dd>
@@ -25,30 +25,64 @@
             </div>
           </dl>
         </div>
-        <div>
+        <div class="distribution">
           <h3>Priority distribution</h3>
           <dl>
             <div>
               <dt>{{ priorityLabels.HIGH }}</dt>
-              <dd>{{ state.data.priorityDistribution.high }}</dd>
+              <dd>
+                {{ state.data.priorityDistribution.high
+                }}<span class="bar" aria-hidden="true"
+                  ><span
+                    [style.width.%]="
+                      (state.data.priorityDistribution.high / (state.data.totalTasks || 1)) * 100
+                    "
+                  ></span
+                ></span>
+              </dd>
             </div>
             <div>
               <dt>{{ priorityLabels.MEDIUM }}</dt>
-              <dd>{{ state.data.priorityDistribution.medium }}</dd>
+              <dd>
+                {{ state.data.priorityDistribution.medium
+                }}<span class="bar" aria-hidden="true"
+                  ><span
+                    [style.width.%]="
+                      (state.data.priorityDistribution.medium / (state.data.totalTasks || 1)) * 100
+                    "
+                  ></span
+                ></span>
+              </dd>
             </div>
             <div>
               <dt>{{ priorityLabels.LOW }}</dt>
-              <dd>{{ state.data.priorityDistribution.low }}</dd>
+              <dd>
+                {{ state.data.priorityDistribution.low
+                }}<span class="bar" aria-hidden="true"
+                  ><span
+                    [style.width.%]="
+                      (state.data.priorityDistribution.low / (state.data.totalTasks || 1)) * 100
+                    "
+                  ></span
+                ></span>
+              </dd>
             </div>
           </dl>
         </div>
-        <div>
+        <div class="distribution">
           <h3>Status distribution</h3>
           <dl>
             @for (column of state.data.statusDistribution; track column.columnId) {
               <div>
                 <dt>{{ column.name }}</dt>
-                <dd>{{ column.taskCount }}</dd>
+                <dd>
+                  {{ column.taskCount
+                  }}<span class="bar" aria-hidden="true"
+                    ><span
+                      [style.width.%]="(column.taskCount / (state.data.totalTasks || 1)) * 100"
+                    ></span
+                  ></span>
+                </dd>
               </div>
             }
           </dl>

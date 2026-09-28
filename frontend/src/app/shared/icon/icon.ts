@@ -31,6 +31,16 @@ import { Component, input } from '@angular/core';
           <circle cx="12" cy="8" r="3.5" />
           <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
         }
+        @case ('search') {
+          <circle cx="10.5" cy="10.5" r="5.5" />
+          <path d="m15 15 4 4" />
+        }
+        @case ('chevron-down') {
+          <path d="m7 10 5 5 5-5" />
+        }
+        @case ('check') {
+          <path d="m5 12 4.5 4.5L19 7" />
+        }
       }
     </svg>
   `,
@@ -42,5 +52,7 @@ import { Component, input } from '@angular/core';
   `,
 })
 export class Icon {
-  readonly name = input.required<'close' | 'account' | 'plus' | 'more'>();
+  readonly name = input.required<
+    'close' | 'account' | 'plus' | 'more' | 'search' | 'chevron-down' | 'check'
+  >();
 }

@@ -133,6 +133,18 @@ dialogs. MS11.3 implements the shell and shared interaction infrastructure;
 MS11.5 migrates board management to dialogs; other feature editing flows remain
 unchanged until their own redesign milestones.
 
+MS11.6 keeps the Board workspace state as the sole source for ordered lanes and derives each displayed task count from that loaded lane. `ColumnControls` owns labelled CDK contextual menus and typed create/rename/delete dialog content; it delegates unchanged mutations to `ColumnManagement`, so API, ordering, error reconciliation and deletion semantics remain intact. Lanes are a contained horizontal scroller (fixed useful lane widths on desktop/tablet and roughly 86vw on phones), while task cards retain CDK drag/drop and use a distinct labelled handle so opening existing details is not conflated with dragging. Task details/forms and filter/statistics architecture are deliberately unchanged pending MS11.7–MS11.9.
+
+MS11.7 integration: the Board workspace coordinates one
+CDK task dialog and closes it on page destruction or stale selection/create context.
+Dialog data carries the existing page-scoped `TaskManagement` collaborator; the
+page injector preserves workspace and local-day dependencies. Details read canonical
+task state. Editing reuses `TaskForm` in the same dialog; deletion switches that
+surface to a small named confirmation without stacking overlays. Pending writes
+prevent dismissal and duplicate submission. Mode changes move focus to the form,
+Cancel, or Edit action; final dismissal restores the original trigger if it exists.
+No task API, validation, ordering, filter or statistics semantics change.
+
 The shell uses a brand/home link, authenticated Boards navigation and a CDK account
 menu. Email and logout are disclosed in the menu; session handling and success-only
 logout navigation remain feature-owned. Mobile reduces gutters/header height and

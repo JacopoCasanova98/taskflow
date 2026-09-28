@@ -1,0 +1,53 @@
+@use '../../../../styles/controls' as controls;
+:host {
+  display: block;
+  min-width: 0;
+}
+form {
+  margin-top: var(--space-5);
+}
+label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+input,
+textarea,
+select {
+  @include controls.field;
+  width: 100%;
+  min-width: 0;
+  border-radius: var(--radius-md);
+}
+textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+.errors {
+  color: var(--color-danger);
+  font-size: var(--font-size-meta);
+  margin-bottom: var(--space-5);
+}
+.errors p {
+  margin: var(--space-1) 0 0;
+}
+.errors p:empty {
+  display: none;
+}
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  margin-top: var(--space-5);
+}
+button {
+  @include controls.button;
+}
+.progress {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

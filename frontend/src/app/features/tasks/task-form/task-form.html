@@ -77,10 +77,7 @@
     <p>{{ serverFields().dueDate }}</p>
   </div>
   <p class="errors" role="alert">{{ serverError() }}</p>
-  <div class="actions">
-    <button type="submit" [disabled]="disabled() || taskForm().submitting()">
-      {{ taskForm().submitting() ? 'Saving…' : action() }}
-    </button>
+  <div class="actions tf-dialog-actions">
     <button
       type="button"
       [disabled]="disabled() || taskForm().submitting()"
@@ -88,5 +85,9 @@
     >
       Cancel
     </button>
+    <button class="primary" type="submit" [disabled]="disabled() || taskForm().submitting()">
+      {{ taskForm().submitting() ? 'Saving…' : action() }}
+    </button>
   </div>
 </form>
+<p class="progress" role="status">{{ taskForm().submitting() ? 'Saving task…' : '' }}</p>
