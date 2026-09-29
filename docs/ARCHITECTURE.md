@@ -187,6 +187,20 @@ reconciliation behavior. Submission blocks dismissal and duplicate requests;
 removed-card focus falls back to the page's Create board action after rendering.
 Kanban, column and task presentation are unchanged.
 
+### Responsive interaction continuity (MS11.10)
+
+Column reorder remains backend-authoritative and preserves the existing mutation
+semantics. Browser investigation showed that the previous reload-like Move
+left/right experience was caused by Board statistics replacing an already-loaded
+overview with its initial loading presentation, collapsing page height during
+refresh. MS11.10 keeps the last confirmed statistics presentation mounted during
+background refresh and reconciles refreshed values when the request completes.
+
+Column movement keeps Kanban scroll state local and restores focus to the moved
+Column's contextual-action trigger without scrolling the document. TaskFlow dialog
+height constraints are propagated through the CDK panel/container/frame so long
+Task content remains viewport-contained and scrolls internally.
+
 #### Forms conventions
 
 New TaskFlow forms use Angular Signal Forms from `@angular/forms/signals`. Use a typed `signal()` model, `form()` to create the form field tree, `FormField` to bind controls, and schema-based validation. Use `FormRoot` and Signal Forms submission APIs such as `submit()` where appropriate for the use case.

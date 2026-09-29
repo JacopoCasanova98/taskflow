@@ -209,6 +209,56 @@ describe('Column controls in Board workspace', () => {
       'C',
     ]);
   });
+  it.each(['left', 'right'] as const)(
+    'keeps lane/task identity, closes the menu and restores focus after moving %s',
+    async (direction) => {
+      await load();
+      const trigger = button('Actions for column B');
+      trigger.focus();
+      const lane = trigger.closest('.lane');
+      const task = lane!.querySelector('.task-title');
+      const scroller = element.querySelector<HTMLElement>('.lanes')!;
+      scroller.scrollLeft = 350;
+      await click('Move B ' + direction);
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+      const ordered =
+        direction === 'left'
+          ? [columns[1], columns[0], columns[2]]
+          : [columns[0], columns[2], columns[1]];
+      const request = http.expectOne('/api/boards/one/columns/order');
+      expect(request.request.body).toEqual({ columnIds: ordered.map((c) => c.id) });
+      request.flush(ordered.map((c, position) => ({ ...c, position })));
+      await settle();
+      expect(Array.from(element.querySelectorAll('.lane h2'), (h) => h.textContent)).toEqual(
+        ordered.map((c) => c.name),
+      );
+      expect(trigger.closest('.lane')).toBe(lane);
+      expect(lane!.querySelector('.task-title')).toBe(task);
+      expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+      expect(scroller.scrollLeft).toBe(350);
+      expect(document.activeElement).toBe(trigger);
+      http.expectNone(() => true);
+    },
+  );
+  it('retains canonical order and returns focus on a recoverable move failure', async () => {
+    await load();
+    const trigger = button('Actions for column B');
+    await click('Move B right');
+    http
+      .expectOne('/api/boards/one/columns/order')
+      .flush({}, { status: 500, statusText: 'Failure' });
+    await settle();
+    expect(Array.from(element.querySelectorAll('.lane h2'), (h) => h.textContent)).toEqual([
+      'A',
+      'B',
+      'C',
+    ]);
+    expect(element.textContent).toContain("We couldn't reorder the columns.");
+    expect(document.activeElement).toBe(trigger);
+    expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+    http.expectNone(() => true);
+  });
   it('omits both move directions for one Column', async () => {
     await load([columns[0]]);
     button('Actions for column A').click();

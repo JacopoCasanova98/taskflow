@@ -264,6 +264,56 @@ describe('Board statistics dashboard and mutation integration', () => {
       currentIndex: 0,
     } as CdkDragDrop<TaskDropListData, TaskDropListData, string>;
   }
+  it('preserves the overview DOM and confirmed values throughout reorder refresh', async () => {
+    await loaded();
+    const grid = panel().querySelector('.statistics-grid');
+    const initialCounts = counts();
+    const pending = fixture.componentInstance.columns.move('a', 1);
+    http
+      .expectOne('/api/boards/one/columns/order')
+      .flush(
+        [columns[1], columns[0], columns[2]].map((column, position) => ({ ...column, position })),
+      );
+    await pending;
+    await settle();
+    expect(panel().querySelector('.statistics-grid')).toBe(grid);
+    expect(counts()).toEqual(initialCounts);
+    expect(panel().textContent).not.toContain('Loading board statistics');
+    expect(panel().querySelector('section')?.getAttribute('aria-busy')).toBe('true');
+    expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+    stats().flush({
+      ...data,
+      totalTasks: 5,
+      overdueTasks: 2,
+      priorityDistribution: { high: 3, medium: 1, low: 1 },
+    });
+    await settle();
+    expect(panel().querySelector('.statistics-grid')).toBe(grid);
+    expect(counts().slice(0, 3)).toEqual([
+      ['Total tasks', '5'],
+      ['Overdue', '2'],
+      ['High', '3'],
+    ]);
+    expect(panel().querySelector('section')?.getAttribute('aria-busy')).toBe('false');
+  });
+  it('keeps a labelled confirmed snapshot after refresh failure and allows retry', async () => {
+    await loaded();
+    const grid = panel().querySelector('.statistics-grid');
+    today.set('2026-09-14');
+    await settle();
+    stats().flush({}, { status: 500, statusText: 'Failure' });
+    await settle();
+    expect(panel().querySelector('.statistics-grid')).toBe(grid);
+    expect(panel().textContent).toContain('Showing the last confirmed board statistics.');
+    expect(panel().querySelector('[role="alert"]')).not.toBeNull();
+    panel().querySelector('button')!.click();
+    await settle();
+    expect(panel().querySelector('.statistics-grid')).toBe(grid);
+    stats().flush(zero);
+    await settle();
+    expect(counts().map((row) => row[1])).toEqual(Array(8).fill('0'));
+    expect(panel().querySelector('[role="alert"]')).toBeNull();
+  });
   it('refreshes after confirmed drag placement, not the optimistic move', async () => {
     await loaded();
     const pending = fixture.componentInstance.tasks.drop(drop());

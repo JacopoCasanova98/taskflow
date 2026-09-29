@@ -37,6 +37,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
 }
 .filter-trigger {
   @include controls.button;
@@ -44,6 +46,12 @@
   align-items: center;
   gap: var(--space-2);
   border-radius: var(--radius-pill);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.filter-trigger app-icon {
+  flex-shrink: 0;
 }
 .filter-trigger.active {
   color: var(--color-primary);
@@ -57,6 +65,7 @@
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  min-height: var(--control-hit-area-min);
 }
 .clear-filters {
   min-height: var(--control-height);

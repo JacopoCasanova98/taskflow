@@ -10,6 +10,7 @@
   gap: var(--space-4);
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  overflow-anchor: none;
   padding: var(--space-2) var(--space-2) var(--space-5);
   scroll-padding-inline: var(--space-2);
 }
@@ -21,7 +22,6 @@
   border-radius: var(--radius-lg);
   background: var(--color-surface-muted);
   overflow-wrap: anywhere;
-  scroll-snap-align: start;
 }
 .lane-header {
   display: flex;
@@ -84,7 +84,6 @@ h2 {
 @media (max-width: 47.99rem) {
   .lanes {
     gap: var(--space-3);
-    scroll-snap-type: x proximity;
     padding-inline: 0 var(--space-4);
   }
   .lane,

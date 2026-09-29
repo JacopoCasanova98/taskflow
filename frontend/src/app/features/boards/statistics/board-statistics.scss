@@ -4,6 +4,14 @@
   display: block;
   margin-block: var(--space-8);
 }
+.refresh-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 section {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);

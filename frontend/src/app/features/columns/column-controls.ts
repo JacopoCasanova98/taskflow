@@ -2,12 +2,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { DialogRef } from '@angular/cdk/dialog';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import {
+  afterNextRender,
   Component,
   computed,
   contentChild,
   DestroyRef,
   effect,
   inject,
+  Injector,
   OnDestroy,
   signal,
   TemplateRef,
@@ -23,6 +25,7 @@ import { IconButton } from '../../shared/icon/icon-button';
 import { ColumnDialog, ColumnDialogData } from './column-dialog/column-dialog';
 import { ColumnManagement } from './column-management';
 import { Column } from './column.models';
+import { finishColumnMove } from './column-move-feedback';
 
 /** Column-owned controls and dialogs; the workspace projects read-only task content. */
 @Component({
@@ -43,6 +46,7 @@ export class ColumnControls implements OnDestroy {
   });
   private readonly dialogs = inject(TaskflowDialog);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
   private readonly active = signal<DialogRef<unknown, DialogFrame> | null>(null);
 
   constructor() {
@@ -66,12 +70,29 @@ export class ColumnControls implements OnDestroy {
     this.open({ kind: 'delete', column, mutations: this.mutations }, returnFocus);
   }
 
-  async move(id: string, direction: -1 | 1): Promise<void> {
+  async move(id: string, direction: -1 | 1, returnFocus: HTMLElement): Promise<void> {
+    const scroller = returnFocus.closest<HTMLElement>('.lanes')!;
+    const positions = new Map(
+      Array.from(scroller.querySelectorAll<HTMLElement>('.lane'), (lane) => [
+        lane,
+        lane.offsetLeft,
+      ]),
+    );
     const generation = this.state.generation();
     this.reorderError.set('');
     const result = await this.mutations.move(id, direction);
-    if (generation === this.state.generation() && !result.success && !result.stale)
-      this.reorderError.set(result.error);
+    if (this.destroyRef.destroyed || generation !== this.state.generation()) return;
+    if (!result.success && !result.stale) this.reorderError.set(result.error);
+    afterNextRender(
+      () =>
+        finishColumnMove(
+          scroller,
+          positions,
+          returnFocus,
+          result.success && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+        ),
+      { injector: this.injector },
+    );
   }
 
   private open(data: ColumnDialogData, returnFocus: HTMLElement): void {

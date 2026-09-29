@@ -512,7 +512,7 @@ behavior. Avoid dense developer interfaces and enterprise/admin-dashboard stylin
   - Complete (2026-09-28): one spacious Board overview surface using existing radius, spacing, border and restrained elevation tokens. Prominent total/overdue values and readable priority/column rows pair exact counts with decorative CSS-only proportional bars; zero totals and empty boards remain explicit. Server statistics, board-wide scope, column ordering, retry and mutation-refresh behavior are unchanged. Narrow layouts stack groups and wrap long labels without changing the interaction architecture.
   - Validation: 27 statistics tests pass; statistics plus functional acceptance pass 28 tests in 4 files. Full `npm run quality` passes formatting, lint, all 616 tests in 40 files, unchanged coverage thresholds and production build. Coverage: statements 97.44%, branches 95.85%, functions 97.94%, lines 98.56%. `git diff --check` passes. Headless Chrome with mocked API data inspected the section at 1440px, 900px and 390px; narrow-width checks showed no page overflow. This is section-level sanity checking, not MS11.10–MS11.12 final acceptance. Approved filters/task dialogs were preserved; no backend, API, database, chart dependency, commit or push changes.
   - MS11.6–MS11.9 checkpoint (2026-09-28): task-card title buttons now use transparent, borderless styling, brand-teal hover feedback, wrapping semibold text, a 44px minimum hit area and a visible keyboard focus outline. Native activation and separate drag handles are unchanged. Task/Kanban focused tests: 113 passed in 3 files. The complete quality gate remains green with 616 tests and unchanged coverage thresholds; `git diff --check` passes. This title-only correction does not start MS11.10.
-- [ ] MS11.10 — Responsive desktop/tablet/mobile UX
+- [x] MS11.10 — Responsive desktop/tablet/mobile UX
 - [ ] MS11.11 — Product polish and interaction states
 - [ ] MS11.12 — Visual, responsive, accessibility and regression acceptance
 
@@ -728,3 +728,23 @@ commit or push occurred.
 **MS11.6 COMPLETE — Modern Kanban workspace (2026-09-28).** The Board workspace now has a spacious Board navigation/title hierarchy and a contained horizontal Kanban surface. Lanes have stable desktop widths, visible task counts, calm neutral backgrounds, an intentional empty-lane treatment, and smartphone-aware horizontal scrolling; desktop and tablet retain the horizontal workspace. Column create/rename/delete use the shared CDK dialog frame with existing validation and server-error behavior, while Rename, valid Move actions and Delete live in labelled contextual menus. Column ordering and deletion semantics are unchanged.
 
 Task cards now use white soft-edged surfaces, restrained priority and due-date metadata, separate labelled drag handles, and refined CDK preview/placeholder/transition states with reduced-motion support. Existing task detail and create/edit interactions remain in place intentionally; search, filters, sorting and statistics presentation are untouched for MS11.7–MS11.9. Drag/drop still uses Angular CDK and the existing placement API/state behavior. Automated quality evidence and browser/touch acceptance are recorded with the milestone closeout; true device touch drag acceptance remains for MS11.12. No backend, API, database, dependency, infrastructure, commit or push change was made.
+
+MS11.10 COMPLETE — responsive desktop/tablet/mobile UX (2026-09-28).
+
+Validated the existing TaskFlow product experience across representative desktop,
+tablet and smartphone widths without redesigning the approved MS11.6–MS11.9
+visual language. The Kanban remains horizontally contained on narrow viewports,
+filters and menus remain viewport-safe, long labels are constrained, and Task
+dialogs remain viewport-bounded with contained scrolling.
+
+Column Move left/right continuity was corrected after browser investigation showed
+that the perceived page reload was caused by the Board overview collapsing during
+its statistics refresh rather than by a full Board reload. Previously confirmed
+statistics now remain rendered during background refresh, preventing the vertical
+page jump while preserving backend-authoritative reconciliation. Kanban horizontal
+position is preserved and focus returns sensibly to the moved Column control.
+
+Browser checks covered representative widths including 1440, 1024, 768, 430,
+390 and 360px. Final automated quality validation and git diff checks passed.
+MS11.11 product polish and MS11.12 final visual/accessibility/regression acceptance
+remain separate later milestones.

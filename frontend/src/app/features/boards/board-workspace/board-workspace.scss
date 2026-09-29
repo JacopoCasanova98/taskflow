@@ -18,7 +18,9 @@
   text-decoration: none;
 }
 .workspace-back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-hit-area-min);
   margin-top: var(--space-2);
 }
 .back-link:hover {
@@ -39,7 +41,6 @@ h1 {
 }
 @media (min-width: 75rem) {
   :host {
-    margin-inline: calc((100% - 100vw) / 2);
-    padding-inline: max(var(--space-5), calc((100vw - 90rem) / 2));
+    margin-inline: calc(var(--space-5) - var(--page-gutter));
   }
 }

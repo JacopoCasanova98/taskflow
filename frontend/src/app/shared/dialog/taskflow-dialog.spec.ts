@@ -71,6 +71,12 @@ describe('TaskFlow dialogs', () => {
     async (size) => {
       await open(size);
       expect(overlay.querySelector('.tf-dialog-' + size)).not.toBeNull();
+      const container = overlay.querySelector('.tf-dialog-panel > .cdk-dialog-container');
+      const frame = container?.querySelector('.tf-dialog-frame');
+      expect(
+        frame?.querySelector(':scope > .tf-dialog-header button[aria-label="Close dialog"]'),
+      ).not.toBeNull();
+      expect(frame?.querySelector(':scope > .tf-dialog-content')).not.toBeNull();
       const close = overlay.querySelector<HTMLButtonElement>('button[aria-label="Close dialog"]')!;
       close.click();
       expect(overlay.querySelector('[role="dialog"]')).toBeNull();
