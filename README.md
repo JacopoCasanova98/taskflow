@@ -18,14 +18,17 @@ and deployment/recovery designs, extending the work beyond CRUD endpoints.
 
 **[Try TaskFlow](https://taskflow-demo-frontend-bod0.onrender.com)** — register an
 account to explore the application.
+The live demo includes the v1.1.0 responsive product UI redesign.
 
 The public demo is **non-production**, intentionally hosted on free Render and
 Neon infrastructure. The Render Free backend may sleep after inactivity, so the
 first request can take longer; no keep-alive workaround is used. Treat demo data
 as disposable and do not enter sensitive or personal information.
 
-Registration, login/logout, board/column creation, task creation/editing/deletion,
-and persistence after refresh were manually validated on 2026-09-27. See the
+The public demo was manually revalidated on 2026-09-29 after the v1.1.0
+Product UI & Responsive Experience redesign, including authentication,
+Board/Column/Task workflows, responsive navigation, filters, task dialogs,
+drag-and-drop, column movement, statistics, and persistence. See the
 [portfolio demo record](docs/PORTFOLIO_DEMO.md) for deployment details, evidence,
 and remaining live checks.
 
