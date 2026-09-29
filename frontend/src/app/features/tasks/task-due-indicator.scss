@@ -2,14 +2,15 @@
   display: inline;
 }
 .due {
+  display: inline-flex;
+  align-items: center;
   font-size: 0.85rem;
   line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 .overdue {
-  color: #991b1b;
-  background: #fef2f2;
+  color: #8c3434;
 }
 .today {
-  color: #854d0e;
-  background: #fefce8;
+  color: #765d25;
 }

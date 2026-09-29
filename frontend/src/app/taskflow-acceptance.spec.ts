@@ -1,3 +1,4 @@
+import { taskViewControls } from '../../testing/task-view-controls.test-helper';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ApplicationInitStatus } from '@angular/core';
@@ -100,7 +101,7 @@ describe('TaskFlow functional acceptance', () => {
     expect(session.status()).toBe('anonymous');
     expect(session.initializationUnavailable()).toBe(false);
     fixture = TestBed.createComponent(App);
-    element = fixture.nativeElement;
+    element = document.body;
     await router.navigateByUrl('/register');
     await settle();
   });
@@ -163,7 +164,7 @@ describe('TaskFlow functional acceptance', () => {
   function statisticsRows() {
     return Array.from(element.querySelectorAll('app-board-statistics dl > div'), (row) => [
       row.querySelector('dt')?.textContent,
-      row.querySelector('dd')?.textContent,
+      row.querySelector('dd')?.textContent?.trim(),
     ]);
   }
   async function statistics(columns: readonly Column[], current: Task | null = null) {
@@ -197,7 +198,9 @@ describe('TaskFlow functional acceptance', () => {
     return firstValueFrom(router.events.pipe(filter((event) => event instanceof NavigationEnd)));
   }
   async function logout() {
-    await click('Log out', element.querySelector('header')!);
+    element.querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')!.click();
+    await settle();
+    await click('Log out', document.querySelector<HTMLElement>('[role="menu"]')!);
     const navigation = nextNavigation();
     request('POST', '/api/auth/logout', null).flush(null, {
       status: 204,
@@ -242,14 +245,21 @@ describe('TaskFlow functional acceptance', () => {
     expect(session.user()?.email).toBe(credentials.email);
     expect(session.accessToken()).toBe('login-access');
     expect(router.url).toBe('/boards');
-    expect(element.querySelector('header')?.textContent).toContain(credentials.email);
+    element.querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')!.click();
+    await settle();
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain(credentials.email);
+    document.body.click();
+    await settle();
     request('GET', '/api/boards').flush([]);
     await settle();
     expect(element.textContent).toContain('No boards yet.');
 
-    await click('Create board');
-    await fill('#create-name', board.name);
-    await click('Create board');
+    await click('Create board', element.querySelector('.page-heading')!);
+    const nameInput = document.querySelector<HTMLInputElement>('[role="dialog"] #create-name')!;
+    nameInput.value = board.name;
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    await click('Create board', document.querySelector('[role="dialog"]')!);
     request('POST', '/api/boards', { name: board.name }).flush(board, {
       status: 201,
       statusText: 'Created',
@@ -266,8 +276,11 @@ describe('TaskFlow functional acceptance', () => {
 
     for (const [index, column] of [backlog, progress].entries()) {
       await click('Add column');
-      await fill('#create-column-name', column.name);
-      await click('Add column');
+      const columnName = document.querySelector<HTMLInputElement>('#create-column-name')!;
+      columnName.value = column.name;
+      columnName.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+      await click('Create column', document.querySelector('[role="dialog"]')!);
       http.expectNone((r) => r.url.endsWith('/statistics'));
       request('POST', '/api/boards/' + board.id + '/columns', { name: column.name }).flush(column, {
         status: 201,
@@ -279,9 +292,7 @@ describe('TaskFlow functional acceptance', () => {
         column.name,
       );
       expect(
-        Array.from(element.querySelectorAll('#task-column-filter option'), (option) =>
-          option.textContent?.trim(),
-        ),
+        (await taskViewControls(settle).options('task-column-filter')).map((option) => option[1]),
       ).toEqual(['All columns', ...[backlog, progress].slice(0, index + 1).map((c) => c.name)]);
     }
     await click('Add task to Backlog');
@@ -301,16 +312,16 @@ describe('TaskFlow functional acceptance', () => {
     expect(lane(0).querySelector('time')?.getAttribute('datetime')).toBe(task.dueDate);
 
     await click('View task: ' + task.title);
-    const details = element.querySelector('app-task-details')!;
+    const details = element.querySelector('[role="dialog"]')!;
     expect(details.textContent).toContain(content.title);
     expect(details.textContent).toContain(content.description);
     expect(details.textContent).toContain('High');
     expect(details.querySelector('time')?.getAttribute('datetime')).toBe(task.dueDate);
     http.expectNone(() => true);
-    await click('Edit', details);
+    await click('Edit task', details);
     await fill('app-task-form input[type="text"]', edited.title);
     await fill('app-task-form select', edited.priority);
-    await click('Save task');
+    await click('Save changes');
     request('PUT', '/api/tasks/' + task.id, {
       ...content,
       title: edited.title,
@@ -319,7 +330,7 @@ describe('TaskFlow functional acceptance', () => {
     await settle();
     await statistics([backlog, progress], edited);
     expect(lane(0).textContent).toContain(edited.title);
-    expect(details.querySelector('h3')?.textContent).toBe(edited.title);
+    expect(details.querySelector('h2')?.textContent).toBe(edited.title);
     expect(details.textContent).toContain('Medium');
     await click('Close', details);
 
@@ -346,22 +357,22 @@ describe('TaskFlow functional acceptance', () => {
     expect(canonicalTasks()).toEqual([moved]);
 
     const canonicalStatistics = statisticsRows();
-    expect(element.querySelector<HTMLSelectElement>('#task-priority-order')?.value).toBe('MANUAL');
-    await fill('#task-priority-filter', 'MEDIUM');
-    await fill('#task-column-filter', progress.id);
+    expect(element.querySelector<HTMLButtonElement>('#task-priority-order')?.value).toBe('MANUAL');
+    await taskViewControls(settle).choose('task-priority-filter', 'MEDIUM');
+    await taskViewControls(settle).choose('task-column-filter', progress.id);
     expect(lane(1).textContent).toContain(moved.title);
-    await fill('#task-priority-filter', 'HIGH');
+    await taskViewControls(settle).choose('task-priority-filter', 'HIGH');
     expect(element.querySelectorAll('.task-title')).toHaveLength(0);
     expect(element.textContent).toContain('No tasks match the current filters.');
     expect(statisticsRows()).toEqual(canonicalStatistics);
     expect(canonicalTasks()).toEqual([moved]);
     await click('Clear filters');
-    await fill('#task-due-filter', 'OVERDUE');
-    await fill('#task-priority-order', 'DUE_DATE_ASC');
+    await taskViewControls(settle).choose('task-due-filter', 'OVERDUE');
+    await taskViewControls(settle).choose('task-priority-order', 'DUE_DATE_ASC');
     expect(statisticsRows()).toEqual(canonicalStatistics);
     expect(element.querySelectorAll('.task-title')).toHaveLength(0);
     await click('Clear filters');
-    await fill('#task-priority-order', 'MANUAL');
+    await taskViewControls(settle).choose('task-priority-order', 'MANUAL');
     http.expectNone(() => true);
     for (const [query, matches] of [
       ['authentication', [moved]],
@@ -385,7 +396,7 @@ describe('TaskFlow functional acceptance', () => {
     http.expectNone(() => true);
 
     await click('View task: ' + moved.title);
-    await click('Delete', element.querySelector('app-task-details')!);
+    await click('Delete', element.querySelector('[role="dialog"]')!);
     http.expectNone(() => true);
     await click('Delete task');
     request('DELETE', '/api/tasks/' + task.id).flush(null, {
@@ -395,7 +406,7 @@ describe('TaskFlow functional acceptance', () => {
     await settle();
     await statistics([backlog, progress]);
     expect(canonicalTasks()).toEqual([]);
-    expect(element.querySelector('app-task-details')).toBeNull();
+    expect(element.querySelector('[role="dialog"]')).toBeNull();
     expect(lane(1).textContent).toContain('No tasks yet.');
     await logout();
     expect(element.querySelector('app-board-workspace')).toBeNull();

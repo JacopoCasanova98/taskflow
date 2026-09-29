@@ -1,4 +1,4 @@
-<a routerLink="/boards">Back to boards</a>
+<a class="back-link workspace-back" routerLink="/boards">← Boards</a>
 @if (columns.notice()) {
   <p role="status">{{ columns.notice() }}</p>
 }
@@ -21,18 +21,20 @@
     <button type="button" (click)="state.retry()">Retry</button>
   }
   @case ('ready') {
-    <h1>{{ workspace.board.name }}</h1>
-    <app-task-view-controls />
-    <app-board-statistics />
-    <app-column-controls cdkDropListGroup>
-      <ng-template let-lane>
-        <app-task-list [lane]="lane" />
-      </ng-template>
-    </app-column-controls>
-    @if (tasks.selected(); as task) {
-      @for (id of [task.id]; track id) {
-        <app-task-details [task]="task" />
-      }
-    }
+    <section class="workspace" aria-labelledby="board-workspace-heading">
+      <header class="workspace-header">
+        <div>
+          <h1 id="board-workspace-heading">{{ workspace.board.name }}</h1>
+          <p>Manage tasks across your workflow.</p>
+        </div>
+      </header>
+      <div class="workspace-controls"><app-task-view-controls /></div>
+      <div class="workspace-statistics"><app-board-statistics /></div>
+      <app-column-controls cdkDropListGroup>
+        <ng-template let-lane>
+          <app-task-list [lane]="lane" />
+        </ng-template>
+      </app-column-controls>
+    </section>
   }
 }

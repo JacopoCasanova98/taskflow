@@ -116,6 +116,91 @@ The Angular development serve configuration references `frontend/proxy.conf.json
 
 Global `src/styles.scss` contains application-wide visual and reset foundations only. The root app component owns the minimal application shell: a skip link, application header, and main content landmark containing `RouterOutlet`. Root component styles own shell layout; feature-specific UI and styling stay with their feature.
 
+MS11.1 centralizes semantic CSS custom properties in `src/styles/_tokens.scss`,
+loaded by the global stylesheet. `src/styles/_controls.scss` supplies opt-in Sass
+mixins for native buttons and fields, included by feature-owned styles rather
+than global control selectors. Keep layout and specialized controls local.
+The five legacy color variables remain compatibility aliases; new styling uses
+the semantic tokens. System fonts avoid network dependencies, focus remains
+visible, and interaction timing respects reduced motion. No templates, state,
+domain behavior or UI framework change is part of this foundation.
+The visual contract is consumer-grade and spacious: white/warm-neutral surfaces,
+near-black typography, a restrained teal accent, soft geometry and selective
+elevation. Surface borders and accessible field boundaries use separate tokens.
+The [MacroStep 11 roadmap](ROADMAP.md#macrostep-11--product-ui--responsive-experience)
+defines progressive disclosure, top navigation, cards and responsive CDK-based
+dialogs. MS11.3 implements the shell and shared interaction infrastructure;
+MS11.5 migrates board management to dialogs; other feature editing flows remain
+unchanged until their own redesign milestones.
+
+MS11.6 keeps the Board workspace state as the sole source for ordered lanes and derives each displayed task count from that loaded lane. `ColumnControls` owns labelled CDK contextual menus and typed create/rename/delete dialog content; it delegates unchanged mutations to `ColumnManagement`, so API, ordering, error reconciliation and deletion semantics remain intact. Lanes are a contained horizontal scroller (fixed useful lane widths on desktop/tablet and roughly 86vw on phones), while task cards retain CDK drag/drop and use a distinct labelled handle so opening existing details is not conflated with dragging. Task details/forms and filter/statistics architecture are deliberately unchanged pending MS11.7–MS11.9.
+
+MS11.7 integration: the Board workspace coordinates one
+CDK task dialog and closes it on page destruction or stale selection/create context.
+Dialog data carries the existing page-scoped `TaskManagement` collaborator; the
+page injector preserves workspace and local-day dependencies. Details read canonical
+task state. Editing reuses `TaskForm` in the same dialog; deletion switches that
+surface to a small named confirmation without stacking overlays. Pending writes
+prevent dismissal and duplicate submission. Mode changes move focus to the form,
+Cancel, or Edit action; final dismissal restores the original trigger if it exists.
+No task API, validation, ordering, filter or statistics semantics change.
+
+The shell uses a brand/home link, authenticated Boards navigation and a CDK account
+menu. Email and logout are disclosed in the menu; session handling and success-only
+logout navigation remain feature-owned. Mobile reduces gutters/header height and
+uses the mark alone at very narrow widths. The main region stays full-width for
+Kanban; `.tf-page` provides opt-in constrained content for later normal pages.
+Logout progress and recoverable errors share a persistent polite live region;
+its idle state is visually hidden without removing it from the accessibility tree.
+
+`shared/icon` owns small, consistent account, close, plus and more SVGs and a native `button[appIconButton]`
+directive requiring an accessible label. Native disabled behavior and global focus
+styles remain. No icon dependency is needed; extend one
+coherent family rather than adding unrelated icon styles.
+
+`shared/dialog/TaskflowDialog.open(Component, { title, size, data, disableClose,
+autoFocus, restoreFocus })` wraps the installed CDK Dialog with a shared frame. `title` is required;
+`size` defaults to `md`. Content injects `DIALOG_DATA` and `DialogRef` to read data and
+return a typed result through `ref.close(result)` / `ref.closed`. The frame supplies
+the title/close action; content owns its fields and optional `.tf-dialog-actions`
+footer. CDK supplies modal semantics, focus trapping/restoration, Escape/backdrop
+dismissal and scroll locking. Initial focus defaults to the heading; callers can
+select the dialog, first tabbable element or a content selector, and optionally
+provide a stable return-focus element. `disableClose` blocks Escape, backdrop
+and frame dismissal for unsafe operations, while explicit completion remains possible.
+
+`styles/_interactions.scss` loads CDK overlay structure and supplies custom surfaces,
+reduced-motion-aware entry transitions, icon-button/menu styles and responsive dialog
+panels. Small dialogs remain centered, medium dialogs become bottom sheets on phones,
+and large dialogs become fullscreen with safe-area padding and contained scrolling.
+Closing is immediate. Reuse `CdkMenu`, `CdkMenuItem`, `CdkMenuTrigger` with `.tf-menu`
+for keyboard navigation, positioning, outside dismissal and focus management; no
+second menu framework is introduced. Shared fixtures test dialogs without adding
+developer/demo controls to production. Browser visual and responsive acceptance
+remains separate from DOM/unit tests.
+
+The Boards dashboard uses a constrained three/two/one-column card grid with separate
+navigation links and CDK action-menu buttons. Feature-owned `BoardDialog` content
+reuses `BoardNameForm` for create/rename and provides a small delete confirmation
+with Cancel initially focused. The page-scoped `BoardListState` retains API and
+reconciliation behavior. Submission blocks dismissal and duplicate requests;
+removed-card focus falls back to the page's Create board action after rendering.
+Kanban, column and task presentation are unchanged.
+
+### Responsive interaction continuity (MS11.10)
+
+Column reorder remains backend-authoritative and preserves the existing mutation
+semantics. Browser investigation showed that the previous reload-like Move
+left/right experience was caused by Board statistics replacing an already-loaded
+overview with its initial loading presentation, collapsing page height during
+refresh. MS11.10 keeps the last confirmed statistics presentation mounted during
+background refresh and reconciles refreshed values when the request completes.
+
+Column movement keeps Kanban scroll state local and restores focus to the moved
+Column's contextual-action trigger without scrolling the document. TaskFlow dialog
+height constraints are propagated through the CDK panel/container/frame so long
+Task content remains viewport-contained and scrolls internally.
+
 #### Forms conventions
 
 New TaskFlow forms use Angular Signal Forms from `@angular/forms/signals`. Use a typed `signal()` model, `form()` to create the form field tree, `FormField` to bind controls, and schema-based validation. Use `FormRoot` and Signal Forms submission APIs such as `submit()` where appropriate for the use case.

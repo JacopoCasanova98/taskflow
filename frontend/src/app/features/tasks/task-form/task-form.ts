@@ -19,7 +19,7 @@ import { TaskField, TaskMutationResult } from '../task-management';
   selector: 'app-task-form',
   imports: [FormField],
   templateUrl: './task-form.html',
-  styleUrl: '../task-controls.scss',
+  styleUrl: './task-form.scss',
 })
 export class TaskForm implements OnInit {
   readonly priorityLabels = priorityLabels;

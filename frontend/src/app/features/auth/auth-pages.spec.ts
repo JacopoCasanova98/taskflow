@@ -69,6 +69,15 @@ for (const kind of ['login', 'register'] as const) {
         kind === 'login' ? '/register' : '/login',
       );
       expect(element.querySelectorAll('input')).toHaveLength(2);
+      expect(element.querySelector('section')?.getAttribute('aria-labelledby')).toBe('auth-title');
+      expect(element.querySelectorAll('h1')).toHaveLength(1);
+      for (const input of element.querySelectorAll('input')) {
+        for (const id of input.getAttribute('aria-describedby')!.split(' ')) {
+          expect(element.querySelector('#' + id)).not.toBeNull();
+        }
+      }
+      expect(element.querySelector('#email-errors')?.getAttribute('aria-live')).toBe('polite');
+      expect(element.querySelector('#password-errors')?.getAttribute('aria-live')).toBe('polite');
     });
     it.each([
       ['bad-email', password, 'Enter a valid email address.'],
@@ -101,11 +110,21 @@ for (const kind of ['login', 'register'] as const) {
       await send();
       expect(request).toHaveBeenCalledTimes(1);
       expect(element.querySelector('button')?.disabled).toBe(true);
+      expect(element.querySelector('form')?.getAttribute('aria-busy')).toBe('true');
+      expect(element.querySelector('[role="status"]')?.textContent?.trim()).toBe(
+        kind === 'login' ? 'Signing in…' : 'Creating account…',
+      );
+      expect(element.querySelector('form [role="status"]')).toBeNull();
+      expect(element.querySelector('button')?.textContent?.trim()).toBe(
+        kind === 'login' ? 'Signing in…' : 'Creating account…',
+      );
       pending.next({});
       pending.complete();
       await submission.mock.results[0].value;
       await fixture.whenStable();
       expect(element.querySelector('button')?.disabled).toBe(false);
+      expect(element.querySelector('form')?.getAttribute('aria-busy')).toBe('false');
+      expect(element.querySelector('[role="status"]')?.textContent?.trim()).toBe('');
     });
     it.each([0, 500, 401, 409])(
       'uses a safe retryable fallback for unknown error status %s',

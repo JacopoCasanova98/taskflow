@@ -487,3 +487,301 @@ Tag `v1.0.0` was verified against the same main/release commit, and the human
 published GitHub Release `v1.0.0` using the reviewed release notes.
 AWS remained completely unprovisioned. MS10.11 remains complete; MS10.9
 screenshots remain deferred/optional and do not block completion.
+
+## MacroStep 11 — Product UI & Responsive Experience
+
+**Goal:** A premium, consumer-grade, spacious and highly polished product
+experience inspired by the interaction quality of products such as Airbnb,
+while preserving TaskFlow's own identity. This is inspiration for clarity, warmth,
+soft geometry and attention to detail, not copied branding, colors, assets or
+layouts. Preserve the domain model, API contracts, security model and functional
+behavior. Avoid dense developer interfaces and enterprise/admin-dashboard styling.
+
+- [x] MS11.1 — UI foundation and design system
+- [x] MS11.2 — Branding and browser polish
+- [x] MS11.3 — Application shell and interaction infrastructure
+- [x] MS11.4 — Authentication experience
+- [x] MS11.5 — Boards dashboard
+- [x] MS11.6 — Modern Kanban workspace
+- [x] MS11.7 — Task details and task forms
+  - Local implementation revised on 2026-09-28: one large task dialog for details/create/edit, compact in-dialog delete confirmation, canonical-state updates, pending dismissal protection, and focus restoration. Existing inline-DOM tests migrated to CDK overlay DOM without removing behavioral assertions. Focused task/form/mutation/shared-dialog/column tests: 133 passed. Headless Chrome with mocked API data reviewed desktop (1440×1000) and mobile (390×844) task surfaces; mobile form fields remain contained without horizontal overflow. Real-device/touch and human visual acceptance remain pending.
+  - Final validation (2026-09-28): the search/filter migration blockers are resolved. `npm run quality` passes formatting, lint, all 614 tests in 40 files, unchanged coverage thresholds and production build; `git diff --check` passes. Coverage: statements 97.44%, branches 95.85%, functions 97.94%, lines 98.56%. No additional task-modal visual changes were needed.
+- [x] MS11.8 — Search, filters and sorting experience
+  - Final validation (2026-09-28): approved search/pill/popover appearance preserved. Restored Retry search, named the compact clear action accessibly, and exposed selected options through CDK radio-menu semantics. Removed hidden compatibility selects; migrated priority/due/combined-filter and acceptance tests to visible menu interactions. Search, combined filters, sorting, clearing, selected values, expanded state, Escape/focus restoration and outside dismissal pass 102 focused tests in 5 files. Full quality evidence is recorded above. Test-only menu support lives in `frontend/testing`, outside production sources. No new browser visual acceptance is claimed by this test-only closeout; MS11.9–MS11.12 remain unchecked.
+- [x] MS11.9 — Board statistics presentation
+  - Complete (2026-09-28): one spacious Board overview surface using existing radius, spacing, border and restrained elevation tokens. Prominent total/overdue values and readable priority/column rows pair exact counts with decorative CSS-only proportional bars; zero totals and empty boards remain explicit. Server statistics, board-wide scope, column ordering, retry and mutation-refresh behavior are unchanged. Narrow layouts stack groups and wrap long labels without changing the interaction architecture.
+  - Validation: 27 statistics tests pass; statistics plus functional acceptance pass 28 tests in 4 files. Full `npm run quality` passes formatting, lint, all 616 tests in 40 files, unchanged coverage thresholds and production build. Coverage: statements 97.44%, branches 95.85%, functions 97.94%, lines 98.56%. `git diff --check` passes. Headless Chrome with mocked API data inspected the section at 1440px, 900px and 390px; narrow-width checks showed no page overflow. This is section-level sanity checking, not MS11.10–MS11.12 final acceptance. Approved filters/task dialogs were preserved; no backend, API, database, chart dependency, commit or push changes.
+  - MS11.6–MS11.9 checkpoint (2026-09-28): task-card title buttons now use transparent, borderless styling, brand-teal hover feedback, wrapping semibold text, a 44px minimum hit area and a visible keyboard focus outline. Native activation and separate drag handles are unchanged. Task/Kanban focused tests: 113 passed in 3 files. The complete quality gate remains green with 616 tests and unchanged coverage thresholds; `git diff --check` passes. This title-only correction does not start MS11.10.
+- [x] MS11.10 — Responsive desktop/tablet/mobile UX
+- [x] MS11.11 — Product polish and interaction states
+- [x] MS11.12 — Visual, responsive, accessibility and regression acceptance
+
+**Scope:** Extend the existing Angular architecture with centralized tokens and
+small reusable styling primitives; keep dependencies minimal. Preserve backend,
+API, database, authentication, ownership, Board/Column/Task, search, filtering,
+sorting and statistics semantics. Deployment, Docker/runtime contracts and
+Terraform/CloudFormation remain unchanged. No collaboration, comments, realtime,
+notifications, uploads, calendar, PWA/offline, themes/dark mode, avatar uploads,
+new endpoints/domain fields or major state-management rewrite is included.
+
+**Responsive contract:** Design deliberate desktop (approximately >= 1200px),
+tablet (768–1199px) and smartphone (< 768px) experiences. Desktop remains
+Kanban-first; tablet uses compact navigation and touch-friendly board navigation;
+mobile reorganizes controls and forms rather than squeezing desktop toolbars.
+Task details adapt to available width, controls have comfortable touch targets,
+and the page must not overflow horizontally. Exact breakpoints can follow layout
+evidence. Full responsive redesign belongs to later milestones, not MS11.1.
+
+**MS11.2 scope:** A coherent TaskFlow mark/logo, SVG and fallback favicons,
+Apple touch icon where justified, document title, useful description, browser
+`theme-color`, and `index.html` cleanup. Add social preview metadata only where
+justified for the public demo; favicon support does not require PWA infrastructure.
+Branding is not part of MS11.1.
+
+**Product design contract (implemented progressively in MS11.2+):**
+
+- Clean top navigation with brand, Boards and account actions; no heavy permanent
+  sidebar by default. Give the board workspace generous horizontal space.
+- White/light neutral surfaces, near-black text, readable gray metadata and one
+  TaskFlow accent. Use spacing and subtle borders rather than nested tinted boxes.
+  Normal cards have little or no shadow; floating elements use soft elevation.
+- Comfortable 44–48px controls, 10–12px control radii, 12–16px small cards/popovers,
+  16–20px primary cards, 24–28px dialogs and fully rounded chips where appropriate.
+  Typography provides hierarchy without oversized headings or visual density.
+- Progressive disclosure: secondary actions belong in contextual menus, suitable
+  forms and destructive confirmations in dialogs. Primary, neutral secondary,
+  quiet ghost and circular/soft-square icon controls form one button language;
+  danger styling is prominent only where needed.
+- Boards become spacious content cards with useful information and contextual
+  actions. Kanban columns stay light; task cards dominate with comfortable padding,
+  restrained priority/due metadata and polished existing drag interactions.
+- Search and rounded filter/sort controls replace the raw-select visual treatment
+  in MS11.8; removable active chips and dedicated mobile overlays may organize
+  the same filter semantics. Do not crowd the workspace with all actions at once.
+- Forms use strong labels, comfortable fields, helpful spacing and quiet inline
+  validation. Empty, loading, error and confirmation states are designed product
+  states, including within dialogs; avoid unnecessary boxes inside boxes.
+- Use one lightweight icon family if needed later, never mixed families or emoji
+  UI icons. Subtle hover, press, menu and dialog motion must respect reduced motion
+  and never delay the workflow.
+
+**Dialog contract:** A reusable dialog foundation using Angular CDK Dialog/Overlay
+and accessibility capabilities is required for later form/detail milestones.
+Evaluate board/column create, rename and deletion confirmations, task create/edit,
+deletion and details per milestone; do not implement overlays during MS11.1.
+Desktop prefers centered dialogs, especially focused task details rather than an
+enterprise side drawer. Use a dark translucent backdrop without theatrical blur,
+soft large corners, generous padding, clear title/close affordance and footer
+actions where useful. Tokenized SM/MD/LG widths serve confirmations, board/column
+forms and task flows. Widths must remain viewport-constrained, with max-height and
+contained scrolling. Require dialog ARIA semantics, focus trapping, initial focus,
+focus restoration, and Escape/backdrop closing where safe for the current action.
+Choose the simplest coherent detail/edit interaction without changing semantics.
+
+Tablet can retain adapted centered dialogs and horizontally navigable Kanban.
+On mobile use compact centered confirmations, sheets for suitable short forms,
+and near-fullscreen/fullscreen task forms/details, with obvious close/navigation,
+safe scrolling and sticky actions where useful. Compact top navigation, dedicated
+filter overlays when helpful, >=44px targets and no page-level horizontal overflow
+are acceptance criteria, not claims about the current foundation.
+
+**Definition of Done:**
+
+- All existing functionality remains available with a consistent visual language.
+- Desktop, tablet and smartphone layouts are intentionally designed.
+- Major workflows are comfortable with mouse, keyboard and touch.
+- Accessibility semantics and visible focus are preserved or improved; important
+  meaning does not depend on color alone, and reduced motion is respected.
+- Branding, favicon and browser metadata are complete.
+- Loading, empty, error, confirmation and interaction states are polished.
+- Frontend tests, production build and repository quality gates pass.
+- Portfolio assets may then be refreshed from the real redesigned application.
+
+**MS11.1 COMPLETE — corrected consumer-product foundation (2026-09-27).**
+Reopened before acceptance to correct the initial admin-oriented visual values,
+then revalidated. Preserved semantic tokens, opt-in control mixins, legacy color
+aliases, focus indication, reduced motion and all existing behavior.
+
+The foundation now uses white/warm-neutral surfaces, near-black and readable gray
+text, and a restrained TaskFlow teal accent. Subtle surface borders are separate
+from accessible input boundaries. Controls use 48px minimum height, generous
+padding and 12px corners; the radius scale extends through 16px small cards, 20px
+cards, 28px dialogs and pills. Spacing extends to 64/96px for future layouts;
+system typography uses comfortable line heights and restrained heading tracking.
+Soft elevation is selective, not applied to every card. SM/MD/LG dialog widths,
+backdrop and 140/180ms interaction timings are tokens only; no overlay is built.
+
+`npm run quality` passed formatting, lint, all 593 tests in 38 files, coverage
+thresholds and the production build outside the sandbox. Coverage: statements
+98.36%, branches 96.85%, functions 98.82%, lines 100%. Token references and
+whitespace checks passed. Calculated text/status contrast exceeds 4.5:1 and input
+border contrast exceeds 3:1 against both white and muted surfaces. These checks
+are not browser visual/responsive/accessibility acceptance, which remains MS11.12.
+No browser review is claimed. MS11.2+ remain unstarted: branding, shell, product
+screens, dialogs, contextual menus, filters and responsive overlays are deferred.
+No templates, domain/API/security behavior, dependencies or deployment changed.
+
+**MS11.2 COMPLETE — branding and browser polish (2026-09-27).**
+Added an original geometric white T on a softly rounded TaskFlow teal surface
+(`#176b60`, matching the existing accent). The canonical `public/taskflow-mark.svg`
+also serves as the SVG favicon; no duplicate logo/wordmark asset is needed.
+Replaced the starter ICO with a 32px fallback and added a 180px Apple touch icon
+with a centered 132px mark and white padding. These raster assets derive from the
+SVG via local Quick Look rasterization and `sips`; no dependency was introduced.
+Later shell usage should render TaskFlow as real text and treat an adjacent mark
+as decorative, or provide an accessible name when the mark stands alone.
+
+The entry HTML now uses the correctly cased TaskFlow title, a concise description,
+white browser theme color, minimal Open Graph title/description/type and icon links.
+Charset, viewport, base URL and Angular root are preserved; existing route titles
+already use TaskFlow. No manifest, PWA infrastructure or remote font was added.
+`og:image` is deferred to MS11.12 / the real redesigned portfolio asset refresh.
+
+Validation: SVG XML/viewBox and minimal markup checked; local 512px render, decoded
+32px ICO and padded Apple icon visually inspected. All icon references resolve,
+and production output contains byte-identical assets. `npm run quality` passed
+formatting, lint, 593 tests in 38 files, unchanged coverage thresholds and production
+build; `git diff --check` passed. Browser/tab/device acceptance is not claimed.
+MS11.1 work is preserved. MS11.3–MS11.12 remain unchecked and unstarted: no shell,
+navigation, product-screen, dialog or responsive-layout redesign was performed.
+
+**MS11.3 COMPLETE — application shell and interaction infrastructure (2026-09-27).**
+Resumed and retained the interrupted implementation and all MS11.1/MS11.2 work.
+The shell now uses the existing mark with real TaskFlow text, authenticated Boards
+navigation, a CDK account menu, responsive gutters and compact narrow-screen
+branding. The skip link and full-width workspace area remain. Logout retains its
+success-only navigation, duplicate-request guard and accessible, recoverable errors;
+the idle live region stays accessible and progress uses neutral styling.
+
+Shared native icon buttons require labels and provide comfortable targets and
+interaction states. Two consistent stroke icons avoid a new dependency. Installed
+CDK Dialog/Overlay powers a small typed TaskFlow wrapper with labelled frame,
+focus trapping/initial focus/restoration, Escape/backdrop/close controls, protected
+dismissal and scroll locking. SM/MD/LG sizes support centered confirmations,
+mobile sheets and fullscreen task-sized panels with contained scrolling and a
+non-shrinking header. No actual feature dialogs were introduced. CDK Menu and shared
+floating-surface styles support keyboard, Escape and outside dismissal; board,
+column and task actions have not been migrated. Reduced motion is respected.
+
+Final `npm run quality` passed formatting, lint, all 603 tests in 40 files, coverage
+thresholds and production build. Coverage: statements 98.42%, branches 96.90%,
+functions 98.84%, lines 100%. Initial bundle: 367.06 kB within unchanged budgets.
+Tests cover auth-aware navigation, skip focus, menu keyboard/outside dismissal,
+logout retry/duplicate prevention, labelled icon controls, dialog size/configuration,
+focus, dismissal and scroll restoration. Token/link checks and `git diff --check`
+passed. No browser was available: desktop/tablet/phone visual acceptance, actual
+layout overflow and assistive-technology behavior remain unverified in a browser.
+MS11.4–MS11.12 remain unchecked and unstarted. No feature-screen redesign, backend,
+API, database, dependency, infrastructure or deployment change was made; no commit
+or push was performed.
+
+**MS11.4 COMPLETE — authentication experience (2026-09-27).**
+Login and Register now use an open, horizontally centered single-column layout
+with a 448px maximum form width, clear heading/supporting copy and no nested card.
+The existing signed-out shell remains the single TaskFlow mark/wordmark location;
+authenticated navigation and account controls stay absent. Shared 48px controls,
+12px corners, reserved feedback space, full-width primary actions and spacious
+router cross-links establish a consistent entry experience. Narrow or short
+viewports reduce vertical spacing; forms use natural page scrolling and existing
+shell gutters rather than fixed viewport heights.
+
+Email/password fields, autocomplete, validation rules, error messages, safe return
+navigation and duplicate-submission prevention are unchanged. Visible labels,
+error associations and polite live regions remain. A separate progress status
+outside the busy form announces submission without moving the layout. No password
+reveal, extra field or new authentication feature was added.
+
+`npm run quality` passed formatting, lint, all 604 tests in 40 files, unchanged
+coverage thresholds and production build. Coverage: statements 98.42%, branches
+96.90%, functions 98.84%, lines 100%. Tests additionally verify error associations,
+busy/progress lifecycle and real Login/Register cross-navigation in the brand-only
+shell. `git diff --check` passed. No browser was available; desktop/mobile visual,
+keyboard-viewport and assistive-technology acceptance remain unverified.
+MS11.5–MS11.12 remain unchecked and unstarted. No Boards, Kanban or task redesign,
+backend/API/database/dependency/infrastructure changes, commit or push occurred.
+
+**MS11.5 COMPLETE — Boards dashboard (2026-09-27).**
+The Boards page now uses a spacious title/action header and a constrained card grid:
+three columns on desktop, two below 1024px and one below 640px, with a stacked mobile
+header. Cards show actual board names, a large navigation area and separate labelled
+CDK contextual actions. Subtle borders, soft geometry and restrained hover/focus
+elevation reuse the existing design tokens; no new board metadata was introduced.
+
+Create and Rename use medium TaskFlow dialogs with the existing name form and
+validation. Delete uses a small named confirmation with Cancel initially focused.
+Submission prevents duplicate requests and unsafe dismissal; server failures remain
+recoverable. Keyboard menu navigation, Escape/outside dismissal, input focus,
+focus restoration and a removed-card fallback are covered by tests. Loading, empty
+and retry states retain accessible announcements. API/state reconciliation, ordering
+and board navigation behavior remain unchanged.
+
+`npm run quality` passed formatting, lint, all 607 tests in 40 files, unchanged
+coverage thresholds and production build. Coverage: statements 98.63%, branches
+97.39%, functions 98.60%, lines 100%. The focused board/acceptance suite passed
+62 tests. `git diff --check` and documentation relative-link validation passed.
+No browser was available; desktop/tablet/mobile visual acceptance, actual overflow
+and dialog/menu appearance remain unverified in a browser.
+MS11.6–MS11.12 remain unchecked and unstarted. No Kanban, column, task, filter or
+statistics redesign, backend/API/database/dependency/infrastructure changes,
+commit or push occurred.
+
+**MS11.6 COMPLETE — Modern Kanban workspace (2026-09-28).** The Board workspace now has a spacious Board navigation/title hierarchy and a contained horizontal Kanban surface. Lanes have stable desktop widths, visible task counts, calm neutral backgrounds, an intentional empty-lane treatment, and smartphone-aware horizontal scrolling; desktop and tablet retain the horizontal workspace. Column create/rename/delete use the shared CDK dialog frame with existing validation and server-error behavior, while Rename, valid Move actions and Delete live in labelled contextual menus. Column ordering and deletion semantics are unchanged.
+
+Task cards now use white soft-edged surfaces, restrained priority and due-date metadata, separate labelled drag handles, and refined CDK preview/placeholder/transition states with reduced-motion support. Existing task detail and create/edit interactions remain in place intentionally; search, filters, sorting and statistics presentation are untouched for MS11.7–MS11.9. Drag/drop still uses Angular CDK and the existing placement API/state behavior. Automated quality evidence and browser/touch acceptance are recorded with the milestone closeout; true device touch drag acceptance remains for MS11.12. No backend, API, database, dependency, infrastructure, commit or push change was made.
+
+MS11.10 COMPLETE — responsive desktop/tablet/mobile UX (2026-09-28).
+
+Validated the existing TaskFlow product experience across representative desktop,
+tablet and smartphone widths without redesigning the approved MS11.6–MS11.9
+visual language. The Kanban remains horizontally contained on narrow viewports,
+filters and menus remain viewport-safe, long labels are constrained, and Task
+dialogs remain viewport-bounded with contained scrolling.
+
+Column Move left/right continuity was corrected after browser investigation showed
+that the perceived page reload was caused by the Board overview collapsing during
+its statistics refresh rather than by a full Board reload. Previously confirmed
+statistics now remain rendered during background refresh, preventing the vertical
+page jump while preserving backend-authoritative reconciliation. Kanban horizontal
+position is preserved and focus returns sensibly to the moved Column control.
+
+Browser checks covered representative widths including 1440, 1024, 768, 430,
+390 and 360px. Final automated quality validation and git diff checks passed.
+MS11.11 product polish and MS11.12 final visual/accessibility/regression acceptance
+remain separate later milestones.
+
+MS11.11 COMPLETE — product polish and interaction states (2026-09-29).
+
+Completed a final product-polish pass across navigation, Boards, Kanban, task
+interactions, menus, dialogs, filters and Board overview. Remaining visual
+inconsistencies and interaction-state issues identified during manual browser
+review were corrected without adding features or changing domain/API semantics.
+
+Hover, focus, active, disabled, pending, empty and validation states were reviewed
+for consistency with the established TaskFlow consumer-product visual language.
+Responsive sanity checks at representative desktop, tablet and mobile widths
+confirmed that the polish changes did not regress MS11.10.
+
+The complete frontend quality gate and git diff validation pass. MS11.12 remains
+the separate final visual, responsive, accessibility and regression acceptance.
+
+MS11.12 COMPLETE — final visual, responsive, accessibility and regression acceptance (2026-09-29).
+
+Performed final browser acceptance of the completed TaskFlow redesign using the
+real local application stack. Core Board/Column/Task CRUD, task dialogs, Kanban
+drag/drop, Column move left/right, search, combined filters, sorting, statistics,
+authentication and destructive flows were exercised end to end.
+
+Visual/responsive acceptance covered 1440, 1200, 1024, 768, 430, 390 and 360px
+viewports. The application remained viewport-safe, with Kanban horizontal scrolling
+contained to the workspace and dialogs/menus remaining accessible at narrow widths.
+
+Keyboard navigation, visible focus, menu/dialog Escape behavior, zoomed layout and
+reduced-motion behavior were manually reviewed. The production Docker/Nginx local
+build was smoke-tested after source-build validation.
+
+The complete frontend quality gate passes with unchanged thresholds, production
+build succeeds, and git diff validation passes. No backend, API, database or
+product-scope expansion was introduced.
+
+MS11.1–MS11.12 are complete. MacroStep 11 — Product UI & Responsive Experience
+is complete.

@@ -1,0 +1,90 @@
+@if (data.kind === 'create') {
+  <p class="eyebrow">{{ data.columnName }}</p>
+  <p class="intro">Add a task to this part of your workflow.</p>
+  <app-task-form
+    inputId="create-task-dialog"
+    action="Create task"
+    [save]="create"
+    [disabled]="management.busy()"
+    (closed)="close()"
+  />
+} @else if (confirming()) {
+  <div class="confirmation" [attr.aria-busy]="management.busy()">
+    <p class="task-name">Delete “{{ task()!.title }}”?</p>
+    <p>This will permanently delete the task.</p>
+    <p>This action cannot be undone.</p>
+    <p class="errors" role="alert">{{ deleteError() }}</p>
+    <div class="actions tf-dialog-actions">
+      <button
+        data-cancel-delete
+        type="button"
+        [disabled]="management.busy()"
+        (click)="setMode('details')"
+      >
+        Cancel
+      </button>
+      <button
+        class="danger"
+        aria-label="Delete task"
+        type="button"
+        [disabled]="management.busy()"
+        (click)="deleteTask()"
+      >
+        {{ management.busy() ? 'Deleting…' : 'Delete task' }}
+      </button>
+    </div>
+  </div>
+} @else if (editing()) {
+  <app-task-form
+    [inputId]="'edit-task-' + data.task.id"
+    action="Save changes"
+    [initialTask]="task()"
+    [save]="update"
+    [disabled]="management.busy()"
+    (closed)="setMode('details')"
+  />
+} @else {
+  <article class="task-details">
+    @if (task()!.description) {
+      <div class="description-group">
+        <h3>Description</h3>
+        <p class="description">{{ task()!.description }}</p>
+      </div>
+    }
+    <dl class="task-facts">
+      <div>
+        <dt>Column</dt>
+        <dd>{{ columnName() }}</dd>
+      </div>
+      <div>
+        <dt>Priority</dt>
+        <dd><app-task-priority-indicator [priority]="task()!.priority" /></dd>
+      </div>
+      <div>
+        <dt>Due date</dt>
+        <dd><app-task-due-indicator [dueDate]="task()!.dueDate" [showEmpty]="true" /></dd>
+      </div>
+    </dl>
+    <div class="actions tf-dialog-actions">
+      <button
+        class="delete-action"
+        type="button"
+        [disabled]="management.busy()"
+        (click)="setMode('delete')"
+      >
+        Delete
+      </button>
+      <span></span>
+      <button type="button" [disabled]="management.busy()" (click)="close()">Close</button>
+      <button
+        class="primary"
+        data-edit-task
+        type="button"
+        [disabled]="management.busy()"
+        (click)="setMode('edit')"
+      >
+        Edit task
+      </button>
+    </div>
+  </article>
+}

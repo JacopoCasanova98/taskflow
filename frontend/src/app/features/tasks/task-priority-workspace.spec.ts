@@ -1,3 +1,4 @@
+import { taskViewControls } from '../../../../testing/task-view-controls.test-helper';
 import { BoardStatisticsApi } from '../boards/statistics/board-statistics-api';
 import { of as statisticsOf } from 'rxjs';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
@@ -66,7 +67,7 @@ describe('Priority view in the Board workspace', () => {
     });
     fixture = TestBed.createComponent(BoardWorkspace);
     http = TestBed.inject(HttpTestingController);
-    element = fixture.nativeElement;
+    element = document.body;
     view = fixture.debugElement.injector.get(TaskView);
     await load();
   });
@@ -94,15 +95,9 @@ describe('Priority view in the Board workspace', () => {
       b.textContent?.trim(),
     ).join('');
   }
-  function select(id: string) {
-    return element.querySelector<HTMLSelectElement>('#' + id)!;
-  }
-  async function change(id: string, value: string) {
-    const control = select(id);
-    control.value = value;
-    control.dispatchEvent(new Event('change', { bubbles: true }));
-    await settle();
-  }
+  const controls = taskViewControls(settle);
+  const select = controls.trigger;
+  const change = controls.choose;
   async function click(name: string) {
     const button = Array.from(element.querySelectorAll('button')).find(
       (b) => (b.getAttribute('aria-label') || b.textContent?.trim()) === name,
@@ -137,10 +132,10 @@ describe('Priority view in the Board workspace', () => {
       currentIndex: 1,
     } as CdkDragDrop<TaskDropListData, TaskDropListData, string>;
   }
-  it('offers every approved mode with human labels', () => {
-    expect(
-      Array.from(select('task-priority-order').options, (o) => [o.value, o.textContent?.trim()]),
-    ).toEqual(taskOrders.map((order) => [order, taskOrderLabels[order]]));
+  it('offers every approved mode with human labels', async () => {
+    expect(await controls.options('task-priority-order')).toEqual(
+      taskOrders.map((order) => [order, taskOrderLabels[order]]),
+    );
   });
   it('changes every sort locally per Column and restores canonical Manual with zero HTTP', async () => {
     const before = canonical();
@@ -208,7 +203,7 @@ describe('Priority view in the Board workspace', () => {
       if (kind === 'create') await click('Add task to a');
       else {
         await click('View task: A');
-        await click('Edit');
+        await click('Edit task');
       }
       const selected = fixture.componentInstance.tasks.selected();
       const form = element.querySelector('form');
@@ -239,15 +234,11 @@ describe('Priority view in the Board workspace', () => {
     expect(view.order()).toBe('MANUAL');
     expect(titles()).toBe('ABCD');
   });
-  it('defaults to labeled native controls and shows a textual indicator on every card', () => {
+  it('defaults to named menu triggers and shows a textual indicator on every card', () => {
     expect(select('task-priority-filter').value).toBe('ALL');
     expect(select('task-priority-order').value).toBe('MANUAL');
-    expect(element.querySelector('label[for="task-priority-filter"]')?.textContent).toBe(
-      'Priority',
-    );
-    expect(element.querySelector('label[for="task-priority-order"]')?.textContent).toBe(
-      'Task order',
-    );
+    expect(select('task-priority-filter').textContent?.trim()).toBe('Priority');
+    expect(select('task-priority-order').textContent?.trim()).toBe('Sort');
     expect(element.querySelectorAll('li app-task-priority-indicator')).toHaveLength(5);
     expect(element.querySelector('#task-movement-guidance')).toBeNull();
     expect(titles()).toBe('ABCD');
@@ -305,7 +296,7 @@ describe('Priority view in the Board workspace', () => {
   });
   it('keeps hidden selected details and unsent edit drafts while controls change', async () => {
     await click('View task: A');
-    await click('Edit');
+    await click('Edit task');
     const form = element.querySelector('form');
     const input = element.querySelector<HTMLInputElement>('[id$="-title"]')!;
     input.value = 'Unsent';
@@ -321,7 +312,7 @@ describe('Priority view in the Board workspace', () => {
   it('reprojects a canonical HIGH-to-LOW edit without placement or reload and keeps details coherent', async () => {
     await change('task-priority-filter', 'HIGH');
     await click('View task: B');
-    await click('Edit');
+    await click('Edit task');
     const priority = element.querySelector<HTMLSelectElement>('form select')!;
     priority.value = 'LOW';
     priority.dispatchEvent(new Event('input', { bubbles: true }));
@@ -334,7 +325,7 @@ describe('Priority view in the Board workspace', () => {
     await settle();
     expect(titles()).toBe('D');
     expect(canonical().columns[0].tasks[1]).toEqual({ ...tasks[1], priority: 'LOW' });
-    expect(element.querySelector('app-task-details')?.textContent).toContain('Priority: Low');
+    expect(element.querySelector('[role="dialog"]')?.textContent).toContain('Priority: Low');
     expect(select('task-priority-filter').value).toBe('HIGH');
   });
   it.each(['LOW', 'HIGH'] as const)(
@@ -412,7 +403,7 @@ describe('Priority view in the Board workspace', () => {
   it('continues to honor the shared write lock after returning to canonical view', async () => {
     await change('task-priority-filter', 'HIGH');
     await click('View task: B');
-    await click('Edit');
+    await click('Edit task');
     await submit();
     await change('task-priority-filter', 'ALL');
     assertDragDisabled(true);

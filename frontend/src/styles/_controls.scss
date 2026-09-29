@@ -1,0 +1,73 @@
+// Opt-in mixins avoid globally overriding specialized task/drag controls.
+@mixin button {
+  min-height: var(--control-height);
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-control);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+
+  &:hover:not(:disabled) {
+    background: var(--color-hover);
+  }
+  &:active:not(:disabled) {
+    background: var(--color-active);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  &.primary {
+    @include primary-button;
+  }
+  &.danger {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+    &:hover:not(:disabled),
+    &:active:not(:disabled) {
+      background: var(--color-danger-subtle);
+    }
+  }
+}
+
+@mixin primary-button {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  &:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+  &:active:not(:disabled) {
+    background: var(--color-primary-active);
+  }
+}
+
+@mixin field {
+  min-height: var(--control-height);
+  padding: var(--space-3) var(--space-4);
+  font: inherit;
+  line-height: var(--line-height-control);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-control);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+
+  &:hover:not(:disabled):not([aria-invalid='true']) {
+    border-color: var(--color-text-secondary);
+  }
+  &[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

@@ -70,24 +70,41 @@ describe('Column controls in Board workspace', () => {
     await settle();
   }
   function button(name: string) {
-    const found = Array.from(element.querySelectorAll('button')).find(
+    const found = Array.from(document.querySelectorAll('button')).find(
       (b) => (b.getAttribute('aria-label') || b.textContent?.trim()) === name,
     );
     expect(found, name).toBeDefined();
     return found!;
   }
   async function click(name: string) {
-    button(name).click();
+    const renameOrDelete = name.match(/^(Rename|Delete) ([A-Z])$/);
+    const move = name.match(/^Move ([A-Z]) (left|right)$/);
+    if (renameOrDelete || move) {
+      const column = renameOrDelete ? renameOrDelete[2] : move![1];
+      const action = renameOrDelete ? renameOrDelete[1] : 'Move ' + move![2];
+      button('Actions for column ' + column).click();
+      await settle();
+      const item = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+      ).find((candidate) => candidate.textContent?.trim() === action);
+      expect(item, action).toBeDefined();
+      item!.click();
+      await settle();
+      return;
+    }
+    if (name === 'Delete column') {
+      document.querySelector<HTMLButtonElement>('[role="dialog"] .danger')!.click();
+    } else button(name).click();
     await settle();
   }
   async function fill(value: string) {
-    const input = element.querySelector<HTMLInputElement>('form input')!;
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] form input')!;
     input.value = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await settle();
   }
   async function submit() {
-    element
+    document
       .querySelector('form')!
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await settle();
@@ -95,9 +112,7 @@ describe('Column controls in Board workspace', () => {
   it('creates the first Column and resets its form after success', async () => {
     await load([]);
     await click('Add column');
-    expect(element.querySelector('app-column-controls form label')?.textContent).toBe(
-      'Column name',
-    );
+    expect(document.querySelector('[role="dialog"] form label')?.textContent).toBe('Column name');
     await fill('  First  ');
     await submit();
     const request = http.expectOne('/api/boards/one/columns');
@@ -107,12 +122,12 @@ describe('Column controls in Board workspace', () => {
     expect(element.querySelector('app-column-controls h2')?.textContent).toBe('Canonical');
     expect(element.querySelector('form')).toBeNull();
     await click('Add column');
-    expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('');
+    expect(document.querySelector<HTMLInputElement>('[role="dialog"] form input')?.value).toBe('');
   });
   it('renames inline from current name while retaining Task summaries', async () => {
     await load();
     await click('Rename B');
-    expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('B');
+    expect(document.querySelector<HTMLInputElement>('[role="dialog"] form input')?.value).toBe('B');
     expect(element.textContent).toContain('Task b');
     await fill('New');
     await submit();
@@ -132,7 +147,7 @@ describe('Column controls in Board workspace', () => {
     await load();
     await click('Delete B');
     http.expectNone('/api/columns/b');
-    expect(element.textContent).toContain('Delete “B”?');
+    expect(document.body.textContent).toContain('Delete column?');
     await click('Cancel');
     http.expectNone('/api/columns/b');
     await click('Delete B');
@@ -148,7 +163,7 @@ describe('Column controls in Board workspace', () => {
   });
   it('allows confirmed deletion with local Tasks and displays COLUMN_NOT_EMPTY safely', async () => {
     await load();
-    expect(button('Delete B').disabled).toBe(false);
+    expect(button('Actions for column B').disabled).toBe(false);
     await click('Delete B');
     await click('Delete column');
     http
@@ -158,17 +173,27 @@ describe('Column controls in Board workspace', () => {
         { status: 409, statusText: 'Conflict' },
       );
     await settle();
-    expect(element.textContent).toContain('This column must be empty before it can be deleted.');
+    expect(document.body.textContent).toContain(
+      'This column must be empty before it can be deleted.',
+    );
     expect(element.textContent).toContain('Task b');
     expect(element.textContent).not.toContain('Secret');
-    expect(button('Delete column').disabled).toBe(false);
+    expect(document.querySelector<HTMLButtonElement>('[role="dialog"] .danger')?.disabled).toBe(
+      false,
+    );
   });
-  it('uses native boundary move buttons and waits for canonical order', async () => {
+  it('uses menu reorder actions and waits for canonical order', async () => {
     await load();
-    expect(button('Move A left').disabled).toBe(true);
-    expect(button('Move C right').disabled).toBe(true);
+    button('Actions for column A').click();
+    await settle();
+    expect(document.querySelector('[role="menu"]')?.textContent).not.toContain('Move left');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    button('Actions for column C').click();
+    await settle();
+    expect(document.querySelector('[role="menu"]')?.textContent).not.toContain('Move right');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await click('Move B left');
-    expect(button('Move B right').disabled).toBe(true);
+    expect(button('Actions for column B').disabled).toBe(true);
     expect(Array.from(element.querySelectorAll('.lane h2'), (h) => h.textContent)).toEqual([
       'A',
       'B',
@@ -184,10 +209,61 @@ describe('Column controls in Board workspace', () => {
       'C',
     ]);
   });
-  it('disables both move directions for one Column', async () => {
+  it.each(['left', 'right'] as const)(
+    'keeps lane/task identity, closes the menu and restores focus after moving %s',
+    async (direction) => {
+      await load();
+      const trigger = button('Actions for column B');
+      trigger.focus();
+      const lane = trigger.closest('.lane');
+      const task = lane!.querySelector('.task-title');
+      const scroller = element.querySelector<HTMLElement>('.lanes')!;
+      scroller.scrollLeft = 350;
+      await click('Move B ' + direction);
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+      const ordered =
+        direction === 'left'
+          ? [columns[1], columns[0], columns[2]]
+          : [columns[0], columns[2], columns[1]];
+      const request = http.expectOne('/api/boards/one/columns/order');
+      expect(request.request.body).toEqual({ columnIds: ordered.map((c) => c.id) });
+      request.flush(ordered.map((c, position) => ({ ...c, position })));
+      await settle();
+      expect(Array.from(element.querySelectorAll('.lane h2'), (h) => h.textContent)).toEqual(
+        ordered.map((c) => c.name),
+      );
+      expect(trigger.closest('.lane')).toBe(lane);
+      expect(lane!.querySelector('.task-title')).toBe(task);
+      expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+      expect(scroller.scrollLeft).toBe(350);
+      expect(document.activeElement).toBe(trigger);
+      http.expectNone(() => true);
+    },
+  );
+  it('retains canonical order and returns focus on a recoverable move failure', async () => {
+    await load();
+    const trigger = button('Actions for column B');
+    await click('Move B right');
+    http
+      .expectOne('/api/boards/one/columns/order')
+      .flush({}, { status: 500, statusText: 'Failure' });
+    await settle();
+    expect(Array.from(element.querySelectorAll('.lane h2'), (h) => h.textContent)).toEqual([
+      'A',
+      'B',
+      'C',
+    ]);
+    expect(element.textContent).toContain("We couldn't reorder the columns.");
+    expect(document.activeElement).toBe(trigger);
+    expect(fixture.componentInstance.state.workspace().status).toBe('ready');
+    http.expectNone(() => true);
+  });
+  it('omits both move directions for one Column', async () => {
     await load([columns[0]]);
-    expect(button('Move A left').disabled).toBe(true);
-    expect(button('Move A right').disabled).toBe(true);
+    button('Actions for column A').click();
+    await settle();
+    expect(document.querySelector('[role="menu"]')?.textContent).not.toContain('Move');
   });
   it.each(['create', 'rename', 'delete', 'reorder'] as const)(
     'keeps the workspace visible with safe %s failure',
@@ -212,11 +288,13 @@ describe('Column controls in Board workspace', () => {
         .flush({ detail: 'Secret' }, { status: 500, statusText: 'Failure' });
       await settle();
       expect(element.querySelector('h1')?.textContent).toBe('Board one');
-      expect(element.textContent).toContain("We couldn't " + operation);
+      expect(document.body.textContent).toContain("We couldn't " + operation);
       expect(element.textContent).not.toContain("We couldn't load");
       expect(element.textContent).not.toContain('Secret');
       if (operation === 'create' || operation === 'rename')
-        expect(element.querySelector<HTMLInputElement>('form input')?.value).toBe('Entered name');
+        expect(document.querySelector<HTMLInputElement>('[role="dialog"] form input')?.value).toBe(
+          'Entered name',
+        );
     },
   );
   it('drops old editors and confirmation errors on route change', async () => {

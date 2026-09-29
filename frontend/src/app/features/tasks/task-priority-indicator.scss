@@ -4,27 +4,27 @@
 }
 .priority {
   display: inline-block;
-  padding: 0.15rem 0.45rem;
-  border: 1px solid;
-  border-radius: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   line-height: 1.5;
 }
 .high {
-  color: #991b1b;
-  background: #fef2f2;
-  border-color: #fca5a5;
+  color: #8c3434;
+  background: #fff5f4;
+  border-color: #f1d1cc;
 }
 .medium {
-  color: #854d0e;
-  background: #fefce8;
-  border-color: #eab308;
+  color: #765d25;
+  background: #fffaf0;
+  border-color: #eee0bf;
 }
 .low {
-  color: #334155;
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
 }
 .sr-only {
   position: absolute;

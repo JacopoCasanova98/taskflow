@@ -1,3 +1,4 @@
+import { taskViewControls } from '../../../../testing/task-view-controls.test-helper';
 import { BoardStatisticsApi } from '../boards/statistics/board-statistics-api';
 import { of as statisticsOf } from 'rxjs';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
@@ -72,7 +73,7 @@ describe('Due dates in the Board workspace', () => {
     });
     fixture = TestBed.createComponent(BoardWorkspace);
     http = TestBed.inject(HttpTestingController);
-    element = fixture.nativeElement;
+    element = document.body;
     await load();
   });
   afterEach(() => {
@@ -104,15 +105,9 @@ describe('Due dates in the Board workspace', () => {
       b.textContent?.trim(),
     ).join('');
   }
-  function select(id: string) {
-    return element.querySelector<HTMLSelectElement>('#' + id)!;
-  }
-  async function change(id: string, value: string) {
-    const control = select(id);
-    control.value = value;
-    control.dispatchEvent(new Event('change', { bubbles: true }));
-    await settle();
-  }
+  const controls = taskViewControls(settle);
+  const select = controls.trigger;
+  const change = controls.choose;
   async function click(name: string) {
     const button = Array.from(element.querySelectorAll('button')).find(
       (b) => (b.getAttribute('aria-label') || b.textContent?.trim()) === name,
@@ -148,10 +143,10 @@ describe('Due dates in the Board workspace', () => {
     } as CdkDragDrop<TaskDropListData, TaskDropListData, string>;
   }
 
-  it('shows accessible due metadata while preserving Priority, and no chip for no date', () => {
+  it('shows accessible due metadata while preserving Priority, and no chip for no date', async () => {
     expect(select('task-due-filter').value).toBe('ALL');
-    expect(element.querySelector('label[for="task-due-filter"]')?.textContent).toBe('Due date');
-    expect(Array.from(select('task-due-filter').options, (o) => o.textContent?.trim())).toEqual([
+    expect(select('task-due-filter').textContent?.trim()).toBe('Due date');
+    expect((await controls.options('task-due-filter')).map((option) => option[1])).toEqual([
       'All due dates',
       'Overdue',
       'Due today',
@@ -234,7 +229,7 @@ describe('Due dates in the Board workspace', () => {
   });
   it('keeps details and an unsent draft open when due filtering hides its card', async () => {
     await click('View task: A');
-    await click('Edit');
+    await click('Edit task');
     const form = element.querySelector('form');
     const title = element.querySelector<HTMLInputElement>('form input')!;
     title.value = 'Draft';
@@ -255,7 +250,7 @@ describe('Due dates in the Board workspace', () => {
     async (filter, id, date) => {
       await change('task-due-filter', filter);
       await click('View task: ' + id);
-      await click('Edit');
+      await click('Edit task');
       const input = element.querySelector<HTMLInputElement>('input[type="date"]')!;
       input.value = date;
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -269,7 +264,7 @@ describe('Due dates in the Board workspace', () => {
       await settle();
       expect(titles()).toBe('');
       expect(canonical().columns[0].tasks.find((t) => t.id === id)).toEqual(updated);
-      const details = element.querySelector('app-task-details')!;
+      const details = element.querySelector('[role="dialog"]')!;
       if (date) expect(details.querySelector('time')?.getAttribute('datetime')).toBe(date);
       else expect(details.textContent).toContain('No due date');
       expect(select('task-due-filter').value).toBe(filter);
@@ -305,11 +300,11 @@ describe('Due dates in the Board workspace', () => {
     await change('task-due-filter', 'OVERDUE');
     const before = canonical();
     expect(titles()).toBe('B');
-    expect(element.querySelector('app-task-details')?.textContent).toContain('Due today');
+    expect(element.querySelector('[role="dialog"]')?.textContent).toContain('Due today');
     vi.advanceTimersByTime(1000);
     await settle();
     expect(titles()).toBe('BC');
-    expect(element.querySelector('app-task-details')?.textContent).toContain('Overdue');
+    expect(element.querySelector('[role="dialog"]')?.textContent).toContain('Overdue');
     expect(canonical()).toBe(before);
   });
   it('preserves the due filter/order on same-Board reload and resets them on route change', async () => {

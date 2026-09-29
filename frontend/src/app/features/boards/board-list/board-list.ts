@@ -1,55 +1,99 @@
-import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  OnDestroy,
+  OnInit,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { BoardNameForm } from '../board-name-form/board-name-form';
+import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
+import { DialogRef } from '@angular/cdk/dialog';
+import { DialogFrame, TaskflowDialog } from '../../../shared/dialog/taskflow-dialog';
+import { Icon } from '../../../shared/icon/icon';
+import { IconButton } from '../../../shared/icon/icon-button';
+import { BoardDialog, BoardDialogData } from '../board-dialog/board-dialog';
 import { Board } from '../board.models';
 import { BoardListState } from './board-list-state';
 
 @Component({
   selector: 'app-board-list',
-  imports: [BoardNameForm, RouterLink],
+  imports: [RouterLink, CdkMenu, CdkMenuItem, CdkMenuTrigger, Icon, IconButton],
   providers: [BoardListState],
   templateUrl: './board-list.html',
-  styleUrls: ['../board-controls.scss', './board-list.scss'],
+  styleUrl: './board-list.scss',
 })
-export class BoardList implements OnInit {
+export class BoardList implements OnInit, OnDestroy {
   readonly state = inject(BoardListState);
-  readonly creating = signal(false);
-  readonly editing = signal<Board | null>(null);
-  readonly confirming = signal<Board | null>(null);
-  readonly deleting = signal(false);
-  readonly deleteError = signal('');
-  readonly create = (name: string) => this.state.create(name);
-  readonly rename = (name: string) => this.state.rename(this.editing()!.id, name);
+  private readonly dialogs = inject(TaskflowDialog);
+  private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly createButton = viewChild<ElementRef<HTMLButtonElement>>('createButton');
+  private readonly active = signal<{
+    ref: DialogRef<unknown, DialogFrame>;
+    boardId?: string;
+  } | null>(null);
 
   constructor() {
     effect(() => {
-      if (this.state.loading() || this.state.loadError()) return;
-      const ids = this.state.boards().map((board) => board.id);
-      const editing = this.editing();
-      const confirming = this.confirming();
-      if (editing && !ids.includes(editing.id)) this.editing.set(null);
-      if (confirming && !ids.includes(confirming.id)) this.confirming.set(null);
+      const active = this.active();
+      if (this.state.loading() || this.state.loadError() || !active?.boardId) return;
+      if (
+        !this.state.boards().some((board) => board.id === active.boardId) &&
+        !active.ref.disableClose
+      ) {
+        active.ref.close();
+      }
     });
   }
 
   ngOnInit(): void {
     void this.state.load();
   }
-
-  confirmDelete(board: Board): void {
-    if (this.deleting()) return;
-    this.deleteError.set('');
-    this.confirming.set(board);
+  ngOnDestroy(): void {
+    this.active()?.ref.close();
   }
 
-  async deleteBoard(): Promise<void> {
-    const board = this.confirming();
-    if (!board || this.deleting()) return;
-    this.deleting.set(true);
-    this.deleteError.set('');
-    const result = await this.state.delete(board.id);
-    this.deleting.set(false);
-    if (result.success || result.stale) this.confirming.set(null);
-    else this.deleteError.set(result.error);
+  openCreate(returnFocus: HTMLElement): void {
+    this.open({ kind: 'create', state: this.state }, returnFocus);
+  }
+  openRename(board: Board, returnFocus: HTMLElement): void {
+    this.open({ kind: 'rename', board, state: this.state }, returnFocus);
+  }
+  openDelete(board: Board, returnFocus: HTMLElement): void {
+    this.open({ kind: 'delete', board, state: this.state }, returnFocus);
+  }
+
+  private open(data: BoardDialogData, returnFocus: HTMLElement): void {
+    if (this.active()) return;
+    const ref = this.dialogs.open(BoardDialog, {
+      title:
+        data.kind === 'create'
+          ? 'Create board'
+          : data.kind === 'rename'
+            ? 'Rename board'
+            : 'Delete board?',
+      size: data.kind === 'delete' ? 'sm' : 'md',
+      autoFocus: data.kind === 'delete' ? '[data-board-cancel]' : 'input',
+      restoreFocus: returnFocus,
+      data,
+    });
+    this.active.set({ ref, boardId: data.kind === 'create' ? undefined : data.board.id });
+    ref.closed.subscribe(() => {
+      this.active.set(null);
+      if (this.destroyRef.destroyed) return;
+      afterNextRender(
+        () => {
+          const fallback = this.createButton()?.nativeElement;
+          if (!returnFocus.isConnected && fallback?.isConnected) fallback.focus();
+        },
+        { injector: this.injector },
+      );
+    });
   }
 }

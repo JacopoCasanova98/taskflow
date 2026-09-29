@@ -1,40 +1,97 @@
+@use '../../../styles/controls' as controls;
 :host {
   display: block;
-  margin-block: 1rem;
+  margin-block: var(--space-5);
 }
-.controls {
+.task-view {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1rem;
+  gap: var(--space-3);
 }
-.controls > div {
+.search-shell {
+  display: flex;
+  align-items: center;
+  flex: 1 1 22rem;
+  min-height: var(--control-height);
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.search-shell:focus-within {
+  border-color: var(--color-primary);
+  box-shadow:
+    0 0 0 3px rgb(23 107 96 / 14%),
+    var(--shadow-sm);
+}
+.search-shell input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding-inline: var(--space-3);
+  background: transparent;
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   min-width: 0;
   max-width: 100%;
 }
-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 0.35rem;
-}
-select,
-input {
+.filter-trigger {
+  @include controls.button;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-pill);
+  min-width: 0;
   max-width: 100%;
-  padding: 0.5rem;
-  font: inherit;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.35rem;
+  overflow-wrap: anywhere;
+}
+.filter-trigger app-icon {
+  flex-shrink: 0;
+}
+.filter-trigger.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: #eef8f6;
+}
+.clear-search,
+.clear-filters {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  min-height: var(--control-hit-area-min);
+}
+.clear-filters {
+  min-height: var(--control-height);
+  padding-inline: var(--space-2);
+}
+.filter-menu {
+  min-width: 15rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 p {
-  margin-bottom: 0;
+  color: var(--color-text-secondary);
 }
-
-#task-search-help {
-  display: block;
-  font-size: 0.875rem;
-}
-
-.clear-filters {
-  align-self: end;
+@media (max-width: 47.99rem) {
+  .search-shell {
+    flex-basis: 100%;
+  }
+  .filter-row {
+    width: 100%;
+  }
+  .filter-trigger {
+    flex: 1 0 auto;
+  }
 }

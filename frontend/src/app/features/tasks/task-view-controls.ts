@@ -1,99 +1,170 @@
+import { CdkMenu, CdkMenuItemRadio, CdkMenuTrigger } from '@angular/cdk/menu';
 import { Component, inject } from '@angular/core';
-import { TaskView } from './task-view';
+import { Icon } from '../../shared/icon/icon';
 import { dueDateFilters, dueDateFilterLabels } from './task-due-date';
-import { taskOrders, taskOrderLabels } from './task-order';
 import { priorityLabels } from './task-priority';
+import { taskOrders, taskOrderLabels } from './task-order';
+import { TaskView } from './task-view';
 
 @Component({
   selector: 'app-task-view-controls',
+  imports: [CdkMenu, CdkMenuItemRadio, CdkMenuTrigger, Icon],
   template: `
-    <div
-      class="controls"
-      role="group"
-      aria-label="Task view"
+    <section
+      class="task-view"
+      aria-label="Task filters"
       [attr.aria-describedby]="view.manual() ? null : 'task-movement-guidance'"
     >
-      <div>
-        <label for="task-search">Search tasks</label>
-        <input
+      <div class="search-shell">
+        <app-icon name="search" /><label class="sr-only" for="task-search">Search tasks</label
+        ><input
           id="task-search"
           type="search"
-          placeholder="Search title or description"
+          placeholder="Search tasks"
           #search
           [value]="view.search.input()"
           (input)="view.setSearch(search.value)"
           aria-describedby="task-search-help"
           [attr.aria-invalid]="view.search.query().length > 200 ? true : null"
         />
-        <span id="task-search-help">Up to 200 characters.</span>
         @if (view.search.input()) {
-          <button type="button" (click)="view.search.clear()">Clear search</button>
+          <button
+            class="clear-search"
+            aria-label="Clear search"
+            type="button"
+            (click)="view.search.clear()"
+          >
+            Clear
+          </button>
         }
       </div>
-      <div>
-        <label for="task-column-filter">Column</label>
-        <select
-          id="task-column-filter"
-          #column
-          [value]="view.columnFilter()"
-          (change)="view.setColumnFilter(column.value)"
-        >
-          <option value="ALL">All columns</option>
-          @for (column of view.columns(); track column.id) {
-            <option [value]="column.id">{{ column.name }}</option>
-          }
-        </select>
-      </div>
-      <div>
-        <label for="task-priority-filter">Priority</label>
-        <select
-          id="task-priority-filter"
-          #filter
-          [value]="view.filter()"
-          (change)="view.setFilter(filter.value)"
-        >
-          <option value="ALL">All priorities</option>
-          @for (priority of priorities; track priority) {
-            <option [value]="priority">{{ labels[priority] }}</option>
-          }
-        </select>
-      </div>
-      <div>
-        <label for="task-due-filter">Due date</label>
-        <select
-          id="task-due-filter"
-          #due
-          [value]="view.dueDateFilter()"
-          (change)="view.setDueDateFilter(due.value)"
-        >
-          @for (filter of dueFilters; track filter) {
-            <option [value]="filter">{{ dueLabels[filter] }}</option>
-          }
-        </select>
-      </div>
-      <div>
-        <label for="task-priority-order">Task order</label>
-        <select
-          id="task-priority-order"
-          #order
-          [value]="view.order()"
-          (change)="view.setOrder(order.value)"
-        >
-          @for (mode of orders; track mode) {
-            <option [value]="mode">{{ orderLabels[mode] }}</option>
-          }
-        </select>
-      </div>
-      <div class="clear-filters">
+      <span id="task-search-help" class="sr-only">Up to 200 characters.</span>
+      <div class="filter-row">
         <button
+          id="task-column-filter"
+          [value]="view.columnFilter()"
+          class="filter-trigger"
           type="button"
-          [disabled]="view.activeFilterCount() === 0"
-          (click)="view.clearFilters()"
+          [class.active]="view.columnFilter() !== 'ALL'"
+          [cdkMenuTriggerFor]="columnMenu"
         >
-          Clear filters
+          {{ columnText() }} <app-icon name="chevron-down" />
         </button>
+        <button
+          id="task-priority-filter"
+          [value]="view.filter()"
+          class="filter-trigger"
+          type="button"
+          [class.active]="view.filter() !== 'ALL'"
+          [cdkMenuTriggerFor]="priorityMenu"
+        >
+          {{ priorityText() }} <app-icon name="chevron-down" />
+        </button>
+        <button
+          id="task-due-filter"
+          [value]="view.dueDateFilter()"
+          class="filter-trigger"
+          type="button"
+          [class.active]="view.dueDateFilter() !== 'ALL'"
+          [cdkMenuTriggerFor]="dueMenu"
+        >
+          {{ dueText() }} <app-icon name="chevron-down" />
+        </button>
+        <button
+          id="task-priority-order"
+          [value]="view.order()"
+          class="filter-trigger"
+          type="button"
+          [class.active]="view.order() !== 'MANUAL'"
+          [cdkMenuTriggerFor]="sortMenu"
+        >
+          {{ sortText() }} <app-icon name="chevron-down" />
+        </button>
+        @if (view.activeFilterCount()) {
+          <button class="clear-filters" type="button" (click)="view.clearFilters()">
+            Clear filters
+          </button>
+        }
       </div>
-    </div>
+    </section>
+    <ng-template #columnMenu
+      ><div cdkMenu class="tf-menu filter-menu" aria-label="Column filter">
+        <button
+          cdkMenuItemRadio
+          value="ALL"
+          [cdkMenuItemChecked]="view.columnFilter() === 'ALL'"
+          type="button"
+          (cdkMenuItemTriggered)="view.setColumnFilter('ALL')"
+        >
+          All columns
+        </button>
+        @for (column of view.columns(); track column.id) {
+          <button
+            cdkMenuItemRadio
+            [value]="column.id"
+            [cdkMenuItemChecked]="view.columnFilter() === column.id"
+            type="button"
+            (cdkMenuItemTriggered)="view.setColumnFilter(column.id)"
+          >
+            {{ column.name }}
+          </button>
+        }
+      </div></ng-template
+    >
+    <ng-template #priorityMenu
+      ><div cdkMenu class="tf-menu filter-menu" aria-label="Priority filter">
+        <button
+          cdkMenuItemRadio
+          value="ALL"
+          [cdkMenuItemChecked]="view.filter() === 'ALL'"
+          type="button"
+          (cdkMenuItemTriggered)="view.setFilter('ALL')"
+        >
+          All priorities
+        </button>
+        @for (priority of priorities; track priority) {
+          <button
+            cdkMenuItemRadio
+            [value]="priority"
+            [cdkMenuItemChecked]="view.filter() === priority"
+            type="button"
+            (cdkMenuItemTriggered)="view.setFilter(priority)"
+          >
+            {{ labels[priority] }}
+          </button>
+        }
+      </div></ng-template
+    >
+    <ng-template #dueMenu
+      ><div cdkMenu class="tf-menu filter-menu" aria-label="Due date filter">
+        @for (filter of dueFilters; track filter) {
+          <button
+            cdkMenuItemRadio
+            [value]="filter"
+            [cdkMenuItemChecked]="view.dueDateFilter() === filter"
+            type="button"
+            (cdkMenuItemTriggered)="view.setDueDateFilter(filter)"
+          >
+            {{ dueLabels[filter] }}
+          </button>
+        }
+      </div></ng-template
+    >
+    <ng-template #sortMenu
+      ><div cdkMenu class="tf-menu filter-menu" aria-label="Sort tasks">
+        @for (order of orders; track order) {
+          <button
+            cdkMenuItemRadio
+            [value]="order"
+            [cdkMenuItemChecked]="view.order() === order"
+            type="button"
+            (cdkMenuItemTriggered)="view.setOrder(order)"
+          >
+            {{ orderLabels[order] }}
+          </button>
+        }
+      </div></ng-template
+    >
     <p role="status">
       @if (view.activeFilterCount(); as count) {
         {{ count }} {{ count === 1 ? 'filter active' : 'filters active' }}
@@ -106,12 +177,10 @@ import { priorityLabels } from './task-priority';
       <p role="status">Searching…</p>
     }
     @if (view.search.status() === 'error') {
-      @if (view.search.query().length > 200) {
-        <p role="alert">Use no more than 200 characters to search tasks.</p>
-      } @else {
-        <p role="alert">We couldn't search tasks. Please try again.</p>
-        <button type="button" (click)="view.search.refresh()">Retry search</button>
-      }
+      <p role="alert">We couldn't search tasks. Please try again.</p>
+      <button class="clear-filters" type="button" (click)="view.search.refresh()">
+        Retry search
+      </button>
     }
     @if (!view.manual()) {
       <p id="task-movement-guidance" role="status">
@@ -122,11 +191,29 @@ import { priorityLabels } from './task-priority';
   styleUrl: './task-view-controls.scss',
 })
 export class TaskViewControls {
-  readonly orders = taskOrders;
-  readonly orderLabels = taskOrderLabels;
   readonly view = inject(TaskView);
   readonly priorities = ['HIGH', 'MEDIUM', 'LOW'] as const;
+  readonly labels = priorityLabels;
   readonly dueFilters = dueDateFilters;
   readonly dueLabels = dueDateFilterLabels;
-  readonly labels = priorityLabels;
+  readonly orders = taskOrders;
+  readonly orderLabels = taskOrderLabels;
+  columnText() {
+    const value = this.view.columnFilter();
+    return value === 'ALL'
+      ? 'Column'
+      : 'Column: ' + (this.view.columns().find((column) => column.id === value)?.name ?? 'Column');
+  }
+  priorityText() {
+    const value = this.view.filter();
+    return value === 'ALL' ? 'Priority' : 'Priority: ' + this.labels[value];
+  }
+  dueText() {
+    return this.view.dueDateFilter() === 'ALL'
+      ? 'Due date'
+      : 'Due date: ' + this.dueLabels[this.view.dueDateFilter()];
+  }
+  sortText() {
+    return this.view.order() === 'MANUAL' ? 'Sort' : 'Sort: ' + this.orderLabels[this.view.order()];
+  }
 }
