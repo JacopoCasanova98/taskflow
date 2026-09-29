@@ -514,7 +514,7 @@ behavior. Avoid dense developer interfaces and enterprise/admin-dashboard stylin
   - MS11.6–MS11.9 checkpoint (2026-09-28): task-card title buttons now use transparent, borderless styling, brand-teal hover feedback, wrapping semibold text, a 44px minimum hit area and a visible keyboard focus outline. Native activation and separate drag handles are unchanged. Task/Kanban focused tests: 113 passed in 3 files. The complete quality gate remains green with 616 tests and unchanged coverage thresholds; `git diff --check` passes. This title-only correction does not start MS11.10.
 - [x] MS11.10 — Responsive desktop/tablet/mobile UX
 - [x] MS11.11 — Product polish and interaction states
-- [ ] MS11.12 — Visual, responsive, accessibility and regression acceptance
+- [x] MS11.12 — Visual, responsive, accessibility and regression acceptance
 
 **Scope:** Extend the existing Angular architecture with centralized tokens and
 small reusable styling primitives; keep dependencies minimal. Preserve backend,
@@ -763,3 +763,25 @@ confirmed that the polish changes did not regress MS11.10.
 
 The complete frontend quality gate and git diff validation pass. MS11.12 remains
 the separate final visual, responsive, accessibility and regression acceptance.
+
+MS11.12 COMPLETE — final visual, responsive, accessibility and regression acceptance (2026-09-29).
+
+Performed final browser acceptance of the completed TaskFlow redesign using the
+real local application stack. Core Board/Column/Task CRUD, task dialogs, Kanban
+drag/drop, Column move left/right, search, combined filters, sorting, statistics,
+authentication and destructive flows were exercised end to end.
+
+Visual/responsive acceptance covered 1440, 1200, 1024, 768, 430, 390 and 360px
+viewports. The application remained viewport-safe, with Kanban horizontal scrolling
+contained to the workspace and dialogs/menus remaining accessible at narrow widths.
+
+Keyboard navigation, visible focus, menu/dialog Escape behavior, zoomed layout and
+reduced-motion behavior were manually reviewed. The production Docker/Nginx local
+build was smoke-tested after source-build validation.
+
+The complete frontend quality gate passes with unchanged thresholds, production
+build succeeds, and git diff validation passes. No backend, API, database or
+product-scope expansion was introduced.
+
+MS11.1–MS11.12 are complete. MacroStep 11 — Product UI & Responsive Experience
+is complete.
