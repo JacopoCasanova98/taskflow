@@ -513,7 +513,7 @@ behavior. Avoid dense developer interfaces and enterprise/admin-dashboard stylin
   - Validation: 27 statistics tests pass; statistics plus functional acceptance pass 28 tests in 4 files. Full `npm run quality` passes formatting, lint, all 616 tests in 40 files, unchanged coverage thresholds and production build. Coverage: statements 97.44%, branches 95.85%, functions 97.94%, lines 98.56%. `git diff --check` passes. Headless Chrome with mocked API data inspected the section at 1440px, 900px and 390px; narrow-width checks showed no page overflow. This is section-level sanity checking, not MS11.10–MS11.12 final acceptance. Approved filters/task dialogs were preserved; no backend, API, database, chart dependency, commit or push changes.
   - MS11.6–MS11.9 checkpoint (2026-09-28): task-card title buttons now use transparent, borderless styling, brand-teal hover feedback, wrapping semibold text, a 44px minimum hit area and a visible keyboard focus outline. Native activation and separate drag handles are unchanged. Task/Kanban focused tests: 113 passed in 3 files. The complete quality gate remains green with 616 tests and unchanged coverage thresholds; `git diff --check` passes. This title-only correction does not start MS11.10.
 - [x] MS11.10 — Responsive desktop/tablet/mobile UX
-- [ ] MS11.11 — Product polish and interaction states
+- [x] MS11.11 — Product polish and interaction states
 - [ ] MS11.12 — Visual, responsive, accessibility and regression acceptance
 
 **Scope:** Extend the existing Angular architecture with centralized tokens and
@@ -748,3 +748,18 @@ Browser checks covered representative widths including 1440, 1024, 768, 430,
 390 and 360px. Final automated quality validation and git diff checks passed.
 MS11.11 product polish and MS11.12 final visual/accessibility/regression acceptance
 remain separate later milestones.
+
+MS11.11 COMPLETE — product polish and interaction states (2026-09-29).
+
+Completed a final product-polish pass across navigation, Boards, Kanban, task
+interactions, menus, dialogs, filters and Board overview. Remaining visual
+inconsistencies and interaction-state issues identified during manual browser
+review were corrected without adding features or changing domain/API semantics.
+
+Hover, focus, active, disabled, pending, empty and validation states were reviewed
+for consistency with the established TaskFlow consumer-product visual language.
+Responsive sanity checks at representative desktop, tablet and mobile widths
+confirmed that the polish changes did not regress MS11.10.
+
+The complete frontend quality gate and git diff validation pass. MS11.12 remains
+the separate final visual, responsive, accessibility and regression acceptance.
