@@ -94,7 +94,7 @@ jobs:
 
   docker-build:
     name: docker-build (${{ matrix.component }})
-    needs: [backend-quality, frontend-quality, terraform-quality]
+    needs: [backend-quality, frontend-quality]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
