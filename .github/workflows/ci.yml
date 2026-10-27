@@ -56,6 +56,42 @@ jobs:
       - name: Frontend quality gate
         run: npm run quality
 
+  terraform-quality:
+    name: terraform-quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize Terraform without AWS backend
+        run: >
+          docker run --rm
+          -v "$PWD:/workspace"
+          -w /workspace
+          hashicorp/terraform:1.16.3
+          init -backend=false -input=false -lockfile=readonly
+
+      - name: Check Terraform formatting
+        run: >
+          docker run --rm --network none
+          -v "$PWD:/workspace"
+          -w /workspace
+          hashicorp/terraform:1.16.3
+          fmt -check -recursive
+
+      - name: Validate Terraform configuration
+        run: >
+          docker run --rm --network none
+          -v "$PWD:/workspace"
+          -w /workspace
+          hashicorp/terraform:1.16.3
+          validate
+
   docker-build:
     name: docker-build (${{ matrix.component }})
     needs: [backend-quality, frontend-quality]
@@ -136,7 +172,11 @@ jobs:
 
   ci-gate:
     name: ci-gate
-    needs: [backend-quality, frontend-quality, docker-build]
+    needs:
+      - backend-quality
+      - frontend-quality
+      - docker-build
+      - terraform-quality
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -147,8 +187,9 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend-quality.result }}
           FRONTEND_RESULT: ${{ needs.frontend-quality.result }}
           DOCKER_RESULT: ${{ needs.docker-build.result }}
+          TERRAFORM_RESULT: ${{ needs.terraform-quality.result }}
         run: |
-          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$DOCKER_RESULT"; do
+          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$DOCKER_RESULT" "$TERRAFORM_RESULT"; do
             if [ "$result" != "success" ]; then
               echo "Required upstream job did not succeed."
               exit 1
