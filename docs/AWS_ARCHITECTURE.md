@@ -6,6 +6,15 @@
 > All cloud resources, prices, domains and operational workflows are reference
 > designs, deployment-ready in principle, never a planned live environment.
 
+**Historical deployment note (2026-10-28):** A temporary TaskFlow deployment ran in
+`eu-west-1` in October 2026 and was intentionally dismantled. The actual former
+architecture used one EC2 host with Docker Compose, host Nginx and private RDS;
+it did not use the ALB, Route 53 or ACM described in this reference design. Current
+inventory checks found no resources in the core categories checked, and Cost Explorer
+reported approximately $0 month-to-date with data marked as estimated. See the
+[AWS deployment case study](AWS_DEPLOYMENT_CASE_STUDY.md). This note records history;
+the remaining document continues to describe a reference target, not that deployment.
+
 ## Hard project execution policy
 
 AWS work demonstrates portfolio architecture, Terraform, CloudFormation,
