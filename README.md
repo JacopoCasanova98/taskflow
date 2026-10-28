@@ -65,10 +65,13 @@ an internet-facing ALB, an EC2 Docker application host, and private RDS PostgreS
 17. ECR, Secrets Manager, CloudWatch, and SSM cover image delivery, secrets,
 observability, and operator access.
 
-**AWS infrastructure is intentionally not provisioned by this project.**
+**Current execution policy: AWS infrastructure is not provisioned by this project.**
+A temporary AWS deployment existed historically and was dismantled on 2026-10-28.
+See the [AWS deployment case study](docs/AWS_DEPLOYMENT_CASE_STUDY.md) for its
+actual former architecture, verification evidence, trade-offs, teardown and cost-check status.
 [Terraform](infra/terraform/) and [CloudFormation](infra/cloudformation/) contain
 implemented reference definitions with documented parity and static validation;
-they are not evidence of an AWS deployment. See the
+they are not evidence of a reproducible AWS deployment. See the
 [AWS architecture](docs/AWS_ARCHITECTURE.md) for boundaries and tradeoffs.
 
 ## Engineering highlights
@@ -154,5 +157,6 @@ docs/        Architecture, decisions, runbooks, and roadmap
 | [Portfolio demo](docs/PORTFOLIO_DEMO.md) | Live deployment, smoke evidence, and free-tier limitations |
 | [Local development](docs/LOCAL_DEVELOPMENT.md) | Setup, migrations, logs, and troubleshooting |
 | [AWS reference architecture](docs/AWS_ARCHITECTURE.md) | Non-provisioned cloud design and IaC scope |
+| [AWS deployment case study](docs/AWS_DEPLOYMENT_CASE_STUDY.md) | Historical deployment evidence, trade-offs, teardown and cost status |
 | [CI/CD](docs/CI_CD.md) | Quality gates and delivery-design boundaries |
 | [Roadmap](docs/ROADMAP.md) | Completed milestones and remaining work |
